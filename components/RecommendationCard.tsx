@@ -41,14 +41,14 @@ export function RecommendationCard({ recommendation, amount, compact, onClick }:
           </span>
         </div>
 
-        <div className="mt-2 font-serif text-[26px] font-semibold leading-[1.05] tracking-[-0.02em] text-bg">
+        <div className="mt-2 break-words font-serif text-[22px] font-semibold leading-[1.05] tracking-[-0.02em] text-bg sm:text-[26px]">
           {bank?.name ?? card.name}
         </div>
 
-        <div className="mt-1 text-xs text-bg/75">{card.name}</div>
+        <div className="mt-1 break-words text-xs text-bg/75">{card.name}</div>
 
-        <div className="mt-5 flex items-baseline gap-2">
-          <span className="font-serif text-[64px] font-bold leading-none tracking-[-0.04em] text-bg">
+        <div className="mt-5 flex flex-wrap items-baseline gap-x-2 gap-y-1">
+          <span className="font-serif text-[52px] font-bold leading-none tracking-[-0.04em] text-bg sm:text-[64px]">
             {promotion.discount}%
           </span>
           <span className="font-mono text-[10px] uppercase tracking-widest text-bg/70">
@@ -83,8 +83,8 @@ export function RecommendationCard({ recommendation, amount, compact, onClick }:
     </>
   );
 
-  const className = `relative overflow-hidden rounded-[28px] p-6 text-bg transition-transform active:scale-[0.99] ${
-    compact ? "p-5" : ""
+  const className = `relative overflow-hidden rounded-[24px] p-5 text-bg transition-transform active:scale-[0.99] sm:rounded-[28px] sm:p-6 ${
+    compact ? "sm:p-5" : ""
   }`;
   const style = {
     background: "linear-gradient(135deg, #d4ff3a 0%, #a8d400 100%)",

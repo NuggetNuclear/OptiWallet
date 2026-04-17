@@ -62,7 +62,7 @@ export function WalletSetup({
           </div>
         )}
 
-        <h1 className="font-serif text-[40px] font-normal leading-[0.95] tracking-[-0.03em] text-ink sm:text-[52px]">
+        <h1 className="font-serif text-[34px] font-normal leading-[0.98] tracking-[-0.03em] text-ink sm:text-[52px]">
           {isOnboarding ? (
             <>
               Arma tu<br />
