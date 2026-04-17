@@ -390,20 +390,20 @@ export default function LandingPage() {
             <a href="#como-funciona">Cómo funciona</a>
             <a href="#bancos">Bancos soportados</a>
             <a href="#instalar">Instalar</a>
-            <a href="#">Roadmap</a>
+            <Link href="/roadmap">Roadmap</Link>
           </div>
           <div className="footer-col">
             <h5>Compañía</h5>
-            <a href="#">Sobre nosotros</a>
-            <a href="#">Blog</a>
-            <a href="#">Contacto</a>
-            <a href="#">Prensa</a>
+            <Link href="/sobre-nosotros">Sobre nosotros</Link>
+            <Link href="/blog">Blog</Link>
+            <Link href="/contacto">Contacto</Link>
+            <Link href="/prensa">Prensa</Link>
           </div>
           <div className="footer-col">
             <h5>Legal</h5>
-            <a href="#">Términos de uso</a>
-            <a href="#">Política de privacidad</a>
-            <a href="#">Cookies</a>
+            <Link href="/terminos">Términos de uso</Link>
+            <Link href="/privacidad">Política de privacidad</Link>
+            <Link href="/cookies">Cookies</Link>
           </div>
         </div>
         <div className="footer-bottom">
