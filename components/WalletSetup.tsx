@@ -1,0 +1,244 @@
+"use client";
+
+import { useState } from "react";
+import { BANKS } from "@/lib/data/banks";
+import { getCardsByBank } from "@/lib/data/cards";
+import type { Bank } from "@/lib/types";
+
+interface WalletSetupProps {
+  selectedCardIds: string[];
+  onToggleCard: (cardId: string) => void;
+  onFinish: () => void;
+  mode?: "onboarding" | "manage";
+  onClose?: () => void;
+}
+
+export function WalletSetup({
+  selectedCardIds,
+  onToggleCard,
+  onFinish,
+  mode = "onboarding",
+  onClose,
+}: WalletSetupProps) {
+  const [expandedBank, setExpandedBank] = useState<string | null>("bci");
+  const hasSelection = selectedCardIds.length > 0;
+  const isOnboarding = mode === "onboarding";
+
+  return (
+    <div className="relative min-h-dvh px-5 pb-40">
+      {/* Glows decorativos */}
+      <div className="glow-plum" style={{ top: "-8%", right: "-20%", opacity: 0.4 }} />
+      <div className="glow-lime" style={{ bottom: "10%", left: "-20%", opacity: 0.2 }} />
+
+      {mode === "manage" && onClose && (
+        <div
+          className="relative z-10 flex items-center justify-between"
+          style={{ paddingTop: "calc(var(--safe-top) + 14px)", paddingBottom: "14px" }}
+        >
+          <button
+            onClick={onClose}
+            className="flex items-center gap-2 text-sm text-ink-dim transition-colors hover:text-ink"
+            aria-label="Cerrar"
+          >
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
+              <path d="M19 12H5m0 0l6-6m-6 6l6 6" />
+            </svg>
+            Volver
+          </button>
+          <span className="font-mono text-[10px] uppercase tracking-widest text-ink-dim">
+            Mi wallet
+          </span>
+        </div>
+      )}
+
+      <div
+        className="relative z-10 animate-fade-up pt-12"
+        style={isOnboarding ? { paddingTop: "calc(var(--safe-top) + 72px)" } : undefined}
+      >
+        {isOnboarding && (
+          <div className="mb-5 inline-flex items-center gap-2 rounded-full border border-lime px-3 py-1 font-mono text-[10px] uppercase tracking-[0.15em] text-lime">
+            <span className="pulse-dot h-1.5 w-1.5 rounded-full bg-lime" />
+            Paso 1 de 1
+          </div>
+        )}
+
+        <h1 className="font-serif text-[40px] font-normal leading-[0.95] tracking-[-0.03em] text-ink sm:text-[52px]">
+          {isOnboarding ? (
+            <>
+              Arma tu<br />
+              <em className="font-light text-lime">wallet.</em>
+            </>
+          ) : (
+            <>
+              Tus <em className="font-light text-lime">tarjetas.</em>
+            </>
+          )}
+        </h1>
+
+        <p className="mt-4 max-w-md text-base leading-relaxed text-ink-dim">
+          {isOnboarding ? (
+            <>
+              Marca las tarjetas que tienes. <span className="text-ink">Solo el nombre</span>, nunca el número ni la clave. Así sabemos qué promos aplican para ti.
+            </>
+          ) : (
+            <>Agrega o quita tarjetas cuando quieras. Los cambios son instantáneos.</>
+          )}
+        </p>
+
+        <div className="mt-10 space-y-3">
+          {BANKS.map((bank) => (
+            <BankRow
+              key={bank.id}
+              bank={bank}
+              expanded={expandedBank === bank.id}
+              onExpand={() => setExpandedBank(expandedBank === bank.id ? null : bank.id)}
+              selectedCardIds={selectedCardIds}
+              onToggleCard={onToggleCard}
+            />
+          ))}
+        </div>
+
+        <p className="mt-8 font-mono text-[10px] uppercase tracking-widest text-ink-dim">
+          — Sumamos bancos cada semana —
+        </p>
+      </div>
+
+      {/* CTA flotante */}
+      <div
+        className="fixed inset-x-0 bottom-0 z-20 border-t border-line bg-bg/90 px-5 pt-4 backdrop-blur-xl"
+        style={{ paddingBottom: "calc(var(--safe-bottom) + 16px)" }}
+      >
+        <button
+          onClick={onFinish}
+          disabled={!hasSelection}
+          className="btn-primary"
+        >
+          {hasSelection ? (
+            <>
+              {isOnboarding ? "Continuar" : "Guardar"}
+              <span className="font-mono text-xs opacity-70">
+                · {selectedCardIds.length} tarjeta{selectedCardIds.length > 1 ? "s" : ""}
+              </span>
+            </>
+          ) : (
+            "Elige al menos una tarjeta"
+          )}
+        </button>
+      </div>
+    </div>
+  );
+}
+
+function BankRow({
+  bank,
+  expanded,
+  onExpand,
+  selectedCardIds,
+  onToggleCard,
+}: {
+  bank: Bank;
+  expanded: boolean;
+  onExpand: () => void;
+  selectedCardIds: string[];
+  onToggleCard: (id: string) => void;
+}) {
+  const cards = getCardsByBank(bank.id);
+  const hasSelected = cards.some((c) => selectedCardIds.includes(c.id));
+
+  return (
+    <div
+      className={`overflow-hidden rounded-2xl border transition-colors ${
+        expanded ? "border-line-strong" : "border-line"
+      } ${hasSelected ? "border-lime" : ""} ${!bank.available ? "opacity-50" : ""}`}
+    >
+      <button
+        onClick={() => bank.available && onExpand()}
+        disabled={!bank.available}
+        className="flex w-full items-center justify-between p-4 text-left"
+      >
+        <div className="flex items-center gap-3">
+          <div
+            className={`flex h-10 w-10 items-center justify-center rounded-xl font-serif text-base font-bold ${
+              hasSelected ? "bg-lime text-bg" : "bg-bg-3 text-ink"
+            }`}
+          >
+            {bank.name.charAt(0)}
+          </div>
+          <div>
+            <div className="font-medium text-ink">{bank.name}</div>
+            {!bank.available && (
+              <div className="font-mono text-[10px] uppercase tracking-widest text-ink-dim">
+                Próximamente
+              </div>
+            )}
+            {hasSelected && (
+              <div className="font-mono text-[10px] uppercase tracking-widest text-lime">
+                {cards.filter((c) => selectedCardIds.includes(c.id)).length} seleccionada{
+                  cards.filter((c) => selectedCardIds.includes(c.id)).length > 1 ? "s" : ""
+                }
+              </div>
+            )}
+          </div>
+        </div>
+        {bank.available && (
+          <svg
+            width="18"
+            height="18"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="2"
+            strokeLinecap="round"
+            className={`text-ink-dim transition-transform ${expanded ? "rotate-180" : ""}`}
+          >
+            <path d="m6 9 6 6 6-6" />
+          </svg>
+        )}
+      </button>
+
+      {expanded && bank.available && cards.length > 0 && (
+        <div className="border-t border-line bg-bg-2/50 p-3">
+          <div className="grid gap-2">
+            {cards.map((card) => {
+              const checked = selectedCardIds.includes(card.id);
+              return (
+                <label
+                  key={card.id}
+                  className={`flex cursor-pointer items-center justify-between rounded-xl border p-3 transition-colors ${
+                    checked ? "border-lime bg-lime/5" : "border-line bg-bg-2 hover:border-line-strong"
+                  }`}
+                >
+                  <div className="flex items-center gap-3">
+                    <div
+                      className={`flex h-5 w-5 items-center justify-center rounded-md border-2 transition-colors ${
+                        checked ? "border-lime bg-lime" : "border-line-strong"
+                      }`}
+                    >
+                      {checked && (
+                        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#0b0d0c" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
+                          <polyline points="20 6 9 17 4 12" />
+                        </svg>
+                      )}
+                    </div>
+                    <div>
+                      <div className="text-sm font-medium text-ink">{card.name}</div>
+                      <div className="font-mono text-[10px] uppercase tracking-widest text-ink-dim">
+                        {card.type === "credit" ? "Crédito" : "Débito"}
+                      </div>
+                    </div>
+                  </div>
+                  <input
+                    type="checkbox"
+                    checked={checked}
+                    onChange={() => onToggleCard(card.id)}
+                    className="sr-only"
+                  />
+                </label>
+              );
+            })}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
