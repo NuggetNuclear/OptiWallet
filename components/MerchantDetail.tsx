@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useMemo, useState } from "react"; // useMemo kept for applicableRecs
 import { getCategory } from "@/lib/data/categories";
 import { getMerchant } from "@/lib/data/merchants";
 import { getPromotionsByMerchant } from "@/lib/data/promotions";
@@ -9,6 +9,7 @@ import { getRecommendationsForMerchant } from "@/lib/recommendation-engine";
 import { daysOfWeekLabel, formatCLP, modalityLabel } from "@/lib/format";
 import { AlternativeCard, RecommendationCard } from "./RecommendationCard";
 import type { Promotion } from "@/lib/types";
+
 
 interface MerchantDetailProps {
   merchantId: string;
@@ -40,17 +41,7 @@ export function MerchantDetail({
   const winner = applicableRecs[0];
   const alternatives = applicableRecs.slice(1);
 
-  // Promos que existen pero el usuario no puede aprovechar hoy
-  const notApplicable = useMemo(() => {
-    const dow = date.getDay();
-    const iso = toISODate(date);
-    return allPromos.filter((p) => {
-      // es aplicable?
-      const isRecommended = applicableRecs.some((r) => r.promotion.id === p.id);
-      if (isRecommended) return false;
-      return true;
-    });
-  }, [allPromos, applicableRecs, date]);
+  // notApplicable promos are rendered inline via the PromoRow isApplicable prop;
 
   if (!merchant) {
     return (
@@ -283,9 +274,3 @@ function formatDate(iso: string): string {
   return `${parseInt(d, 10)}/${parseInt(m, 10)}`;
 }
 
-function toISODate(date: Date): string {
-  const y = date.getFullYear();
-  const m = String(date.getMonth() + 1).padStart(2, "0");
-  const d = String(date.getDate()).padStart(2, "0");
-  return `${y}-${m}-${d}`;
-}

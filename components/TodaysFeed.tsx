@@ -1,7 +1,7 @@
 "use client";
 
 import { useMemo } from "react";
-import { getActivePromotionsToday, getRecommendations } from "@/lib/recommendation-engine";
+import { getRecommendations } from "@/lib/recommendation-engine";
 import { getCategory } from "@/lib/data/categories";
 import { formatCLP, modalityLabel } from "@/lib/format";
 import type { Recommendation } from "@/lib/types";

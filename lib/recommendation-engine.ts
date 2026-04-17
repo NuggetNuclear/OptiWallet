@@ -1,4 +1,4 @@
-import type { Card, Merchant, Promotion, Recommendation } from "@/lib/types";
+import type { Card, Promotion, Recommendation } from "@/lib/types";
 import { getCard } from "@/lib/data/cards";
 import { getMerchant } from "@/lib/data/merchants";
 import { PROMOTIONS } from "@/lib/data/promotions";

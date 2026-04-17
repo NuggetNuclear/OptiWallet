@@ -1,6 +1,43 @@
-@tailwind base;
-@tailwind components;
-@tailwind utilities;
+@import "tailwindcss";
+
+@theme {
+  /* ─── Colors ─────────────────────────────────────────── */
+  --color-bg: #0b0d0c;
+  --color-bg-2: #13161a;
+  --color-bg-3: #1a1f1c;
+  --color-ink: #f5f1e8;
+  --color-ink-dim: #9a958a;
+  --color-paper: #ede6d3;
+  --color-lime: #d4ff3a;
+  --color-lime-deep: #a8d400;
+  --color-copper: #d67846;
+  --color-plum: #4a2d5a;
+  --color-line: rgba(245, 241, 232, 0.12);
+  --color-line-strong: rgba(245, 241, 232, 0.28);
+
+  /* ─── Font families ──────────────────────────────────── */
+  --font-serif: var(--font-fraunces), Georgia, serif;
+  --font-sans: var(--font-sora), system-ui, sans-serif;
+  --font-mono: var(--font-jetbrains), ui-monospace, monospace;
+
+  /* ─── Animations ─────────────────────────────────────── */
+  --animate-fade-up: fadeUp 0.6s ease-out forwards;
+  --animate-pulse-dot: pulseDot 2s ease-in-out infinite;
+  --animate-slide-up: slideUp 0.4s ease-out forwards;
+
+  @keyframes fadeUp {
+    from { opacity: 0; transform: translateY(16px); }
+    to   { opacity: 1; transform: translateY(0); }
+  }
+  @keyframes pulseDot {
+    0%, 100% { opacity: 1;   transform: scale(1); }
+    50%      { opacity: 0.6; transform: scale(1.2); }
+  }
+  @keyframes slideUp {
+    from { opacity: 0; transform: translateY(24px); }
+    to   { opacity: 1; transform: translateY(0); }
+  }
+}
 
 :root {
   --bg: #0b0d0c;

@@ -15,7 +15,9 @@ type View = "home" | "merchant" | "wallet";
 export default function HomePage() {
   const { cardIds, hydrated, isEmpty, toggleCard } = useWallet();
 
-  const today = new Date();
+  // Wrap in useMemo so the Date object is stable and doesn't invalidate
+  // the effectiveDate useMemo on every render.
+  const today = useMemo(() => new Date(), []);
   const todayDow = today.getDay();
 
   const [selectedDay, setSelectedDay] = useState<number>(todayDow);
