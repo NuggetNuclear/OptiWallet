@@ -1,0 +1,59 @@
+import Link from "next/link";
+import "@/app/landing.css";
+
+export function InnerPageLayout({ children }: { children: React.ReactNode }) {
+  return (
+    <div className="landing-root">
+      <nav>
+        <Link href="/" className="logo" style={{ textDecoration: "none", color: "inherit" }}>
+          <span className="logo-dot"></span>
+          OptiWallet
+        </Link>
+        <div className="nav-links">
+          <a href="/#como-funciona">Cómo funciona</a>
+          <a href="/#bancos">Bancos</a>
+          <a href="/#instalar">Instalar</a>
+          <a href="/#faq">FAQ</a>
+        </div>
+        <Link href="/app" className="nav-cta">Probar gratis →</Link>
+      </nav>
+
+      <main>{children}</main>
+
+      <footer>
+        <div className="footer-inner">
+          <div className="footer-col">
+            <div className="footer-brand">OptiWallet</div>
+            <p className="footer-tagline">
+              La app que te dice con qué tarjeta pagar para ahorrar más, en cada comercio de Chile.
+            </p>
+          </div>
+          <div className="footer-col">
+            <h5>Producto</h5>
+            <a href="/#como-funciona">Cómo funciona</a>
+            <a href="/#bancos">Bancos soportados</a>
+            <a href="/#instalar">Instalar</a>
+            <Link href="/roadmap">Roadmap</Link>
+          </div>
+          <div className="footer-col">
+            <h5>Compañía</h5>
+            <Link href="/sobre-nosotros">Sobre nosotros</Link>
+            <Link href="/blog">Blog</Link>
+            <Link href="/contacto">Contacto</Link>
+            <Link href="/prensa">Prensa</Link>
+          </div>
+          <div className="footer-col">
+            <h5>Legal</h5>
+            <Link href="/terminos">Términos de uso</Link>
+            <Link href="/privacidad">Política de privacidad</Link>
+            <Link href="/cookies">Cookies</Link>
+          </div>
+        </div>
+        <div className="footer-bottom">
+          <div>© 2026 OptiWallet · Hecho con ☕ en Santiago, Chile</div>
+          <div>v0.1.0-beta</div>
+        </div>
+      </footer>
+    </div>
+  );
+}
