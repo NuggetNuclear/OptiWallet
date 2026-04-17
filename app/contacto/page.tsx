@@ -6,14 +6,19 @@ export const metadata: Metadata = {
   description: "Escríbenos para consultas, reportes de promos o feedback sobre OptiWallet.",
 };
 
+const quickLinks = [
+  { label: "Reportar promo caducada", subject: "Promo caducada: [banco] - [comercio]" },
+  { label: "Proponer una promo nueva", subject: "Nueva promo: [banco] - [comercio]" },
+  { label: "Feedback sobre la app", subject: "Feedback OptiWallet" },
+  { label: "Propuesta de prensa", subject: "Prensa / OptiWallet" },
+];
+
 export default function ContactoPage() {
   return (
     <InnerPageLayout>
       <section className="section" style={{ paddingTop: "140px", minHeight: "70vh" }}>
         <div className="section-label">Hablemos</div>
-        <h2 className="section-title">
-          Contáctanos
-        </h2>
+        <h2 className="section-title">Contáctanos</h2>
 
         <div style={{ maxWidth: "680px" }}>
           <p style={{ fontSize: "18px", color: "var(--ink-dim)", lineHeight: "1.7", marginBottom: "48px" }}>
@@ -42,22 +47,7 @@ export default function ContactoPage() {
               <span style={{ width: "20px", height: "1px", background: "var(--copper)", display: "inline-block" }} />
               Email principal
             </div>
-            <a
-              href="mailto:hola@optiwallet.cl"
-              style={{
-                fontFamily: "var(--font-fraunces), serif",
-                fontSize: "clamp(28px, 4vw, 44px)",
-                fontWeight: "600",
-                letterSpacing: "-0.02em",
-                color: "var(--lime)",
-                textDecoration: "none",
-                display: "block",
-                marginBottom: "16px",
-                transition: "opacity 0.2s",
-              }}
-              onMouseEnter={(e) => (e.currentTarget.style.opacity = "0.75")}
-              onMouseLeave={(e) => (e.currentTarget.style.opacity = "1")}
-            >
+            <a href="mailto:hola@optiwallet.cl" className="contact-email-link">
               hola@optiwallet.cl
             </a>
             <p style={{ fontSize: "14px", color: "var(--ink-dim)", lineHeight: "1.6" }}>
@@ -67,37 +57,11 @@ export default function ContactoPage() {
           </div>
 
           <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "16px" }}>
-            {[
-              { label: "Reportar promo caducada", subject: "Promo caducada: [banco] - [comercio]" },
-              { label: "Proponer una promo nueva", subject: "Nueva promo: [banco] - [comercio]" },
-              { label: "Feedback sobre la app", subject: "Feedback OptiWallet" },
-              { label: "Propuesta de prensa", subject: "Prensa / OptiWallet" },
-            ].map(({ label, subject }) => (
+            {quickLinks.map(({ label, subject }) => (
               <a
                 key={label}
                 href={`mailto:hola@optiwallet.cl?subject=${encodeURIComponent(subject)}`}
-                style={{
-                  background: "var(--bg-2)",
-                  border: "1px solid var(--line)",
-                  borderRadius: "16px",
-                  padding: "20px 22px",
-                  color: "var(--ink)",
-                  textDecoration: "none",
-                  fontSize: "14px",
-                  fontWeight: "500",
-                  transition: "border-color 0.2s, color 0.2s",
-                  display: "flex",
-                  alignItems: "center",
-                  gap: "10px",
-                }}
-                onMouseEnter={(e) => {
-                  e.currentTarget.style.borderColor = "var(--lime)";
-                  e.currentTarget.style.color = "var(--lime)";
-                }}
-                onMouseLeave={(e) => {
-                  e.currentTarget.style.borderColor = "rgba(245, 241, 232, 0.12)";
-                  e.currentTarget.style.color = "var(--ink)";
-                }}
+                className="contact-quick-link"
               >
                 <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                   <path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z" />
