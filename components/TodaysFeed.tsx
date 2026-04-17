@@ -90,7 +90,7 @@ function HighlightCard({
   return (
     <button
       onClick={onClick}
-      className="relative w-full overflow-hidden rounded-[28px] p-6 text-left transition-transform active:scale-[0.99]"
+      className="relative w-full overflow-hidden rounded-[24px] p-5 text-left transition-transform active:scale-[0.99] sm:rounded-[28px] sm:p-6"
       style={{
         background: "linear-gradient(135deg, #d4ff3a 0%, #a8d400 100%)",
         boxShadow: "0 20px 40px -20px rgba(212, 255, 58, 0.4)",
@@ -103,19 +103,19 @@ function HighlightCard({
       />
 
       <div className="relative">
-        <div className="flex items-center justify-between">
-          <span className="font-mono text-[10px] uppercase tracking-[0.18em] text-bg/70">
+        <div className="flex items-center justify-between gap-3">
+          <span className="min-w-0 truncate font-mono text-[10px] uppercase tracking-[0.18em] text-bg/70">
             Mejor promo · {category?.label}
           </span>
-          <span className="text-2xl">{category?.emoji}</span>
+          <span className="shrink-0 text-2xl">{category?.emoji}</span>
         </div>
 
-        <div className="mt-3 font-serif text-[34px] font-semibold leading-[1.05] tracking-[-0.02em] text-bg">
+        <div className="mt-3 break-words font-serif text-[28px] font-semibold leading-[1.05] tracking-[-0.02em] text-bg sm:text-[34px]">
           {rec.merchant.name}
         </div>
 
-        <div className="mt-5 flex items-baseline gap-2">
-          <span className="font-serif text-[64px] font-bold leading-none tracking-[-0.04em] text-bg">
+        <div className="mt-5 flex flex-wrap items-baseline gap-x-2 gap-y-1">
+          <span className="font-serif text-[52px] font-bold leading-none tracking-[-0.04em] text-bg sm:text-[64px]">
             {rec.promotion.discount}%
           </span>
           <span className="font-mono text-[10px] uppercase tracking-widest text-bg/70">
@@ -123,7 +123,7 @@ function HighlightCard({
           </span>
         </div>
 
-        <div className="mt-3 text-sm text-bg/80">
+        <div className="mt-3 break-words text-sm text-bg/80">
           Paga con <span className="font-semibold">{rec.card.name}</span>
         </div>
 

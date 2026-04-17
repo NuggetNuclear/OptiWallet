@@ -81,11 +81,11 @@ export function MerchantDetail({
       <div className="px-5 py-6 pb-24">
         {/* Hero del comercio */}
         <div className="flex items-center gap-4">
-          <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-bg-3 text-3xl">
+          <div className="flex h-14 w-14 shrink-0 items-center justify-center rounded-2xl bg-bg-3 text-3xl">
             {category?.emoji ?? "🛍️"}
           </div>
-          <div>
-            <h1 className="font-serif text-[32px] font-normal leading-none tracking-[-0.02em] text-ink">
+          <div className="min-w-0 flex-1">
+            <h1 className="break-words font-serif text-[26px] font-normal leading-[1.05] tracking-[-0.02em] text-ink sm:text-[32px] sm:leading-none">
               {merchant.name}
             </h1>
             <div className="mt-1.5 font-mono text-[11px] uppercase tracking-widest text-ink-dim">
