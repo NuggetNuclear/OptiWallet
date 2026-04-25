@@ -25,6 +25,7 @@ export default function HomePage() {
   const [view, setView] = useState<View>("home");
   const [selectedMerchant, setSelectedMerchant] = useState<string | null>(null);
   const [showOnboarding, setShowOnboarding] = useState(false);
+  const [onboardingDone, setOnboardingDone] = useState(!isEmpty);
   const [transitionDone, setTransitionDone] = useState(false);
 
   // Fecha efectiva para queries: si el día seleccionado no es hoy, usamos
@@ -57,13 +58,16 @@ export default function HomePage() {
     );
   }
 
-  // Onboarding obligatorio si wallet vacía y no ha sido saltado
-  if (isEmpty && !showOnboarding) {
+  // Onboarding obligatorio si wallet vacía y no ha sido completado
+  if (!onboardingDone && !showOnboarding) {
     return (
       <WalletSetup
         selectedCardIds={cardIds}
         onToggleCard={toggleCard}
-        onFinish={() => setShowOnboarding(true)}
+        onFinish={() => {
+          setShowOnboarding(true);
+          setOnboardingDone(true);
+        }}
       />
     );
   }

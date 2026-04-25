@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { usePageTransition } from "@/components/PageTransition";
 import "./landing.css";
 
@@ -12,6 +12,14 @@ export default function LandingPage() {
   const toggleFaq = (index: number) => {
     setOpenFaq(openFaq === index ? -1 : index);
   };
+
+  const [stats, setStats] = useState<{ promotions: string; merchants: string; banks: string } | null>(null);
+  useEffect(() => {
+    fetch("/api/stats")
+      .then((r) => r.json())
+      .then(setStats)
+      .catch(() => {});
+  }, []);
 
   const handleAppNavigate = (e: React.MouseEvent) => {
     e.preventDefault();
@@ -91,15 +99,15 @@ export default function LandingPage() {
           </div>
           <div className="hero-stats">
             <div>
-              <div className="stat-num">$XXX.XXX</div>
-              <div className="stat-label">Ahorro anual estimado*</div>
+              <div className="stat-num">{stats ? stats.promotions : "—"}</div>
+              <div className="stat-label">Promos activas rastreadas</div>
             </div>
             <div>
-              <div className="stat-num">+250</div>
-              <div className="stat-label">Promos activas hoy</div>
+              <div className="stat-num">{stats ? stats.merchants : "—"}</div>
+              <div className="stat-label">Comercios cubiertos</div>
             </div>
             <div>
-              <div className="stat-num">14</div>
+              <div className="stat-num">{stats ? stats.banks : "—"}</div>
               <div className="stat-label">Bancos integrados</div>
             </div>
           </div>
