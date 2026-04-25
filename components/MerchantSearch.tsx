@@ -47,7 +47,7 @@ export function MerchantSearch({ onSelect }: MerchantSearchProps) {
           value={query}
           onChange={(e) => setQuery(e.target.value)}
           placeholder="Buscar comercio..."
-          className="w-full rounded-2xl border border-line bg-bg-2 py-3.5 pl-11 pr-4 text-[15px] text-ink placeholder:text-ink-dim focus:border-lime focus:outline-none"
+          className="w-full rounded-2xl border border-line bg-bg-2 py-3.5 pl-11 pr-4 text-[16px] text-ink placeholder:text-ink-dim focus:border-lime focus:outline-none"
         />
         {query && (
           <button
