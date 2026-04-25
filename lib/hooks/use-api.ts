@@ -6,6 +6,7 @@ import {
   getCardsFromApi,
   getCategoriesFromApi,
   getMerchantsFromApi,
+  getMerchantByIdFromApi,
   getRecommendationsFromApi,
   getPromotionsForMerchantFromApi,
   type ApiBank,
@@ -217,7 +218,7 @@ export function usePromotions(merchantId: string): ApiState<ApiPromotion[]> {
 }
 
 // ──────────────────────────────────────────────────────────────
-// useMerchantFromApi — fetch a single merchant by searching its id
+// useMerchantFromApi — fetch a single merchant by exact ID
 // ──────────────────────────────────────────────────────────────
 
 export function useMerchantFromApi(merchantId: string): ApiState<ApiMerchant | null> {
@@ -230,11 +231,9 @@ export function useMerchantFromApi(merchantId: string): ApiState<ApiMerchant | n
   useEffect(() => {
     let cancelled = false;
 
-    getMerchantsFromApi({ q: merchantId })
-      .then((merchants) => {
-        if (cancelled) return;
-        const found = merchants.find((m) => m.id === merchantId) ?? null;
-        setState({ data: found, loading: false, error: null });
+    getMerchantByIdFromApi(merchantId)
+      .then((merchant) => {
+        if (!cancelled) setState({ data: merchant, loading: false, error: null });
       })
       .catch((err) => {
         if (!cancelled) setState({ data: null, loading: false, error: err.message });

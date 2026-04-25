@@ -142,6 +142,15 @@ export async function getRecommendationsFromApi(params: {
   return res.json();
 }
 
+export async function getMerchantByIdFromApi(
+  merchantId: string,
+): Promise<ApiMerchant | null> {
+  const res = await fetch(`/api/merchants/${encodeURIComponent(merchantId)}`);
+  if (res.status === 404) return null;
+  if (!res.ok) throw new Error(`API error ${res.status}`);
+  return res.json();
+}
+
 export async function getPromotionsForMerchantFromApi(
   merchantId: string,
 ): Promise<ApiPromotion[]> {
