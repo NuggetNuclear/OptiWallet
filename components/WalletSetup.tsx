@@ -34,8 +34,10 @@ export function WalletSetup({
   return (
     <div className="relative min-h-dvh px-5 pb-40">
       {/* Glows decorativos */}
-      <div className="glow-plum" style={{ top: "-8%", right: "-20%", opacity: 0.4 }} />
-      <div className="glow-lime" style={{ bottom: "10%", left: "-20%", opacity: 0.2 }} />
+      <div className="pointer-events-none absolute inset-0 overflow-hidden">
+        <div className="glow-plum" style={{ top: "-8%", right: "-20%", opacity: 0.4 }} />
+        <div className="glow-lime" style={{ bottom: "10%", left: "-20%", opacity: 0.2 }} />
+      </div>
 
       {mode === "manage" && onClose && (
         <div

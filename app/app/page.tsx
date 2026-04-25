@@ -104,14 +104,16 @@ export default function HomePage() {
   return (
     <div className="relative min-h-dvh page-content-enter">
       {/* Glows de fondo */}
-      <div
-        className="glow-plum"
-        style={{ top: "15%", right: "-30%", opacity: 0.35, zIndex: 0 }}
-      />
-      <div
-        className="glow-lime"
-        style={{ bottom: "0%", left: "-30%", opacity: 0.15, zIndex: 0 }}
-      />
+      <div className="pointer-events-none absolute inset-0 overflow-hidden">
+        <div
+          className="glow-plum"
+          style={{ top: "15%", right: "-30%", opacity: 0.35, zIndex: 0 }}
+        />
+        <div
+          className="glow-lime"
+          style={{ bottom: "0%", left: "-30%", opacity: 0.15, zIndex: 0 }}
+        />
+      </div>
 
       <Header
         onOpenWallet={() => setView("wallet")}
