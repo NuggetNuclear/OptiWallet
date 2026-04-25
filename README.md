@@ -1,116 +1,135 @@
-# OptiWallet — Beta Web App
+# OptiWallet
 
-> Versión beta con datos estáticos. Sin backend. Funciona como PWA.
-> Stack: Next.js 14 (App Router) + React 18 + Tailwind CSS + TypeScript.
+**Te dice con qué tarjeta pagar para ahorrar más, en cada comercio de Chile.**
 
-## Arrancar localmente
+OptiWallet cruza las promociones y descuentos de bancos y tarjetas de crédito chilenos, y recomienda la mejor tarjeta según el día y el comercio. Sin datos bancarios, sin cuentas, sin descargas — funciona como PWA directo desde el navegador.
+
+> Beta · Solo para Chile 🇨🇱
+
+---
+
+## Stack
+
+| Capa | Tecnología |
+|------|------------|
+| Framework | Next.js 16 (App Router, Turbopack) |
+| UI | React 19 + TypeScript 6 |
+| Estilos | Tailwind CSS 4 + vanilla CSS |
+| Tipografía | Fraunces · Sora · JetBrains Mono (Google Fonts) |
+| Persistencia | `localStorage` (sin backend) |
+| Deploy | Vercel |
+
+## Correr localmente
 
 ```bash
 npm install
 npm run dev
 ```
 
-Abre http://localhost:3000.
+Abre [localhost:3000](http://localhost:3000). La landing está en `/`, la app en `/app`.
 
-## Estructura
+## Estructura del proyecto
 
 ```
-optiwallet/
+app/
+├── layout.tsx              Root layout — fuentes, meta PWA, viewport
+├── page.tsx                Landing page con transición al app
+├── globals.css             Design tokens, animaciones, utilidades
+├── landing.css             Estilos exclusivos de la landing
+├── icon.svg                Favicon
 ├── app/
-│   ├── layout.tsx          # fuentes, meta PWA, viewport
-│   ├── page.tsx            # home que orquesta las vistas
-│   ├── globals.css         # paleta, grain, utilidades base
-│   └── icon.svg            # favicon
-├── components/
-│   ├── Header.tsx          # logo + acceso a wallet
-│   ├── DayPicker.tsx       # selector horizontal de día
-│   ├── TodaysFeed.tsx      # feed de promos del día
-│   ├── MerchantSearch.tsx  # búsqueda + chips de categoría
-│   ├── MerchantDetail.tsx  # vista detalle de un comercio
-│   ├── RecommendationCard.tsx  # card ganadora + alternativa
-│   └── WalletSetup.tsx     # onboarding / gestión de tarjetas
-├── lib/
-│   ├── types.ts            # contratos de dominio
-│   ├── format.ts           # fechas y CLP en español
-│   ├── use-wallet.ts       # hook con localStorage
-│   ├── recommendation-engine.ts  # motor puro
-│   └── data/
-│       ├── banks.ts        # 14 bancos (solo BCI activo)
-│       ├── cards.ts        # productos BCI
-│       ├── categories.ts   # categorías de comercios
-│       ├── merchants.ts    # ~25 comercios del documento BCI
-│       └── promotions.ts   # 25 promos de abril 2026 verificadas
-├── public/
-│   ├── manifest.json
-│   └── icon.svg
-└── ...
+│   └── page.tsx            Web app principal
+├── blog/                   Páginas internas — usan InnerPageLayout
+├── contacto/
+├── cookies/
+├── prensa/
+├── privacidad/
+├── roadmap/
+├── sobre-nosotros/
+└── terminos/
+
+components/
+├── PageTransition.tsx      Overlay de transición landing ↔ app
+├── Header.tsx              Header de la app con acceso a wallet
+├── DayPicker.tsx           Selector horizontal de día de la semana
+├── TodaysFeed.tsx          Feed de promos del día seleccionado
+├── MerchantSearch.tsx      Búsqueda de comercios + chips de categoría
+├── MerchantDetail.tsx      Vista detalle con recomendación ganadora
+├── RecommendationCard.tsx  Card de promo ganadora + alternativas
+├── WalletSetup.tsx         Onboarding / gestión de tarjetas
+├── InnerPageLayout.tsx     Layout compartido para páginas internas
+└── ComingSoon.tsx          Placeholder reutilizable para páginas WIP
+
+lib/
+├── types.ts                Tipos de dominio (Bank, Card, Promotion, etc.)
+├── format.ts               Formateo de fechas y CLP en español
+├── use-wallet.ts           Hook de localStorage para tarjetas del usuario
+├── recommendation-engine.ts Motor de recomendación (función pura)
+└── data/
+    ├── banks.ts            14 bancos (BCI activo, resto próximamente)
+    ├── cards.ts            Productos de tarjeta por banco
+    ├── categories.ts       Categorías de comercios
+    ├── merchants.ts        ~25 comercios
+    └── promotions.ts       25 promos verificadas (BCI, abril 2026)
 ```
 
-## Notas de producto y arquitectura
+## Arquitectura
 
-### El motor es una función pura
+### Motor de recomendación
 
-`lib/recommendation-engine.ts` expone `getRecommendations({ cardIds, merchantId?, date, amount? })` que devuelve recomendaciones ordenadas. La función no toca DOM, fetch ni storage: son entradas → salidas. Cuando llegue la Fase 1.3 del roadmap y montemos el backend, este mismo archivo se copia al servidor sin un solo cambio y se envuelve detrás de un endpoint `GET /recomendaciones`.
-
-### La capa de datos se mapea 1:1 al esquema Postgres futuro
-
-Los tipos en `lib/types.ts` están escritos pensando en lo que van a ser tablas SQL. Campos clave ya considerados:
-
-- `Promotion.daysOfWeek: number[]` → en Postgres será un `smallint[]` o un bitmap (decidir en Fase 1.1).
-- `Promotion.cap: number | null` → `integer NULL` (sin tope).
-- `Promotion.startDate / endDate: string?` → `date NULL`.
-- `Promotion.verifiedAt: string` → requerido, mapea al campo `verificada_at` del roadmap.
-- `Promotion.source: string` → mapea a `url_fuente` / `verificada_por`.
-
-Cuando llegue el momento de migrar, el seed de Postgres puede generarse directamente desde `lib/data/promotions.ts` con un script corto.
+`recommendation-engine.ts` es una función pura: recibe `cardIds`, `merchantId`, `date` y `amount`, devuelve recomendaciones ordenadas por descuento. No toca DOM, fetch ni storage. Cuando exista backend, se mueve al servidor sin cambios.
 
 ### Wallet del usuario
 
-Vive en `localStorage` bajo la key `optiwallet:cards` como un array de `cardId`. El hook `useWallet` expone `hydrated` para evitar hydration mismatches en SSR. Cuando exista backend y cuentas opcionales (Fase 4.1), agregamos un sync en el mismo hook sin cambiar la API.
+Vive en `localStorage` bajo `optiwallet:cards` como un array de IDs de tarjeta. El hook `useWallet` expone un flag `hydrated` para evitar mismatches de SSR.
 
-### Datos cargados
+### Datos
 
-Todas las promos vienen del documento de beneficios BCI, abril 2026 (página 6). Hay 25 promos estructuradas cubriendo 25 comercios en 11 categorías. Los otros 13 bancos del landing aparecen como "próximamente" — es honesto y evita mentirle al usuario hasta que agreguemos data real.
+Todas las promos provienen del documento de beneficios BCI de abril 2026. Los tipos en `lib/types.ts` están modelados para mapear directamente a tablas SQL cuando se agregue un backend.
 
-### Consideraciones PWA
+### Transiciones
 
-- El `layout.tsx` declara `appleWebApp: { capable: true }` y `viewport-fit: cover` para que funcione bien con "Añadir a pantalla de inicio" en iOS.
-- CSS variables `--safe-top` / `--safe-bottom` aplican `env(safe-area-inset-*)` para respetar notch y home indicator.
-- El `manifest.json` incluye referencias a `icon-192.png`, `icon-512.png` y un ícono maskable. Hay que generarlos desde `public/icon.svg` antes de deploy — cualquier tool tipo `pwa-asset-generator` lo hace en un comando.
+La navegación entre la landing (`/`) y la app (`/app`) usa un overlay con el logo y un shimmer bar. El app page recibe una animación de entrada escalonada. Las páginas internas tienen un fade-up sutil al montar.
 
-### Lo que falta antes de deploy a beta cerrada
+## Design system
 
-Como dice el roadmap en Fase 2:
+La paleta y tokens viven en `globals.css`:
 
-1. **Íconos PNG de la PWA** (192, 512, maskable) — generar desde el SVG y poner en `/public`.
-2. **Service worker** para offline básico — se puede agregar con `next-pwa` o configurarlo a mano cuando el contenido esté estable.
-3. **Analytics sin Google** — instalar Plausible, Umami o PostHog. Ya está prometido en el landing que no usamos GA.
-4. **Error tracking** — Sentry o similar.
-5. **Página por comercio con ruta real** (Fase 4.5 para SEO) — hoy todo vive en `/`. Cuando convenga, mover `MerchantDetail` a `app/comercio/[id]/page.tsx`.
-6. **Feedback "reportar promo caducada"** — UI del roadmap Fase 2.4, falta el botón y el endpoint de cola.
+| Token | Valor | Uso |
+|-------|-------|-----|
+| `--bg` | `#0b0d0c` | Fondo principal |
+| `--ink` | `#f5f1e8` | Texto principal |
+| `--lime` | `#d4ff3a` | Acento primario |
+| `--copper` | `#d67846` | Acento secundario, labels |
+| `--plum` | `#4a2d5a` | Glows decorativos |
+| `--line` | `rgba(245,241,232,0.12)` | Bordes sutiles |
 
-### Lo que está explícitamente fuera de alcance en esta beta
+Fuentes: **Fraunces** (serif, títulos), **Sora** (sans, cuerpo), **JetBrains Mono** (monospace, labels técnicas).
 
-Siguiendo el roadmap:
+## Scripts
 
-- No hay cuentas, login ni sync entre dispositivos.
-- No pedimos número de tarjeta, clave ni RUT.
-- No scrapeamos bancos en tiempo real — toda la data es estática y curada.
-- No hay logos de bancos ni de comercios hasta que el análisis legal de Fase 6 apruebe.
+| Comando | Descripción |
+|---------|-------------|
+| `npm run dev` | Dev server con Turbopack |
+| `npm run build` | Build de producción |
+| `npm run start` | Servir build de producción |
+| `npm run lint` | ESLint |
 
-## Stack cuando aterricemos el backend
+## PWA
 
-De acuerdo al roadmap:
+- `manifest.json` en `/public` con íconos configurados
+- `layout.tsx` declara `appleWebApp: { capable: true }` y `viewport-fit: cover`
+- CSS respeta safe areas de iOS con `env(safe-area-inset-*)`
+- Grain texture overlay para textura visual premium
 
-- **DB**: PostgreSQL. El JSONB sirve para `conditions_texto` y otros campos que van a crecer orgánicamente.
-- **API**: Node.js + FastAPI o Express detrás de un monorepo. Endpoints iniciales: `GET /comercios?q=`, `GET /recomendaciones`, `GET /promociones/:id`.
-- **Cache**: Redis con TTL corto para `comercios` y `promociones vigentes`.
-- **Hosting**: Vercel (frontend) + Railway/Fly.io (backend) + Supabase o Neon (DB).
+## Limitaciones de la beta
 
-## Licencia y disclaimer legal
-
-Esta es una beta de desarrollo. No usar en producción sin completar la Fase 6 (términos, privacidad, análisis legal) del roadmap.
+- Sin backend — datos estáticos curados manualmente
+- Sin cuentas, login ni sync entre dispositivos
+- Solo BCI tiene promos activas; los otros 13 bancos aparecen como "próximamente"
+- No se solicitan números de tarjeta, clave ni RUT
+- Sin service worker offline (pendiente)
 
 ---
 
-v0.1.0-beta · hecho en Santiago 🇨🇱
+v0.1.0-beta · Hecho en Santiago 🇨🇱
