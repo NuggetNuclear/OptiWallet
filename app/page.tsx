@@ -2,13 +2,20 @@
 
 import Link from "next/link";
 import { useState } from "react";
+import { usePageTransition } from "@/components/PageTransition";
 import "./landing.css";
 
 export default function LandingPage() {
   const [openFaq, setOpenFaq] = useState<number>(0);
+  const { trigger, overlay } = usePageTransition();
 
   const toggleFaq = (index: number) => {
     setOpenFaq(openFaq === index ? -1 : index);
+  };
+
+  const handleAppNavigate = (e: React.MouseEvent) => {
+    e.preventDefault();
+    trigger("/app");
   };
 
   const faqs = [
@@ -40,6 +47,8 @@ export default function LandingPage() {
 
   return (
     <div className="landing-root">
+      {overlay}
+
       {/* ============ NAV ============ */}
       <nav>
         <div className="logo">
@@ -52,7 +61,9 @@ export default function LandingPage() {
           <a href="#instalar">Instalar</a>
           <a href="#faq">FAQ</a>
         </div>
-        <Link href="/app" className="nav-cta">Probar gratis →</Link>
+        <a href="/app" onClick={handleAppNavigate} className="nav-cta" data-id="nav-cta">
+          Probar gratis →
+        </a>
       </nav>
 
       {/* ============ HERO ============ */}
@@ -70,12 +81,12 @@ export default function LandingPage() {
             según el día y el comercio. Sin saldos. Sin clave. Solo recomendaciones.
           </p>
           <div className="hero-ctas">
-            <Link href="/app" className="btn-primary">
+            <a href="/app" onClick={handleAppNavigate} className="btn-primary" data-id="hero-cta">
               Agregar al inicio
               <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
                 <path d="M1 8h14m0 0l-6-6m6 6l-6 6" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
               </svg>
-            </Link>
+            </a>
             <a href="#como-funciona" className="btn-ghost">Ver cómo funciona</a>
           </div>
           <div className="hero-stats">
@@ -365,12 +376,18 @@ export default function LandingPage() {
       {/* ============ FINAL CTA ============ */}
       <section className="final-cta">
         <h2>Deja de pagar<br /><em>por pagar mal.</em></h2>
-        <Link href="/app" className="btn-primary" style={{ padding: "20px 36px", fontSize: "17px", display: "inline-flex", width: "auto" }}>
+        <a
+          href="/app"
+          onClick={handleAppNavigate}
+          className="btn-primary"
+          style={{ padding: "20px 36px", fontSize: "17px", display: "inline-flex", width: "auto" }}
+          data-id="final-cta"
+        >
           Instalar OptiWallet
           <svg width="18" height="18" viewBox="0 0 16 16" fill="none">
             <path d="M1 8h14m0 0l-6-6m6 6l-6 6" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
           </svg>
-        </Link>
+        </a>
         <p style={{ marginTop: "24px", fontFamily: "var(--font-jetbrains), monospace", fontSize: "12px", color: "var(--ink-dim)", textTransform: "uppercase", letterSpacing: "0.15em" }}>
           Gratis · Sin registro · Sin descargas
         </p>

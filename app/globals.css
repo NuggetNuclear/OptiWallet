@@ -24,6 +24,7 @@
   --animate-fade-up: fadeUp 0.6s ease-out forwards;
   --animate-pulse-dot: pulseDot 2s ease-in-out infinite;
   --animate-slide-up: slideUp 0.4s ease-out forwards;
+  --animate-page-enter: pageEnter 0.5s ease-out forwards;
 
   @keyframes fadeUp {
     from { opacity: 0; transform: translateY(16px); }
@@ -37,26 +38,38 @@
     from { opacity: 0; transform: translateY(24px); }
     to   { opacity: 1; transform: translateY(0); }
   }
+  @keyframes pageEnter {
+    from { opacity: 0; transform: translateY(12px); }
+    to   { opacity: 1; transform: translateY(0); }
+  }
 }
 
-:root {
-  --bg: #0b0d0c;
-  --bg-2: #13161a;
-  --bg-3: #1a1f1c;
-  --ink: #f5f1e8;
-  --ink-dim: #9a958a;
-  --paper: #ede6d3;
-  --lime: #d4ff3a;
-  --lime-deep: #a8d400;
-  --copper: #d67846;
-  --plum: #4a2d5a;
-  --line: rgba(245, 241, 232, 0.12);
-  --line-strong: rgba(245, 241, 232, 0.28);
-  --noise-opacity: 0.035;
+/*
+ * Expose theme colors as classic CSS custom properties so that
+ * both Tailwind utilities AND vanilla CSS (landing.css, etc.)
+ * can reference them with the same `var(--bg)` / `var(--lime)` syntax.
+ * Single source of truth — values come from @theme above.
+ */
+@layer base {
+  :root {
+    --bg: var(--color-bg);
+    --bg-2: var(--color-bg-2);
+    --bg-3: var(--color-bg-3);
+    --ink: var(--color-ink);
+    --ink-dim: var(--color-ink-dim);
+    --paper: var(--color-paper);
+    --lime: var(--color-lime);
+    --lime-deep: var(--color-lime-deep);
+    --copper: var(--color-copper);
+    --plum: var(--color-plum);
+    --line: var(--color-line);
+    --line-strong: var(--color-line-strong);
+    --noise-opacity: 0.035;
 
-  /* safe areas para iOS */
-  --safe-top: env(safe-area-inset-top);
-  --safe-bottom: env(safe-area-inset-bottom);
+    /* Safe areas for iOS */
+    --safe-top: env(safe-area-inset-top);
+    --safe-bottom: env(safe-area-inset-bottom);
+  }
 }
 
 * {
@@ -128,7 +141,7 @@ body::before {
   scrollbar-width: none;
 }
 
-/* Pulse dot reutilizable */
+/* Pulse dot reutilizable (single definition, used by both landing and app) */
 .pulse-dot {
   animation: pulseDot 2s ease-in-out infinite;
 }
@@ -207,4 +220,82 @@ body::before {
   outline: 2px solid var(--lime);
   outline-offset: 2px;
   border-radius: 4px;
+}
+
+/* ─── Page Transition Overlay ─────────────────────────── */
+.page-transition-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 9999;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  background: var(--bg);
+  gap: 24px;
+}
+
+.page-transition-overlay.entering {
+  animation: transitionFadeIn 0.3s ease-out forwards;
+}
+.page-transition-overlay.exiting {
+  animation: transitionFadeOut 0.35s ease-in forwards;
+}
+
+@keyframes transitionFadeIn {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}
+@keyframes transitionFadeOut {
+  from { opacity: 1; }
+  to   { opacity: 0; }
+}
+
+/* Shimmer bar inside transition overlay */
+.transition-shimmer {
+  width: 120px;
+  height: 3px;
+  border-radius: 100px;
+  background: var(--bg-3);
+  overflow: hidden;
+  position: relative;
+}
+.transition-shimmer::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  background: linear-gradient(90deg, transparent, var(--lime), transparent);
+  animation: shimmerSlide 1.2s ease-in-out infinite;
+}
+@keyframes shimmerSlide {
+  0%   { transform: translateX(-100%); }
+  100% { transform: translateX(100%); }
+}
+
+/* Page content entrance (applied to page wrappers after transition) */
+.page-content-enter {
+  animation: pageEnter 0.5s ease-out forwards;
+}
+
+@keyframes pageEnter {
+  from { opacity: 0; transform: translateY(12px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+/* Staggered children animation helper */
+.stagger-children > * {
+  opacity: 0;
+  animation: fadeUp 0.5s ease-out forwards;
+}
+.stagger-children > *:nth-child(1) { animation-delay: 0.05s; }
+.stagger-children > *:nth-child(2) { animation-delay: 0.1s; }
+.stagger-children > *:nth-child(3) { animation-delay: 0.15s; }
+.stagger-children > *:nth-child(4) { animation-delay: 0.2s; }
+.stagger-children > *:nth-child(5) { animation-delay: 0.25s; }
+.stagger-children > *:nth-child(6) { animation-delay: 0.3s; }
+
+@keyframes fadeUp {
+  from { opacity: 0; transform: translateY(16px); }
+  to   { opacity: 1; transform: translateY(0); }
 }

@@ -18,7 +18,7 @@ export function InnerPageLayout({ children }: { children: React.ReactNode }) {
         <Link href="/app" className="nav-cta">Probar gratis →</Link>
       </nav>
 
-      <main>{children}</main>
+      <main className="inner-page-content">{children}</main>
 
       <footer>
         <div className="footer-inner">

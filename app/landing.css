@@ -32,11 +32,7 @@ nav {
   background: var(--lime);
   border-radius: 50%;
   box-shadow: 0 0 20px var(--lime);
-  animation: lPulse 2s ease-in-out infinite;
-}
-@keyframes lPulse {
-  0%,100% { opacity: 1; transform: scale(1); }
-  50% { opacity: 0.7; transform: scale(1.15); }
+  animation: pulseDot 2s ease-in-out infinite;
 }
 .nav-links {
   display: flex;
@@ -118,14 +114,14 @@ nav {
   padding: 6px 14px;
   border: 1px solid var(--lime);
   border-radius: 100px;
-  animation: fadeUp 0.8s ease-out;
+  animation: pageEnter 0.6s ease-out;
 }
 .eyebrow::before {
   content: '';
   width: 6px; height: 6px;
   background: var(--lime);
   border-radius: 50%;
-  animation: lPulse 1.5s ease-in-out infinite;
+  animation: pulseDot 1.5s ease-in-out infinite;
 }
 
 /* Scoped h1 — only inside .landing-root */
@@ -234,10 +230,7 @@ nav {
   letter-spacing: 0.08em;
 }
 
-@keyframes fadeUp {
-  from { opacity: 0; transform: translateY(30px); }
-  to { opacity: 1; transform: translateY(0); }
-}
+/* fadeUp keyframe defined in globals.css */
 
 /* ============ PHONE MOCKUP ============ */
 .phone-wrap {
@@ -254,7 +247,7 @@ nav {
 .phone {
   width: 320px;
   height: 640px;
-  background: #1a1d1c;
+  background: var(--bg-3);
   border-radius: 48px;
   padding: 12px;
   box-shadow:
@@ -1149,4 +1142,65 @@ nav {
   .hero-stats > div { flex-basis: 100%; }
   .bank-chip { font-size: 16px; padding: 7px 16px; }
   .marquee { gap: 24px; }
+}
+
+/* ============ COMING SOON CARD ============ */
+.coming-soon-card {
+  background: var(--bg-2);
+  border: 1px solid var(--line);
+  border-radius: 24px;
+  padding: 60px 48px;
+  max-width: 560px;
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+.coming-soon-icon {
+  width: 48px;
+  height: 48px;
+  border-radius: 14px;
+  background: rgba(212, 255, 58, 0.1);
+  border: 1px solid rgba(212, 255, 58, 0.3);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--lime);
+}
+.coming-soon-title {
+  font-family: var(--font-fraunces), serif;
+  font-size: 22px;
+  font-weight: 600;
+  letter-spacing: -0.02em;
+  margin-bottom: 10px;
+}
+.coming-soon-desc {
+  color: var(--ink-dim);
+  font-size: 15px;
+  line-height: 1.65;
+}
+.coming-soon-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-family: var(--font-jetbrains), monospace;
+  font-size: 12px;
+  text-transform: uppercase;
+  letter-spacing: 0.12em;
+  color: var(--copper);
+  text-decoration: none;
+  transition: opacity 0.2s;
+}
+.coming-soon-link:hover {
+  opacity: 0.7;
+}
+
+/* Inner page main content entrance */
+.inner-page-content {
+  animation: pageEnter 0.5s ease-out forwards;
+}
+
+@media (max-width: 768px) {
+  .coming-soon-card {
+    padding: 36px 24px;
+  }
 }

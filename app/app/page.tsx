@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useCallback, useMemo, useState } from "react";
 import { useWallet } from "@/lib/use-wallet";
 import { Header } from "@/components/Header";
 import { DayPicker } from "@/components/DayPicker";
@@ -8,6 +8,7 @@ import { TodaysFeed } from "@/components/TodaysFeed";
 import { MerchantSearch } from "@/components/MerchantSearch";
 import { MerchantDetail } from "@/components/MerchantDetail";
 import { WalletSetup } from "@/components/WalletSetup";
+import { PageTransition } from "@/components/PageTransition";
 import { formatDate, formatDayOfWeek } from "@/lib/format";
 
 type View = "home" | "merchant" | "wallet";
@@ -24,6 +25,7 @@ export default function HomePage() {
   const [view, setView] = useState<View>("home");
   const [selectedMerchant, setSelectedMerchant] = useState<string | null>(null);
   const [showOnboarding, setShowOnboarding] = useState(false);
+  const [transitionDone, setTransitionDone] = useState(false);
 
   // Fecha efectiva para queries: si el día seleccionado no es hoy, usamos
   // la próxima ocurrencia de ese día de la semana. Para promos con rango
@@ -37,12 +39,21 @@ export default function HomePage() {
     return d;
   }, [selectedDay, todayDow, today]);
 
-  // Estado no hidratado: evitamos pintar UI que dependa de localStorage
+  const handleTransitionComplete = useCallback(() => {
+    setTransitionDone(true);
+  }, []);
+
+  // Estado no hidratado: branded loading screen
   if (!hydrated) {
     return (
-      <div className="flex min-h-dvh items-center justify-center">
-        <div className="pulse-dot h-2 w-2 rounded-full bg-lime" />
-      </div>
+      <PageTransition mode="arrive" onComplete={handleTransitionComplete} />
+    );
+  }
+
+  // Show transition exit if we just arrived
+  if (!transitionDone) {
+    return (
+      <PageTransition mode="arrive" onComplete={handleTransitionComplete} />
     );
   }
 
@@ -87,7 +98,7 @@ export default function HomePage() {
   }
 
   return (
-    <div className="relative min-h-dvh">
+    <div className="relative min-h-dvh page-content-enter">
       {/* Glows de fondo */}
       <div
         className="glow-plum"
@@ -103,9 +114,9 @@ export default function HomePage() {
         cardCount={cardIds.length}
       />
 
-      <main className="relative z-10 px-5 pb-16">
+      <main className="relative z-10 px-5 pb-16 stagger-children">
         {/* Saludo + fecha */}
-        <section className="animate-fade-up pt-6">
+        <section className="pt-6">
           <div className="font-mono text-[11px] uppercase tracking-[0.15em] text-ink-dim">
             {formatDate(today)}
           </div>
