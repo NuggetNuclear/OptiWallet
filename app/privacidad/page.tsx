@@ -152,12 +152,11 @@ export default function PrivacidadPage() {
             <div
               key={s.id}
               id={s.id}
+              className="flex flex-col md:grid md:grid-cols-[220px_1fr]"
               style={{
                 borderTop: "1px solid var(--line)",
                 paddingTop: "48px",
                 paddingBottom: "48px",
-                display: "grid",
-                gridTemplateColumns: "220px 1fr",
                 gap: "40px",
               }}
             >

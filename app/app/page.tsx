@@ -115,6 +115,9 @@ export default function HomePage() {
 
       <Header
         onOpenWallet={() => setView("wallet")}
+        onSearchClick={() => {
+          document.getElementById('search-section')?.scrollIntoView({ behavior: 'smooth' });
+        }}
         cardCount={cardIds.length}
       />
 
@@ -166,7 +169,7 @@ export default function HomePage() {
         </div>
 
         {/* Search */}
-        <section className="mt-5">
+        <section id="search-section" className="mt-5">
           <MerchantSearch
             onSelect={(id) => {
               setSelectedMerchant(id);
