@@ -1,14 +1,10 @@
 "use client";
 
-import { useMemo, useState } from "react"; // useMemo kept for applicableRecs
-import { getCategory } from "@/lib/data/categories";
-import { getMerchant } from "@/lib/data/merchants";
-import { getPromotionsByMerchant } from "@/lib/data/promotions";
-import { getBank } from "@/lib/data/banks";
-import { getRecommendationsForMerchant } from "@/lib/recommendation-engine";
+import { useState } from "react";
+import { useRecommendations, usePromotions, useMerchantFromApi } from "@/lib/hooks/use-api";
 import { daysOfWeekLabel, formatCLP, modalityLabel } from "@/lib/format";
 import { AlternativeCard, RecommendationCard } from "./RecommendationCard";
-import type { Promotion } from "@/lib/types";
+import type { ApiRecommendation, ApiPromotion } from "@/lib/api-client";
 
 
 interface MerchantDetailProps {
@@ -19,6 +15,46 @@ interface MerchantDetailProps {
   onAddCards: () => void;
 }
 
+/**
+ * Adapt an ApiRecommendation into the shape expected by RecommendationCard.
+ */
+function toRecCardShape(rec: ApiRecommendation, bankName: string) {
+  return {
+    promotion: {
+      id: rec.promotion_id,
+      discount: rec.discount,
+      cap: rec.cap,
+      modality: rec.modality,
+      code: rec.code,
+      conditions: rec.conditions,
+    },
+    card: {
+      name: rec.card_name,
+      type: rec.card_type,
+      bankId: rec.bank_id,
+    },
+    merchant: {
+      name: rec.merchant_name,
+    },
+    bankName,
+  };
+}
+
+/**
+ * We need a bank name per recommendation. The /api/banks data isn't needed —
+ * we can derive bank names from either the promotions response (which has bank_name)
+ * or by maintaining a small map. For recommendations, the bank_id is present but
+ * bank_name isn't directly on the recommendations response.
+ * We'll use the promotions data (which has bank_name) to build the map.
+ */
+function buildBankNameMap(promos: ApiPromotion[]): Map<string, string> {
+  const map = new Map<string, string>();
+  for (const p of promos) {
+    if (!map.has(p.bank_id)) map.set(p.bank_id, p.bank_name);
+  }
+  return map;
+}
+
 export function MerchantDetail({
   merchantId,
   cardIds,
@@ -26,24 +62,63 @@ export function MerchantDetail({
   onClose,
   onAddCards,
 }: MerchantDetailProps) {
-  const merchant = getMerchant(merchantId);
-  const category = merchant ? getCategory(merchant.categoryId) : undefined;
-  const allPromos = getPromotionsByMerchant(merchantId);
+  const { data: merchantData, loading: merchantLoading } = useMerchantFromApi(merchantId);
+  const { data: allPromos, loading: promosLoading } = usePromotions(merchantId);
 
   const [amount, setAmount] = useState<number | undefined>(undefined);
   const [amountInput, setAmountInput] = useState("");
 
-  const applicableRecs = useMemo(
-    () => getRecommendationsForMerchant(merchantId, cardIds, date, amount),
-    [merchantId, cardIds, date, amount],
+  const { data: applicableRecs, loading: recsLoading } = useRecommendations(
+    cardIds,
+    date,
+    merchantId,
   );
+
+  const bankNameMap = buildBankNameMap(allPromos);
+  const getBankName = (bankId: string) => bankNameMap.get(bankId) ?? bankId;
 
   const winner = applicableRecs[0];
   const alternatives = applicableRecs.slice(1);
 
-  // notApplicable promos are rendered inline via the PromoRow isApplicable prop;
+  const loading = merchantLoading || promosLoading || recsLoading;
 
-  if (!merchant) {
+  if (loading) {
+    return (
+      <div className="relative min-h-dvh bg-bg">
+        {/* Header skeleton */}
+        <div
+          className="sticky top-0 z-10 flex items-center justify-between border-b border-line bg-bg/90 px-5 backdrop-blur-xl"
+          style={{
+            paddingTop: "calc(var(--safe-top) + 14px)",
+            paddingBottom: "14px",
+          }}
+        >
+          <button
+            onClick={onClose}
+            className="flex items-center gap-2 text-sm text-ink transition-colors hover:text-lime"
+          >
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
+              <path d="M19 12H5m0 0l6-6m-6 6l6 6" />
+            </svg>
+            Volver
+          </button>
+        </div>
+        <div className="px-5 py-6 space-y-4">
+          <div className="flex items-center gap-4">
+            <div className="h-14 w-14 animate-pulse rounded-2xl bg-bg-3" />
+            <div className="flex-1 space-y-2">
+              <div className="h-7 w-40 animate-pulse rounded bg-bg-3" />
+              <div className="h-3 w-24 animate-pulse rounded bg-bg-3" />
+            </div>
+          </div>
+          <div className="h-28 animate-pulse rounded-2xl bg-bg-3/60" />
+          <div className="h-48 animate-pulse rounded-[24px] bg-bg-3/60" />
+        </div>
+      </div>
+    );
+  }
+
+  if (!merchantData) {
     return (
       <div className="p-5">
         <p>Comercio no encontrado.</p>
@@ -82,14 +157,14 @@ export function MerchantDetail({
         {/* Hero del comercio */}
         <div className="flex items-center gap-4">
           <div className="flex h-14 w-14 shrink-0 items-center justify-center rounded-2xl bg-bg-3 text-3xl">
-            {category?.emoji ?? "🛍️"}
+            {merchantData.emoji ?? "🛍️"}
           </div>
           <div className="min-w-0 flex-1">
             <h1 className="break-words font-serif text-[26px] font-normal leading-[1.05] tracking-[-0.02em] text-ink sm:text-[32px] sm:leading-none">
-              {merchant.name}
+              {merchantData.name}
             </h1>
             <div className="mt-1.5 font-mono text-[11px] uppercase tracking-widest text-ink-dim">
-              {category?.label}
+              {merchantData.category_label}
             </div>
           </div>
         </div>
@@ -136,7 +211,10 @@ export function MerchantDetail({
             <div className="mt-8">
               <SectionLabel>🏆 Mejor opción ahora</SectionLabel>
               <div className="mt-3">
-                <RecommendationCard recommendation={winner} amount={amount} />
+                <RecommendationCard
+                  recommendation={toRecCardShape(winner, getBankName(winner.bank_id))}
+                  amount={amount}
+                />
               </div>
             </div>
 
@@ -145,7 +223,10 @@ export function MerchantDetail({
                 <SectionLabel>Otras opciones aplicables</SectionLabel>
                 <div className="mt-3 space-y-2">
                   {alternatives.map((rec) => (
-                    <AlternativeCard key={rec.promotion.id} recommendation={rec} />
+                    <AlternativeCard
+                      key={rec.promotion_id}
+                      recommendation={toRecCardShape(rec, getBankName(rec.bank_id))}
+                    />
                   ))}
                 </div>
               </div>
@@ -170,14 +251,14 @@ export function MerchantDetail({
         {/* Todas las promos existentes */}
         {allPromos.length > 0 && (
           <div className="mt-10">
-            <SectionLabel>Todas las promos de {merchant.name}</SectionLabel>
+            <SectionLabel>Todas las promos de {merchantData.name}</SectionLabel>
             <div className="mt-3 space-y-2">
               {allPromos.map((promo) => (
                 <PromoRow
                   key={promo.id}
                   promo={promo}
-                  isWinner={winner?.promotion.id === promo.id}
-                  isApplicable={applicableRecs.some((r) => r.promotion.id === promo.id)}
+                  isWinner={winner?.promotion_id === promo.id}
+                  isApplicable={applicableRecs.some((r) => r.promotion_id === promo.id)}
                 />
               ))}
             </div>
@@ -212,11 +293,10 @@ function PromoRow({
   isWinner,
   isApplicable,
 }: {
-  promo: Promotion;
+  promo: ApiPromotion;
   isWinner: boolean;
   isApplicable: boolean;
 }) {
-  const bank = getBank(promo.bankId);
   return (
     <div
       className={`rounded-xl border p-4 ${
@@ -230,17 +310,17 @@ function PromoRow({
       <div className="flex items-start justify-between gap-3">
         <div className="min-w-0 flex-1">
           <div className="flex items-center gap-2">
-            <span className="font-medium text-ink">{bank?.name}</span>
+            <span className="font-medium text-ink">{promo.bank_name}</span>
             <span className="font-mono text-[9px] uppercase tracking-widest text-ink-dim">
-              {promo.cardTypes.includes("credit") && promo.cardTypes.includes("debit")
+              {promo.card_types.includes("credit") && promo.card_types.includes("debit")
                 ? "Crédito/Débito"
-                : promo.cardTypes.includes("credit")
+                : promo.card_types.includes("credit")
                   ? "Crédito"
                   : "Débito"}
             </span>
           </div>
           <div className="mt-1 text-xs text-ink-dim">
-            {daysOfWeekLabel(promo.daysOfWeek)} · {modalityLabel(promo.modality)}
+            {daysOfWeekLabel(promo.days_of_week)} · {modalityLabel(promo.modality as "presencial" | "online" | "both")}
             {promo.cap && <> · Tope {formatCLP(promo.cap)}</>}
           </div>
           {promo.code && (
@@ -250,9 +330,9 @@ function PromoRow({
               </span>
             </div>
           )}
-          {promo.startDate && promo.endDate && (
+          {promo.start_date && promo.end_date && (
             <div className="mt-1 font-mono text-[10px] text-copper">
-              Vigente {formatDate(promo.startDate)} — {formatDate(promo.endDate)}
+              Vigente {formatIsoDate(promo.start_date)} — {formatIsoDate(promo.end_date)}
             </div>
           )}
           {promo.conditions && (
@@ -269,8 +349,9 @@ function PromoRow({
   );
 }
 
-function formatDate(iso: string): string {
-  const [, m, d] = iso.split("-");
+function formatIsoDate(iso: string): string {
+  // Handle ISO strings like "2026-04-20T04:00:00.000Z"
+  const dateStr = iso.split("T")[0];
+  const [, m, d] = dateStr.split("-");
   return `${parseInt(d, 10)}/${parseInt(m, 10)}`;
 }
-

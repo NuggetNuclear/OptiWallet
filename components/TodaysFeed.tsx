@@ -1,10 +1,9 @@
 "use client";
 
 import { useMemo } from "react";
-import { getRecommendations } from "@/lib/recommendation-engine";
-import { getCategory } from "@/lib/data/categories";
+import { useRecommendations } from "@/lib/hooks/use-api";
 import { formatCLP, modalityLabel } from "@/lib/format";
-import type { Recommendation } from "@/lib/types";
+import type { ApiRecommendation } from "@/lib/api-client";
 
 interface TodaysFeedProps {
   cardIds: string[];
@@ -14,26 +13,48 @@ interface TodaysFeedProps {
 }
 
 export function TodaysFeed({ cardIds, date, isToday, onMerchantClick }: TodaysFeedProps) {
-  const recs = useMemo(() => {
-    return getRecommendations({ cardIds, date });
-  }, [cardIds, date]);
+  const { data: recs, loading } = useRecommendations(cardIds, date);
 
   // Agrupar por merchant y quedarnos con la mejor promo por comercio
   const byMerchant = useMemo(() => {
-    const map = new Map<string, Recommendation>();
+    const map = new Map<string, ApiRecommendation>();
     for (const rec of recs) {
-      const existing = map.get(rec.merchant.id);
-      if (!existing || rec.promotion.discount > existing.promotion.discount) {
-        map.set(rec.merchant.id, rec);
+      const existing = map.get(rec.merchant_id);
+      if (!existing || rec.discount > existing.discount) {
+        map.set(rec.merchant_id, rec);
       }
     }
-    return Array.from(map.values()).sort(
-      (a, b) => b.promotion.discount - a.promotion.discount,
-    );
+    return Array.from(map.values()).sort((a, b) => b.discount - a.discount);
   }, [recs]);
 
   const topRec = byMerchant[0];
   const rest = byMerchant.slice(1);
+
+  if (loading) {
+    return (
+      <div className="space-y-3">
+        {/* Skeleton de la highlight card */}
+        <div className="animate-pulse rounded-[24px] bg-bg-3/60 p-5 sm:rounded-[28px] sm:p-6">
+          <div className="h-3 w-24 rounded bg-bg-3" />
+          <div className="mt-4 h-8 w-48 rounded bg-bg-3" />
+          <div className="mt-6 h-16 w-28 rounded bg-bg-3" />
+          <div className="mt-4 h-4 w-36 rounded bg-bg-3" />
+        </div>
+        {/* Skeleton de las filas */}
+        {[1, 2].map((i) => (
+          <div key={i} className="animate-pulse rounded-2xl border border-line bg-bg-2 p-4">
+            <div className="flex items-center gap-3">
+              <div className="h-11 w-11 rounded-xl bg-bg-3" />
+              <div className="flex-1 space-y-2">
+                <div className="h-4 w-32 rounded bg-bg-3" />
+                <div className="h-3 w-48 rounded bg-bg-3" />
+              </div>
+            </div>
+          </div>
+        ))}
+      </div>
+    );
+  }
 
   if (byMerchant.length === 0) {
     return (
@@ -54,7 +75,7 @@ export function TodaysFeed({ cardIds, date, isToday, onMerchantClick }: TodaysFe
       {topRec && (
         <HighlightCard
           rec={topRec}
-          onClick={() => onMerchantClick(topRec.merchant.id)}
+          onClick={() => onMerchantClick(topRec.merchant_id)}
         />
       )}
 
@@ -67,9 +88,9 @@ export function TodaysFeed({ cardIds, date, isToday, onMerchantClick }: TodaysFe
           <div className="grid gap-2">
             {rest.map((rec) => (
               <FeedRow
-                key={rec.merchant.id}
+                key={rec.merchant_id}
                 rec={rec}
-                onClick={() => onMerchantClick(rec.merchant.id)}
+                onClick={() => onMerchantClick(rec.merchant_id)}
               />
             ))}
           </div>
@@ -83,10 +104,9 @@ function HighlightCard({
   rec,
   onClick,
 }: {
-  rec: Recommendation;
+  rec: ApiRecommendation;
   onClick: () => void;
 }) {
-  const category = getCategory(rec.merchant.categoryId);
   return (
     <button
       onClick={onClick}
@@ -105,18 +125,18 @@ function HighlightCard({
       <div className="relative">
         <div className="flex items-center justify-between gap-3">
           <span className="min-w-0 truncate font-mono text-[10px] uppercase tracking-[0.18em] text-bg/70">
-            Mejor promo · {category?.label}
+            Mejor promo · {rec.category_label}
           </span>
-          <span className="shrink-0 text-2xl">{category?.emoji}</span>
+          <span className="shrink-0 text-2xl">{rec.emoji}</span>
         </div>
 
         <div className="mt-3 break-words font-serif text-[28px] font-semibold leading-[1.05] tracking-[-0.02em] text-bg sm:text-[34px]">
-          {rec.merchant.name}
+          {rec.merchant_name}
         </div>
 
         <div className="mt-5 flex flex-wrap items-baseline gap-x-2 gap-y-1">
           <span className="font-serif text-[52px] font-bold leading-none tracking-[-0.04em] text-bg sm:text-[64px]">
-            {rec.promotion.discount}%
+            {rec.discount}%
           </span>
           <span className="font-mono text-[10px] uppercase tracking-widest text-bg/70">
             descuento
@@ -124,7 +144,7 @@ function HighlightCard({
         </div>
 
         <div className="mt-3 break-words text-sm text-bg/80">
-          Paga con <span className="font-semibold">{rec.card.name}</span>
+          Paga con <span className="font-semibold">{rec.card_name}</span>
         </div>
 
         <div className="mt-4 inline-flex items-center gap-1 font-mono text-[11px] uppercase tracking-widest text-bg/70">
@@ -138,8 +158,7 @@ function HighlightCard({
   );
 }
 
-function FeedRow({ rec, onClick }: { rec: Recommendation; onClick: () => void }) {
-  const category = getCategory(rec.merchant.categoryId);
+function FeedRow({ rec, onClick }: { rec: ApiRecommendation; onClick: () => void }) {
   return (
     <button
       onClick={onClick}
@@ -147,19 +166,19 @@ function FeedRow({ rec, onClick }: { rec: Recommendation; onClick: () => void })
     >
       <div className="flex min-w-0 items-center gap-3">
         <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-bg-3 text-xl">
-          {category?.emoji ?? "🛍️"}
+          {rec.emoji ?? "🛍️"}
         </div>
         <div className="min-w-0">
-          <div className="truncate font-medium text-ink">{rec.merchant.name}</div>
+          <div className="truncate font-medium text-ink">{rec.merchant_name}</div>
           <div className="mt-0.5 text-xs text-ink-dim">
-            {rec.card.name} · {modalityLabel(rec.promotion.modality)}
-            {rec.promotion.cap && <> · tope {formatCLP(rec.promotion.cap)}</>}
+            {rec.card_name} · {modalityLabel(rec.modality as "presencial" | "online" | "both")}
+            {rec.cap && <> · tope {formatCLP(rec.cap)}</>}
           </div>
         </div>
       </div>
       <div className="ml-3 text-right">
         <div className="font-serif text-[28px] font-semibold leading-none text-lime">
-          {rec.promotion.discount}%
+          {rec.discount}%
         </div>
       </div>
     </button>

@@ -1,19 +1,34 @@
 "use client";
 
-import type { Recommendation } from "@/lib/types";
-import { getBank } from "@/lib/data/banks";
 import { formatCLP, modalityLabel } from "@/lib/format";
 
 interface RecommendationCardProps {
-  recommendation: Recommendation;
+  recommendation: {
+    promotion: {
+      id: string;
+      discount: number;
+      cap: number | null;
+      modality: string;
+      code?: string | null;
+      conditions?: string | null;
+    };
+    card: {
+      name: string;
+      type: string;
+      bankId: string;
+    };
+    merchant: {
+      name: string;
+    };
+    bankName: string;
+  };
   amount?: number;
   compact?: boolean;
   onClick?: () => void;
 }
 
 export function RecommendationCard({ recommendation, amount, compact, onClick }: RecommendationCardProps) {
-  const { promotion, card, merchant } = recommendation;
-  const bank = getBank(card.bankId);
+  const { promotion, card, merchant, bankName } = recommendation;
 
   const savings = amount
     ? Math.min(Math.round((amount * promotion.discount) / 100), promotion.cap ?? Infinity)
@@ -42,7 +57,7 @@ export function RecommendationCard({ recommendation, amount, compact, onClick }:
         </div>
 
         <div className="mt-2 break-words font-serif text-[22px] font-semibold leading-[1.05] tracking-[-0.02em] text-bg sm:text-[26px]">
-          {bank?.name ?? card.name}
+          {bankName}
         </div>
 
         <div className="mt-1 break-words text-xs text-bg/75">{card.name}</div>
@@ -64,7 +79,7 @@ export function RecommendationCard({ recommendation, amount, compact, onClick }:
 
         <div className="mt-4 flex flex-wrap gap-1.5">
           <Chip>{merchant.name}</Chip>
-          <Chip>{modalityLabel(promotion.modality)}</Chip>
+          <Chip>{modalityLabel(promotion.modality as "presencial" | "online" | "both")}</Chip>
           {promotion.cap && <Chip>Tope {formatCLP(promotion.cap)}</Chip>}
           {promotion.code && (
             <Chip mono>
@@ -120,16 +135,15 @@ function Chip({ children, mono }: { children: React.ReactNode; mono?: boolean })
 /**
  * Alternativa más pequeña, para listas de opciones secundarias.
  */
-export function AlternativeCard({ recommendation }: { recommendation: Recommendation }) {
-  const { promotion, card, merchant } = recommendation;
-  const bank = getBank(card.bankId);
+export function AlternativeCard({ recommendation }: { recommendation: RecommendationCardProps["recommendation"] }) {
+  const { promotion, card, merchant, bankName } = recommendation;
 
   return (
     <div className="flex items-center justify-between rounded-2xl border border-line bg-bg-2 p-4 transition-colors hover:border-line-strong">
       <div className="min-w-0 flex-1">
-        <div className="truncate font-medium text-ink">{bank?.name ?? card.name}</div>
+        <div className="truncate font-medium text-ink">{bankName}</div>
         <div className="mt-0.5 text-xs text-ink-dim">
-          {merchant.name} · {modalityLabel(promotion.modality)}
+          {merchant.name} · {modalityLabel(promotion.modality as "presencial" | "online" | "both")}
           {promotion.code && (
             <>
               {" "}

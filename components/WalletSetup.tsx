@@ -1,9 +1,8 @@
 "use client";
 
 import { useState } from "react";
-import { BANKS } from "@/lib/data/banks";
-import { getCardsByBank } from "@/lib/data/cards";
-import type { Bank } from "@/lib/types";
+import { useBanks, useCards } from "@/lib/hooks/use-api";
+import type { ApiBank, ApiCard } from "@/lib/api-client";
 
 interface WalletSetupProps {
   selectedCardIds: string[];
@@ -23,6 +22,14 @@ export function WalletSetup({
   const [expandedBank, setExpandedBank] = useState<string | null>("bci");
   const hasSelection = selectedCardIds.length > 0;
   const isOnboarding = mode === "onboarding";
+
+  const { data: banks, loading: banksLoading } = useBanks();
+  const { data: allCards, loading: cardsLoading } = useCards();
+
+  const getCardsByBank = (bankId: string): ApiCard[] =>
+    allCards.filter((c) => c.bank_id === bankId);
+
+  const loading = banksLoading || cardsLoading;
 
   return (
     <div className="relative min-h-dvh px-5 pb-40">
@@ -86,16 +93,29 @@ export function WalletSetup({
         </p>
 
         <div className="mt-10 space-y-3">
-          {BANKS.map((bank) => (
-            <BankRow
-              key={bank.id}
-              bank={bank}
-              expanded={expandedBank === bank.id}
-              onExpand={() => setExpandedBank(expandedBank === bank.id ? null : bank.id)}
-              selectedCardIds={selectedCardIds}
-              onToggleCard={onToggleCard}
-            />
-          ))}
+          {loading
+            ? Array.from({ length: 4 }).map((_, i) => (
+                <div key={i} className="animate-pulse rounded-2xl border border-line bg-bg-2 p-4">
+                  <div className="flex items-center gap-3">
+                    <div className="h-10 w-10 rounded-xl bg-bg-3" />
+                    <div className="flex-1 space-y-2">
+                      <div className="h-4 w-28 rounded bg-bg-3" />
+                      <div className="h-3 w-20 rounded bg-bg-3" />
+                    </div>
+                  </div>
+                </div>
+              ))
+            : banks.map((bank) => (
+                <BankRow
+                  key={bank.id}
+                  bank={bank}
+                  expanded={expandedBank === bank.id}
+                  onExpand={() => setExpandedBank(expandedBank === bank.id ? null : bank.id)}
+                  selectedCardIds={selectedCardIds}
+                  onToggleCard={onToggleCard}
+                  cards={getCardsByBank(bank.id)}
+                />
+              ))}
         </div>
 
         <p className="mt-8 font-mono text-[10px] uppercase tracking-widest text-ink-dim">
@@ -135,14 +155,15 @@ function BankRow({
   onExpand,
   selectedCardIds,
   onToggleCard,
+  cards,
 }: {
-  bank: Bank;
+  bank: ApiBank;
   expanded: boolean;
   onExpand: () => void;
   selectedCardIds: string[];
   onToggleCard: (id: string) => void;
+  cards: ApiCard[];
 }) {
-  const cards = getCardsByBank(bank.id);
   const hasSelected = cards.some((c) => selectedCardIds.includes(c.id));
 
   return (

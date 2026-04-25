@@ -1,9 +1,8 @@
 "use client";
 
-import { useMemo, useState } from "react";
-import { CATEGORIES, getCategory } from "@/lib/data/categories";
-import { MERCHANTS, searchMerchants } from "@/lib/data/merchants";
-import type { Merchant } from "@/lib/types";
+import { useState } from "react";
+import { useMerchants, useCategories } from "@/lib/hooks/use-api";
+import type { ApiMerchant, ApiCategory } from "@/lib/api-client";
 
 interface MerchantSearchProps {
   onSelect: (merchantId: string) => void;
@@ -13,19 +12,19 @@ export function MerchantSearch({ onSelect }: MerchantSearchProps) {
   const [query, setQuery] = useState("");
   const [categoryFilter, setCategoryFilter] = useState<string | null>(null);
 
-  const results = useMemo(() => {
-    let list = query.trim() ? searchMerchants(query) : MERCHANTS;
-    if (categoryFilter) list = list.filter((m) => m.categoryId === categoryFilter);
-    return list;
-  }, [query, categoryFilter]);
+  const { data: merchants, loading: merchantsLoading } = useMerchants(query, categoryFilter);
+  const { data: categories, loading: categoriesLoading } = useCategories();
 
-  // Categorías con conteo
-  const categoryStats = useMemo(() => {
-    return CATEGORIES.map((cat) => ({
+  // Count merchants per category from the full unfiltered list
+  // We use a separate hook for the full list to get accurate counts
+  const { data: allMerchants } = useMerchants("", null);
+
+  const categoryStats = categories
+    .map((cat) => ({
       ...cat,
-      count: MERCHANTS.filter((m) => m.categoryId === cat.id).length,
-    })).filter((c) => c.count > 0);
-  }, []);
+      count: allMerchants.filter((m) => m.category_id === cat.id).length,
+    }))
+    .filter((c) => c.count > 0);
 
   return (
     <div>
@@ -70,23 +69,39 @@ export function MerchantSearch({ onSelect }: MerchantSearchProps) {
           active={categoryFilter === null}
           onClick={() => setCategoryFilter(null)}
         />
-        {categoryStats.map((cat) => (
-          <CategoryChip
-            key={cat.id}
-            label={cat.label}
-            emoji={cat.emoji}
-            active={categoryFilter === cat.id}
-            count={cat.count}
-            onClick={() =>
-              setCategoryFilter(categoryFilter === cat.id ? null : cat.id)
-            }
-          />
-        ))}
+        {categoriesLoading
+          ? Array.from({ length: 4 }).map((_, i) => (
+              <div key={i} className="h-9 w-24 shrink-0 animate-pulse rounded-full bg-bg-3" />
+            ))
+          : categoryStats.map((cat) => (
+              <CategoryChip
+                key={cat.id}
+                label={cat.label}
+                emoji={cat.emoji}
+                active={categoryFilter === cat.id}
+                count={cat.count}
+                onClick={() =>
+                  setCategoryFilter(categoryFilter === cat.id ? null : cat.id)
+                }
+              />
+            ))}
       </div>
 
       {/* Results */}
       <div className="mt-5 space-y-2">
-        {results.length === 0 ? (
+        {merchantsLoading ? (
+          Array.from({ length: 3 }).map((_, i) => (
+            <div key={i} className="animate-pulse rounded-2xl border border-line bg-bg-2 p-4">
+              <div className="flex items-center gap-3">
+                <div className="h-11 w-11 rounded-xl bg-bg-3" />
+                <div className="flex-1 space-y-2">
+                  <div className="h-4 w-32 rounded bg-bg-3" />
+                  <div className="h-3 w-20 rounded bg-bg-3" />
+                </div>
+              </div>
+            </div>
+          ))
+        ) : merchants.length === 0 ? (
           <div className="rounded-2xl border border-dashed border-line bg-bg-2/40 p-8 text-center">
             <div className="font-mono text-[10px] uppercase tracking-widest text-ink-dim">
               Sin resultados
@@ -99,7 +114,7 @@ export function MerchantSearch({ onSelect }: MerchantSearchProps) {
             </div>
           </div>
         ) : (
-          results.map((merchant) => (
+          merchants.map((merchant) => (
             <MerchantRow
               key={merchant.id}
               merchant={merchant}
@@ -143,8 +158,7 @@ function CategoryChip({
   );
 }
 
-function MerchantRow({ merchant, onClick }: { merchant: Merchant; onClick: () => void }) {
-  const category = getCategory(merchant.categoryId);
+function MerchantRow({ merchant, onClick }: { merchant: ApiMerchant; onClick: () => void }) {
   return (
     <button
       onClick={onClick}
@@ -152,12 +166,12 @@ function MerchantRow({ merchant, onClick }: { merchant: Merchant; onClick: () =>
     >
       <div className="flex items-center gap-3">
         <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-bg-3 text-xl">
-          {category?.emoji ?? "🛍️"}
+          {merchant.emoji ?? "🛍️"}
         </div>
         <div>
           <div className="font-medium text-ink">{merchant.name}</div>
           <div className="font-mono text-[10px] uppercase tracking-widest text-ink-dim">
-            {category?.label}
+            {merchant.category_label}
           </div>
         </div>
       </div>

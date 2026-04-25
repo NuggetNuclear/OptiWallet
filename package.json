@@ -6,9 +6,13 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "eslint ."
+    "lint": "eslint .",
+    "db:seed": "dotenv -e .env.local -- tsx scripts/seed.ts",
+    "db:seed:prod": "tsx scripts/seed.ts",
+    "db:verify": "dotenv -e .env.local -- tsx scripts/verify-db.ts"
   },
   "dependencies": {
+    "@neondatabase/serverless": "^1.1.0",
     "next": "^16.2.4",
     "react": "^19.2.5",
     "react-dom": "^19.2.5"
@@ -20,10 +24,12 @@
     "@types/node": "^25.6.0",
     "@types/react": "^19.2.14",
     "@types/react-dom": "^19.2.3",
+    "dotenv-cli": "^11.0.0",
     "eslint": "^10.2.1",
     "eslint-config-next": "^16.2.4",
     "postcss": "^8.4.47",
     "tailwindcss": "^4.2.4",
+    "tsx": "^4.21.0",
     "typescript": "^6.0.3"
   }
 }
