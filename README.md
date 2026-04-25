@@ -10,14 +10,15 @@ OptiWallet cruza las promociones y descuentos de bancos y tarjetas de crédito c
 
 ## Stack
 
-| Capa | Tecnología |
-|------|------------|
-| Framework | Next.js 16 (App Router, Turbopack) |
-| UI | React 19 + TypeScript 6 |
-| Estilos | Tailwind CSS 4 + vanilla CSS |
-| Tipografía | Fraunces · Sora · JetBrains Mono (Google Fonts) |
-| Persistencia | `localStorage` (sin backend) |
-| Deploy | Vercel |
+| Capa | Tecnología | Versión |
+|------|------------|---------|
+| Framework | Next.js (App Router, Turbopack) | 16.2.4 |
+| UI | React + TypeScript | 19.2 + 6.0 |
+| Estilos | Tailwind CSS + vanilla CSS | 4.2.4 |
+| Lint | ESLint + eslint-config-next | 10.2 + 16.2.4 |
+| Tipografía | Fraunces · Sora · JetBrains Mono | Google Fonts |
+| Persistencia | `localStorage` (sin backend) | — |
+| Deploy | Vercel | — |
 
 ## Correr localmente
 

@@ -10,10 +10,10 @@ export function InnerPageLayout({ children }: { children: React.ReactNode }) {
           OptiWallet
         </Link>
         <div className="nav-links">
-          <a href="/#como-funciona">Cómo funciona</a>
-          <a href="/#bancos">Bancos</a>
-          <a href="/#instalar">Instalar</a>
-          <a href="/#faq">FAQ</a>
+          <Link href="/#como-funciona">Cómo funciona</Link>
+          <Link href="/#bancos">Bancos</Link>
+          <Link href="/#instalar">Instalar</Link>
+          <Link href="/#faq">FAQ</Link>
         </div>
         <Link href="/app" className="nav-cta">Probar gratis →</Link>
       </nav>
@@ -30,9 +30,9 @@ export function InnerPageLayout({ children }: { children: React.ReactNode }) {
           </div>
           <div className="footer-col">
             <h5>Producto</h5>
-            <a href="/#como-funciona">Cómo funciona</a>
-            <a href="/#bancos">Bancos soportados</a>
-            <a href="/#instalar">Instalar</a>
+            <Link href="/#como-funciona">Cómo funciona</Link>
+            <Link href="/#bancos">Bancos soportados</Link>
+            <Link href="/#instalar">Instalar</Link>
             <Link href="/roadmap">Roadmap</Link>
           </div>
           <div className="footer-col">
