@@ -140,6 +140,15 @@ Todos los datos viven en **Neon PostgreSQL** — no hay archivos de datos estát
 | `merchants` | Comercios con aliases para búsqueda fuzzy |
 | `promotions` | Promociones activas con días, topes, fechas y modalidad |
 
+**Convenciones de Datos:**
+
+- **IDs:** Se utilizan slugs descriptivos en kebab-case en lugar de UUIDs o IDs numéricos (ej. `bci`, `bci-credit`, `comida-rapida`, `papa-johns`, `bci-kfc-lunes`). Esto facilita el debugging y la referencia cruzada manual.
+- **Días de la semana (`days_of_week`):** Array de enteros donde `0 = Domingo`, `1 = Lunes`, ..., `6 = Sábado`. Un array vacío `{}` significa que la promoción aplica **todos los días**.
+- **Modalidad (`modality`):** Acepta los valores `presencial`, `online`, o `both`.
+- **Tipos de tarjeta (`card_types`):** Array de strings que especifica si la promoción aplica a crédito, débito o ambas. Valores permitidos: `credit`, `debit`.
+- **Descuentos (`discount`):** Entero del 1 al 100 que representa el porcentaje de descuento.
+- **Topes (`cap`):** Entero que representa el descuento máximo en CLP. Puede ser `null` si no hay tope.
+
 ### Endpoints API
 
 | Endpoint | Params | Descripción |
