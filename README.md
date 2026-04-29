@@ -128,7 +128,7 @@ Vive en `localStorage` bajo `optiwallet:cards` como un array de IDs de tarjeta. 
 
 ### Capa de datos
 
-Todos los datos viven en **Neon PostgreSQL** — no hay archivos de datos estáticos en el codebase. Los Route Handlers usan `export const runtime = "edge"` y el cliente lazy de `lib/db.ts`.
+Todos los datos viven en **Neon PostgreSQL** — no hay archivos de datos estáticos en el codebase. Los Route Handlers se ejecutan de manera serverless usando el cliente lazy de `lib/db.ts`.
 
 **Tablas:**
 
