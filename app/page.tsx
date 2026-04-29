@@ -1,13 +1,27 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { usePageTransition } from "@/components/PageTransition";
+import { formatDate, formatDayOfWeek } from "@/lib/format";
 import "./landing.css";
 
 export default function LandingPage() {
   const [openFaq, setOpenFaq] = useState<number>(0);
   const { trigger, overlay } = usePageTransition();
+
+  // Dynamic date for the phone mockup and the "Hoy no es..." feature card
+  const { todayFormatted, randomDayName } = useMemo(() => {
+    const now = new Date();
+    const todayIndex = now.getDay(); // 0=Dom … 6=Sáb
+    // Pick a random day index that is NOT today
+    const candidates = [0, 1, 2, 3, 4, 5, 6].filter((d) => d !== todayIndex);
+    const pick = candidates[Math.floor(Math.random() * candidates.length)];
+    return {
+      todayFormatted: formatDate(now).toLowerCase(),   // e.g. "miércoles · 29 de abril"
+      randomDayName: formatDayOfWeek(pick).toLowerCase(), // e.g. "martes"
+    };
+  }, []);
 
   const toggleFaq = (index: number) => {
     setOpenFaq(openFaq === index ? -1 : index);
@@ -119,7 +133,7 @@ export default function LandingPage() {
             <div className="phone-screen">
               <div className="app-header">
                 <div>
-                  <div className="greeting">viernes · 17 de abril</div>
+                  <div className="greeting">{todayFormatted}</div>
                   <div className="greeting-name">Hola, Gabriel</div>
                 </div>
                 <div style={{ width: "36px", height: "36px", borderRadius: "50%", background: "rgba(212,255,58,0.15)", display: "flex", alignItems: "center", justifyContent: "center", color: "var(--lime)", fontWeight: "700", fontFamily: "var(--font-fraunces), serif" }}>G</div>
@@ -242,7 +256,7 @@ export default function LandingPage() {
                 <rect x="3" y="4" width="18" height="18" rx="2" /><path d="M16 2v4M8 2v4M3 10h18" />
               </svg>
             </div>
-            <h3>Hoy no es martes</h3>
+            <h3>Hoy no es {randomDayName}</h3>
             <p>Muchas promos dependen del día. OptiWallet sabe la fecha y solo te muestra lo vigente.</p>
           </div>
 
