@@ -2,134 +2,223 @@
 
 **Te dice con qué tarjeta pagar para ahorrar más, en cada comercio de Chile.**
 
-OptiWallet cruza las promociones y descuentos de bancos y tarjetas de crédito chilenos, y recomienda la mejor tarjeta según el día y el comercio. Sin datos bancarios, sin cuentas, sin descargas — funciona como PWA directo desde el navegador.
+OptiWallet cruza las promociones de bancos chilenos y recomienda la mejor tarjeta según el día y el comercio. Sin datos bancarios, sin cuentas, sin descargas — funciona como PWA directo desde el navegador.
 
-> Beta · Solo para Chile 🇨🇱
+> v0.1.0-beta · Solo para Chile 🇨🇱
 
 ---
 
 ## Stack
 
 | Capa | Tecnología | Versión |
-|------|------------|---------|
+|---|---|---|
 | Framework | Next.js (App Router, Turbopack) | 16.2.4 |
 | UI | React + TypeScript | 19.2 + 6.0 |
-| Estilos | Tailwind CSS + vanilla CSS | 4.2.4 |
-| Lint | ESLint + eslint-config-next | 10.2 + 16.2.4 |
+| Estilos | Tailwind CSS 4 + vanilla CSS | 4.2.4 |
+| Base de datos | Neon PostgreSQL (serverless) | @neondatabase/serverless ^1.1.0 |
+| Deploy | Vercel (Edge Runtime) | — |
 | Tipografía | Fraunces · Sora · JetBrains Mono | Google Fonts |
-| Persistencia | `localStorage` (sin backend) | — |
-| Deploy | Vercel | — |
+| PWA | manifest.json + Apple Web App meta | — |
+
+---
 
 ## Correr localmente
 
 ```bash
+# 1. Instalar dependencias
 npm install
+
+# 2. Crear .env.local con tu connection string de Neon
+cp .env.example .env.local
+# → Edita .env.local y pon tu DATABASE_URL
+
+# 3. Levantar el servidor de desarrollo
 npm run dev
 ```
 
 Abre [localhost:3000](http://localhost:3000). La landing está en `/`, la app en `/app`.
 
+### Variables de entorno
+
+| Variable | Requerida | Uso |
+|---|---|---|
+| `DATABASE_URL` | Sí | Connection string de Neon PostgreSQL |
+
+---
+
 ## Estructura del proyecto
 
 ```
-app/
-├── layout.tsx              Root layout — fuentes, meta PWA, viewport
-├── page.tsx                Landing page con transición al app
-├── globals.css             Design tokens, animaciones, utilidades
-├── landing.css             Estilos exclusivos de la landing
-├── icon.svg                Favicon
-├── app/
-│   └── page.tsx            Web app principal
-├── blog/                   Páginas internas — usan InnerPageLayout
-├── contacto/
-├── cookies/
-├── prensa/
-├── privacidad/
-├── roadmap/
-├── sobre-nosotros/
-└── terminos/
-
-components/
-├── PageTransition.tsx      Overlay de transición landing ↔ app
-├── Header.tsx              Header de la app con acceso a wallet
-├── DayPicker.tsx           Selector horizontal de día de la semana
-├── TodaysFeed.tsx          Feed de promos del día seleccionado
-├── MerchantSearch.tsx      Búsqueda de comercios + chips de categoría
-├── MerchantDetail.tsx      Vista detalle con recomendación ganadora
-├── RecommendationCard.tsx  Card de promo ganadora + alternativas
-├── WalletSetup.tsx         Onboarding / gestión de tarjetas
-├── InnerPageLayout.tsx     Layout compartido para páginas internas
-└── ComingSoon.tsx          Placeholder reutilizable para páginas WIP
-
-lib/
-├── types.ts                Tipos de dominio (Bank, Card, Promotion, etc.)
-├── format.ts               Formateo de fechas y CLP en español
-├── use-wallet.ts           Hook de localStorage para tarjetas del usuario
-├── recommendation-engine.ts Motor de recomendación (función pura)
-└── data/
-    ├── banks.ts            14 bancos (BCI activo, resto próximamente)
-    ├── cards.ts            Productos de tarjeta por banco
-    ├── categories.ts       Categorías de comercios
-    ├── merchants.ts        ~25 comercios
-    └── promotions.ts       25 promos verificadas (BCI, abril 2026)
+OptiWallet/
+├── app/                          # Next.js App Router
+│   ├── layout.tsx                # Root layout — fuentes, meta PWA, viewport
+│   ├── page.tsx                  # Landing page (/)
+│   ├── globals.css               # Design tokens, animaciones, utilidades globales
+│   ├── landing.css               # Estilos exclusivos de la landing (~1200 líneas)
+│   ├── app/page.tsx              # Web app principal (/app)
+│   ├── api/                      # 7 Route Handlers (Edge Runtime)
+│   │   ├── banks/route.ts
+│   │   ├── cards/route.ts
+│   │   ├── categories/route.ts
+│   │   ├── merchants/route.ts
+│   │   ├── merchants/[merchantId]/route.ts
+│   │   ├── promotions/[merchantId]/route.ts
+│   │   ├── recommendations/route.ts
+│   │   └── stats/route.ts
+│   ├── blog/                     # Páginas internas — usan InnerPageLayout
+│   ├── contacto/
+│   ├── cookies/
+│   ├── prensa/
+│   ├── privacidad/
+│   ├── roadmap/
+│   ├── sobre-nosotros/
+│   └── terminos/
+│
+├── components/
+│   ├── Header.tsx                # Topbar sticky con logo, búsqueda y wallet
+│   ├── DayPicker.tsx             # Selector horizontal de día de la semana
+│   ├── TodaysFeed.tsx            # Feed de mejores promos del día
+│   ├── MerchantSearch.tsx        # Búsqueda de comercios + chips de categoría
+│   ├── MerchantDetail.tsx        # Vista detalle con promo ganadora + alternativas
+│   ├── RecommendationCard.tsx    # Card de promo ganadora y AlternativeCard
+│   ├── WalletSetup.tsx           # Onboarding / gestión de tarjetas del usuario
+│   ├── PageTransition.tsx        # Overlay de transición landing ↔ app
+│   ├── InnerPageLayout.tsx       # Layout compartido para páginas internas
+│   └── ComingSoon.tsx            # Placeholder para secciones WIP
+│
+├── lib/
+│   ├── types.ts                  # Tipos de dominio (Bank, Card, Merchant, Promotion…)
+│   ├── db.ts                     # Cliente SQL de Neon (lazy-initialized, solo server)
+│   ├── api-client.ts             # Fetch wrappers para todos los endpoints
+│   ├── use-wallet.ts             # Hook localStorage para tarjetas del usuario
+│   ├── format.ts                 # Formateo de fechas y CLP en español chileno
+│   └── hooks/
+│       └── use-api.ts            # Hooks React: useBanks, useCards, useMerchants…
+│
+├── scripts/                      # Failsafe de base de datos
+│   ├── schema.sql                # DDL PostgreSQL — fuente de verdad del schema
+│   └── apply-schema.ts           # Aplica schema.sql a Neon (npm run db:schema)
+│
+├── public/
+│   └── manifest.json             # PWA manifest
+│
+└── legacy/                       # Prototipo HTML original (referencia)
 ```
+
+---
 
 ## Arquitectura
 
-### Motor de recomendación
+### Routing
 
-`recommendation-engine.ts` es una función pura: recibe `cardIds`, `merchantId`, `date` y `amount`, devuelve recomendaciones ordenadas por descuento. No toca DOM, fetch ni storage. Cuando exista backend, se mueve al servidor sin cambios.
+El proyecto tiene dos superficies:
+
+| Ruta | Tipo | Propósito |
+|---|---|---|
+| `/` | Client component | Landing page de marketing |
+| `/app` | Client component | Web app (vistas manejadas por estado React) |
+| `/blog`, `/contacto`, `/privacidad`, etc. | Server components | Páginas internas con `InnerPageLayout` |
+| `/api/*` | Edge Route Handlers | Queries directas a Neon PostgreSQL |
+
+La navegación entre la landing y la app usa un overlay de transición (`PageTransition.tsx`) con logo y shimmer bar. Las vistas dentro de `/app` (`home`, `merchant`, `wallet`) se controlan por estado React, no por URL.
 
 ### Wallet del usuario
 
-Vive en `localStorage` bajo `optiwallet:cards` como un array de IDs de tarjeta. El hook `useWallet` expone un flag `hydrated` para evitar mismatches de SSR.
+Vive en `localStorage` bajo `optiwallet:cards` como un array de IDs de tarjeta. El hook `useWallet` expone un flag `hydrated` para evitar mismatches de SSR. No hay cuentas de usuario ni sync entre dispositivos.
 
-### Datos
+### Capa de datos
 
-Todas las promos provienen del documento de beneficios BCI de abril 2026. Los tipos en `lib/types.ts` están modelados para mapear directamente a tablas SQL cuando se agregue un backend.
+Todos los datos viven en **Neon PostgreSQL** — no hay archivos de datos estáticos en el codebase. Los Route Handlers usan `export const runtime = "edge"` y el cliente lazy de `lib/db.ts`.
 
-### Transiciones
+**Tablas:**
 
-La navegación entre la landing (`/`) y la app (`/app`) usa un overlay con el logo y un shimmer bar. El app page recibe una animación de entrada escalonada. Las páginas internas tienen un fade-up sutil al montar.
+| Tabla | Contenido |
+|---|---|
+| `banks` | 14 bancos (solo BCI `available: true`) |
+| `cards` | Productos de tarjeta por banco (`credit` / `debit`) |
+| `merchant_categories` | 11 categorías con emoji |
+| `merchants` | ~25 comercios con aliases para búsqueda fuzzy |
+| `promotions` | Promociones activas con días, topes, fechas y modalidad |
+
+### Endpoints API
+
+| Endpoint | Params | Descripción |
+|---|---|---|
+| `GET /api/banks` | — | Todos los bancos |
+| `GET /api/cards` | `?bankId=` | Tarjetas, opcionalmente por banco |
+| `GET /api/categories` | — | Categorías de comercios |
+| `GET /api/merchants` | `?q=&category=` | Búsqueda fuzzy en nombre y aliases |
+| `GET /api/merchants/[id]` | — | Un comercio con su categoría |
+| `GET /api/promotions/[merchantId]` | — | Promos activas de un comercio |
+| `GET /api/recommendations` | `cardIds[]=&date=&merchantId=` | **Core:** join promos × tarjetas × comercios, filtra por día y fecha |
+| `GET /api/stats` | — | Conteos de promos, comercios y bancos (para la landing) |
+
+---
 
 ## Design system
 
-La paleta y tokens viven en `globals.css`:
+Tokens definidos en `globals.css` bajo `@theme {}` (Tailwind 4 CSS-first):
 
 | Token | Valor | Uso |
-|-------|-------|-----|
+|---|---|---|
 | `--bg` | `#0b0d0c` | Fondo principal |
-| `--ink` | `#f5f1e8` | Texto principal |
-| `--lime` | `#d4ff3a` | Acento primario |
-| `--copper` | `#d67846` | Acento secundario, labels |
+| `--bg-2` | `#13161a` | Superficies elevadas |
+| `--ink` | `#f5f1e8` | Texto principal (blanco cálido) |
+| `--ink-dim` | `#9a958a` | Texto secundario |
+| `--lime` | `#d4ff3a` | Acento primario — CTAs, selecciones, ganadora |
+| `--copper` | `#d67846` | Acento secundario — labels, advertencias |
 | `--plum` | `#4a2d5a` | Glows decorativos |
 | `--line` | `rgba(245,241,232,0.12)` | Bordes sutiles |
 
-Fuentes: **Fraunces** (serif, títulos), **Sora** (sans, cuerpo), **JetBrains Mono** (monospace, labels técnicas).
+**Fuentes:** Fraunces (serif, títulos), Sora (sans, cuerpo), JetBrains Mono (monospace, labels técnicas).
+
+**CSS strategy:** Tailwind utilities para la app; vanilla CSS scoped bajo `.landing-root` para la landing — nunca mezclar.
+
+---
 
 ## Scripts
 
 | Comando | Descripción |
-|---------|-------------|
+|---|---|
 | `npm run dev` | Dev server con Turbopack |
 | `npm run build` | Build de producción |
 | `npm run start` | Servir build de producción |
 | `npm run lint` | ESLint |
+| `npm run db:schema` | Aplicar `scripts/schema.sql` a Neon (requiere `.env.local`) |
+
+### Gestión de la base de datos
+
+Los datos se administran directamente desde la **consola de Neon**. No hay scripts de seed — la migración inicial ya fue completada.
+
+**Failsafe:** Si necesitas recrear el schema en un DB nuevo:
+
+```bash
+npm run db:schema
+```
+
+Esto aplica `scripts/schema.sql` contra la DB en tu `DATABASE_URL`.
+
+---
 
 ## PWA
 
-- `manifest.json` en `/public` con íconos configurados
-- `layout.tsx` declara `appleWebApp: { capable: true }` y `viewport-fit: cover`
+- `manifest.json` en `/public`: standalone, portrait, tema `#0b0d0c`, lang `es-CL`
+- Root layout: `appleWebApp: { capable: true, statusBarStyle: "black-translucent" }`
+- Viewport: no-scale (`userScalable: false`, `viewportFit: cover`)
 - CSS respeta safe areas de iOS con `env(safe-area-inset-*)`
-- Grain texture overlay para textura visual premium
+
+> **Nota:** El manifest referencia `icon-192.png`, `icon-512.png`, e `icon-maskable.png` que aún no están en `/public`. Solo existe `icon.svg`.
+
+---
 
 ## Limitaciones de la beta
 
-- Sin backend — datos estáticos curados manualmente
-- Sin cuentas, login ni sync entre dispositivos
-- Solo BCI tiene promos activas; los otros 13 bancos aparecen como "próximamente"
-- No se solicitan números de tarjeta, clave ni RUT
-- Sin service worker offline (pendiente)
+- Solo **BCI** tiene promos activas; los otros 13 bancos aparecen como "próximamente"
+- Sin cuentas ni sync — wallet es `localStorage` only
+- Sin service worker — no hay soporte offline real
+- Sin deep-linking dentro de `/app` — las vistas son estado React, no URL
+- 6 de 8 páginas internas son placeholders (`ComingSoon`)
+- Sin error boundaries globales
 
 ---
 
