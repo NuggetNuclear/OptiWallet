@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { useWallet } from "@/lib/use-wallet";
 import { Header } from "@/components/Header";
 import { DayPicker } from "@/components/DayPicker";
@@ -24,9 +24,16 @@ export default function HomePage() {
   const [selectedDay, setSelectedDay] = useState<number>(todayDow);
   const [view, setView] = useState<View>("home");
   const [selectedMerchant, setSelectedMerchant] = useState<string | null>(null);
-  const [showOnboarding, setShowOnboarding] = useState(false);
-  const [onboardingDone, setOnboardingDone] = useState(!isEmpty);
+  const [onboardingDone, setOnboardingDone] = useState(false);
+  const [hasEvaluatedOnboarding, setHasEvaluatedOnboarding] = useState(false);
   const [transitionDone, setTransitionDone] = useState(false);
+
+  useEffect(() => {
+    if (hydrated && !hasEvaluatedOnboarding) {
+      setOnboardingDone(!isEmpty);
+      setHasEvaluatedOnboarding(true);
+    }
+  }, [hydrated, isEmpty, hasEvaluatedOnboarding]);
 
   // Fecha efectiva para queries: si el día seleccionado no es hoy, usamos
   // la próxima ocurrencia de ese día de la semana. Para promos con rango
@@ -44,8 +51,8 @@ export default function HomePage() {
     setTransitionDone(true);
   }, []);
 
-  // Estado no hidratado: branded loading screen
-  if (!hydrated) {
+  // Estado no hidratado o evaluando onboarding: branded loading screen
+  if (!hydrated || !hasEvaluatedOnboarding) {
     return (
       <PageTransition mode="arrive" onComplete={handleTransitionComplete} />
     );
@@ -59,14 +66,13 @@ export default function HomePage() {
   }
 
   // Onboarding obligatorio si wallet vacía y no ha sido completado
-  if (!onboardingDone && !showOnboarding) {
+  if (!onboardingDone) {
     return (
       <WalletSetup
         selectedCardIds={cardIds}
         onToggleCard={toggleCard}
         onClearAll={clearWallet}
         onFinish={() => {
-          setShowOnboarding(true);
           setOnboardingDone(true);
         }}
       />
