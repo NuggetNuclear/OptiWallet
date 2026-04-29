@@ -134,10 +134,10 @@ Todos los datos viven en **Neon PostgreSQL** — no hay archivos de datos estát
 
 | Tabla | Contenido |
 |---|---|
-| `banks` | 14 bancos (solo BCI `available: true`) |
+| `banks` | Bancos e instituciones; campo `available` indica si tiene promos cargadas |
 | `cards` | Productos de tarjeta por banco (`credit` / `debit`) |
-| `merchant_categories` | 11 categorías con emoji |
-| `merchants` | ~25 comercios con aliases para búsqueda fuzzy |
+| `merchant_categories` | Categorías de comercios con emoji |
+| `merchants` | Comercios con aliases para búsqueda fuzzy |
 | `promotions` | Promociones activas con días, topes, fechas y modalidad |
 
 ### Endpoints API
@@ -213,11 +213,11 @@ Esto aplica `scripts/schema.sql` contra la DB en tu `DATABASE_URL`.
 
 ## Limitaciones de la beta
 
-- Solo **BCI** tiene promos activas; los otros 13 bancos aparecen como "próximamente"
+- La cobertura de bancos y comercios es parcial — los bancos sin promos cargadas aparecen como "próximamente" en la app
 - Sin cuentas ni sync — wallet es `localStorage` only
 - Sin service worker — no hay soporte offline real
 - Sin deep-linking dentro de `/app` — las vistas son estado React, no URL
-- 6 de 8 páginas internas son placeholders (`ComingSoon`)
+- Varias páginas internas son placeholders (`ComingSoon`)
 - Sin error boundaries globales
 
 ---
