@@ -14,7 +14,7 @@ import { formatDate, formatDayOfWeek } from "@/lib/format";
 type View = "home" | "merchant" | "wallet";
 
 export default function HomePage() {
-  const { cardIds, hydrated, isEmpty, toggleCard } = useWallet();
+  const { cardIds, hydrated, isEmpty, toggleCard, clearWallet } = useWallet();
 
   // Wrap in useMemo so the Date object is stable and doesn't invalidate
   // the effectiveDate useMemo on every render.
@@ -64,6 +64,7 @@ export default function HomePage() {
       <WalletSetup
         selectedCardIds={cardIds}
         onToggleCard={toggleCard}
+        onClearAll={clearWallet}
         onFinish={() => {
           setShowOnboarding(true);
           setOnboardingDone(true);
@@ -79,6 +80,7 @@ export default function HomePage() {
         mode="manage"
         selectedCardIds={cardIds}
         onToggleCard={toggleCard}
+        onClearAll={clearWallet}
         onFinish={() => setView("home")}
         onClose={() => setView("home")}
       />

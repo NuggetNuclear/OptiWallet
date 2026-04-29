@@ -10,6 +10,7 @@ interface WalletSetupProps {
   onFinish: () => void;
   mode?: "onboarding" | "manage";
   onClose?: () => void;
+  onClearAll?: () => void;
 }
 
 export function WalletSetup({
@@ -18,6 +19,7 @@ export function WalletSetup({
   onFinish,
   mode = "onboarding",
   onClose,
+  onClearAll,
 }: WalletSetupProps) {
   const [expandedBank, setExpandedBank] = useState<string | null>("bci");
   const hasSelection = selectedCardIds.length > 0;
@@ -130,6 +132,18 @@ export function WalletSetup({
         className="fixed inset-x-0 bottom-0 z-20 border-t border-line bg-bg/90 px-5 pt-4 backdrop-blur-xl"
         style={{ paddingBottom: "calc(var(--safe-bottom) + 16px)" }}
       >
+        {hasSelection && onClearAll && (
+          <button
+            onClick={onClearAll}
+            className="mx-auto mb-2 flex items-center gap-1.5 rounded-full border border-line px-3 py-1 font-mono text-[10px] uppercase tracking-widest text-ink-dim transition-colors hover:border-red-400 hover:text-red-400"
+            aria-label="Limpiar todas las tarjetas"
+          >
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
+              <path d="M18 6 6 18M6 6l12 12" />
+            </svg>
+            Limpiar todo
+          </button>
+        )}
         <button
           onClick={onFinish}
           disabled={!hasSelection}
