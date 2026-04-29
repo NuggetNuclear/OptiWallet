@@ -191,8 +191,7 @@ export default function HomePage() {
             </span>
           </div>
           <p className="mt-3 max-w-lg text-xs leading-relaxed text-ink-dim">
-            Datos cargados desde beneficios oficiales de BCI, abril 2026. Las
-            promociones cambian sin aviso; verifica condiciones antes de pagar.
+            Las promociones cambian sin aviso; verifica condiciones antes de pagar.
             OptiWallet no está afiliado a ningún banco.
           </p>
           <p className="mt-4 font-mono text-[10px] uppercase tracking-widest text-ink-dim">
