@@ -1,6 +1,10 @@
+// app/layout.tsx
+// CAMBIO Sprint 2: agregado ServiceWorkerRegistrar para PWA
+
 import type { Metadata, Viewport } from "next";
 import { Fraunces, Sora, JetBrains_Mono } from "next/font/google";
 import "./globals.css";
+import { ServiceWorkerRegistrar } from "@/components/ServiceWorkerRegistrar";
 
 const sora = Sora({
   subsets: ["latin"],
@@ -56,7 +60,11 @@ export default function RootLayout({
       lang="es-CL"
       className={`${sora.variable} ${fraunces.variable} ${jetbrains.variable}`}
     >
-      <body>{children}</body>
+      <body>
+        {/* Registra el SW en el cliente sin bloquear el render */}
+        <ServiceWorkerRegistrar />
+        {children}
+      </body>
     </html>
   );
 }

@@ -1,0 +1,172 @@
+// OptiWallet Service Worker
+// Sprint 2 — PWA offline support
+// Estrategia: Cache-first para assets estáticos, Network-first para API
+
+const CACHE_NAME = "optiwallet-v1";
+const STATIC_CACHE_NAME = "optiwallet-static-v1";
+const API_CACHE_NAME = "optiwallet-api-v1";
+
+// Assets que cacheamos inmediatamente al instalar
+const PRECACHE_URLS = [
+  "/",
+  "/app",
+  "/manifest.json",
+  "/icon-192.png",
+  "/icon-512.png",
+  "/icon-maskable.png",
+];
+
+// Rutas de API que cacheamos con estrategia network-first
+// (si no hay red, sirve el cache)
+const API_ROUTES = [
+  "/api/banks",
+  "/api/cards",
+  "/api/categories",
+  "/api/merchants",
+  "/api/stats",
+];
+
+// ─── INSTALL ──────────────────────────────────────────────────────────────────
+// Se ejecuta una sola vez cuando el SW se registra por primera vez.
+// Precacheamos los assets críticos para que la app funcione offline.
+self.addEventListener("install", (event) => {
+  event.waitUntil(
+    caches
+      .open(STATIC_CACHE_NAME)
+      .then((cache) => cache.addAll(PRECACHE_URLS))
+      .then(() => self.skipWaiting()) // activa el SW inmediatamente sin esperar
+  );
+});
+
+// ─── ACTIVATE ─────────────────────────────────────────────────────────────────
+// Limpia caches viejos de versiones anteriores del SW.
+self.addEventListener("activate", (event) => {
+  const validCaches = [CACHE_NAME, STATIC_CACHE_NAME, API_CACHE_NAME];
+
+  event.waitUntil(
+    caches
+      .keys()
+      .then((keys) =>
+        Promise.all(
+          keys
+            .filter((key) => !validCaches.includes(key))
+            .map((key) => caches.delete(key))
+        )
+      )
+      .then(() => self.clients.claim()) // toma control de todas las tabs abiertas
+  );
+});
+
+// ─── FETCH ────────────────────────────────────────────────────────────────────
+self.addEventListener("fetch", (event) => {
+  const { request } = event;
+  const url = new URL(request.url);
+
+  // Solo interceptamos requests del mismo origen
+  if (url.origin !== self.location.origin) return;
+
+  // Ignoramos requests que no son GET
+  if (request.method !== "GET") return;
+
+  // Estrategia según el tipo de recurso
+  if (isAPIRoute(url.pathname)) {
+    event.respondWith(networkFirstStrategy(request, API_CACHE_NAME));
+  } else if (isStaticAsset(url.pathname)) {
+    event.respondWith(cacheFirstStrategy(request, STATIC_CACHE_NAME));
+  } else {
+    // Páginas HTML: network-first con fallback a cache
+    event.respondWith(networkFirstStrategy(request, CACHE_NAME));
+  }
+});
+
+// ─── ESTRATEGIAS DE CACHE ─────────────────────────────────────────────────────
+
+/**
+ * Network-first: intenta la red, si falla usa el cache.
+ * Ideal para API y páginas que cambian frecuentemente.
+ */
+async function networkFirstStrategy(request, cacheName) {
+  const cache = await caches.open(cacheName);
+
+  try {
+    const networkResponse = await fetch(request);
+
+    // Solo cacheamos respuestas exitosas
+    if (networkResponse.ok) {
+      cache.put(request, networkResponse.clone());
+    }
+
+    return networkResponse;
+  } catch {
+    // Sin red — intentamos servir desde cache
+    const cachedResponse = await cache.match(request);
+
+    if (cachedResponse) {
+      return cachedResponse;
+    }
+
+    // Si tampoco hay cache, devolvemos una respuesta de error amigable
+    if (request.headers.get("accept")?.includes("application/json")) {
+      return new Response(
+        JSON.stringify({ error: "Sin conexión", offline: true }),
+        {
+          status: 503,
+          headers: { "Content-Type": "application/json" },
+        }
+      );
+    }
+
+    // Para páginas HTML, mostramos la landing cacheada como fallback
+    return (
+      (await cache.match("/")) ||
+      new Response("Sin conexión", { status: 503 })
+    );
+  }
+}
+
+/**
+ * Cache-first: sirve desde cache, actualiza en background.
+ * Ideal para íconos, fuentes y assets que no cambian.
+ */
+async function cacheFirstStrategy(request, cacheName) {
+  const cache = await caches.open(cacheName);
+  const cachedResponse = await cache.match(request);
+
+  if (cachedResponse) {
+    // Actualiza el cache en background (stale-while-revalidate)
+    fetch(request)
+      .then((networkResponse) => {
+        if (networkResponse.ok) cache.put(request, networkResponse);
+      })
+      .catch(() => {}); // silencia errores de red en background
+
+    return cachedResponse;
+  }
+
+  // No está en cache — buscamos en la red y cacheamos
+  try {
+    const networkResponse = await fetch(request);
+    if (networkResponse.ok) {
+      cache.put(request, networkResponse.clone());
+    }
+    return networkResponse;
+  } catch {
+    return new Response("Asset no disponible offline", { status: 503 });
+  }
+}
+
+// ─── HELPERS ──────────────────────────────────────────────────────────────────
+
+function isAPIRoute(pathname) {
+  return (
+    pathname.startsWith("/api/") &&
+    API_ROUTES.some((route) => pathname.startsWith(route))
+  );
+}
+
+function isStaticAsset(pathname) {
+  return (
+    pathname.startsWith("/_next/static/") ||
+    pathname.match(/\.(png|jpg|jpeg|svg|ico|woff2?|css|js)$/)
+  );
+}
