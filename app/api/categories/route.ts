@@ -4,10 +4,23 @@ import { NextResponse } from "next/server";
 
 
 export async function GET() {
-  const categories = await sql`
-    SELECT id, label, emoji
-    FROM merchant_categories
-    ORDER BY label
-  `;
-  return NextResponse.json(categories);
+  try {
+    const categories = await sql`
+      SELECT
+        mc.id,
+        mc.label,
+        mc.emoji,
+        count(m.id)::int AS merchant_count
+      FROM merchant_categories mc
+      LEFT JOIN merchants m ON m.category_id = mc.id
+      GROUP BY mc.id, mc.label, mc.emoji
+      ORDER BY mc.label
+    `;
+    return NextResponse.json(categories, {
+      headers: { "Cache-Control": "public, s-maxage=300, stale-while-revalidate=600" },
+    });
+  } catch (err) {
+    console.error("GET /api/categories failed:", err);
+    return NextResponse.json({ error: "Error interno" }, { status: 500 });
+  }
 }

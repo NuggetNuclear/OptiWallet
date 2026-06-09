@@ -4,35 +4,44 @@ import { NextRequest, NextResponse } from "next/server";
 
 
 export async function GET(req: NextRequest) {
-  const q        = req.nextUrl.searchParams.get("q")?.toLowerCase() ?? "";
+  const qRaw     = req.nextUrl.searchParams.get("q")?.toLowerCase().slice(0, 80) ?? "";
+  // Escapar comodines de LIKE: que buscar "100%" o "_" no actúe como patrón
+  const q        = qRaw.replace(/[\\%_]/g, "\\$&");
   const category = req.nextUrl.searchParams.get("category");
 
-  const merchants = await sql`
-    SELECT
-      m.id,
-      m.name,
-      m.category_id,
-      m.aliases,
-      mc.label AS category_label,
-      mc.emoji
-    FROM merchants m
-    JOIN merchant_categories mc ON m.category_id = mc.id
-    WHERE
-      (
-        ${q} = ''
-        OR lower(m.name) LIKE ${"%" + q + "%"}
-        OR EXISTS (
-          SELECT 1 FROM unnest(m.aliases) AS alias
-          WHERE lower(alias) LIKE ${"%" + q + "%"}
+  try {
+    const merchants = await sql`
+      SELECT
+        m.id,
+        m.name,
+        m.category_id,
+        m.aliases,
+        mc.label AS category_label,
+        mc.emoji
+      FROM merchants m
+      JOIN merchant_categories mc ON m.category_id = mc.id
+      WHERE
+        (
+          ${q} = ''
+          OR lower(m.name) LIKE ${"%" + q + "%"}
+          OR EXISTS (
+            SELECT 1 FROM unnest(m.aliases) AS alias
+            WHERE lower(alias) LIKE ${"%" + q + "%"}
+          )
         )
-      )
-      AND (
-        ${category ?? ""} = ''
-        OR m.category_id = ${category ?? ""}
-      )
-    ORDER BY m.name
-    LIMIT 50
-  `;
+        AND (
+          ${category ?? ""} = ''
+          OR m.category_id = ${category ?? ""}
+        )
+      ORDER BY m.name
+      LIMIT 50
+    `;
 
-  return NextResponse.json(merchants);
+    return NextResponse.json(merchants, {
+      headers: { "Cache-Control": "public, s-maxage=60, stale-while-revalidate=300" },
+    });
+  } catch (err) {
+    console.error("GET /api/merchants failed:", err);
+    return NextResponse.json({ error: "Error interno" }, { status: 500 });
+  }
 }

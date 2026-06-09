@@ -9,7 +9,10 @@ nav {
   position: fixed;
   top: 0; left: 0; right: 0;
   z-index: 100;
-  padding: 20px 40px;
+  /* --safe-top: en PWA standalone (viewport-fit=cover) el contenido se
+     extiende bajo el notch/Dynamic Island del iPhone — sin este offset
+     el nav queda dentro del notch */
+  padding: calc(var(--safe-top) + 20px) 40px 20px;
   display: flex;
   justify-content: space-between;
   align-items: center;
@@ -63,14 +66,14 @@ nav {
   box-shadow: 0 8px 24px rgba(212, 255, 58, 0.3);
 }
 @media (max-width: 768px) {
-  nav { padding: 16px 20px; }
+  nav { padding: calc(var(--safe-top) + 16px) 20px 16px; }
   .nav-links { display: none; }
 }
 
 /* ============ HERO ============ */
 .hero {
   min-height: 100vh;
-  padding: 140px 40px 80px;
+  padding: calc(var(--safe-top) + 140px) 40px 80px;
   display: grid;
   grid-template-columns: 1.2fr 1fr;
   gap: 60px;
@@ -377,7 +380,7 @@ nav {
 .alt-card-percent { font-family: var(--font-fraunces), serif; font-weight: 600; color: var(--ink); font-size: 16px; }
 
 @media (max-width: 900px) {
-  .hero { grid-template-columns: 1fr; gap: 60px; padding-top: 120px; }
+  .hero { grid-template-columns: 1fr; gap: 60px; padding-top: calc(var(--safe-top) + 120px); }
   .phone-wrap { order: 2; }
 }
 

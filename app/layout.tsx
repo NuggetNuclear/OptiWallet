@@ -25,6 +25,7 @@ const jetbrains = JetBrains_Mono({
 });
 
 export const metadata: Metadata = {
+  metadataBase: new URL("https://optiwallet.vercel.app"),
   title: "OptiWallet — Paga con la tarjeta correcta",
   description:
     "Te decimos con qué tarjeta pagar para ahorrar más en cada comercio de Chile. Sin datos bancarios, sin registro obligatorio.",

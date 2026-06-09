@@ -136,7 +136,7 @@ function Chip({ children, mono }: { children: React.ReactNode; mono?: boolean })
  * Alternativa más pequeña, para listas de opciones secundarias.
  */
 export function AlternativeCard({ recommendation }: { recommendation: RecommendationCardProps["recommendation"] }) {
-  const { promotion, card, merchant, bankName } = recommendation;
+  const { promotion, merchant, bankName } = recommendation;
 
   return (
     <div className="flex items-center justify-between rounded-2xl border border-line bg-bg-2 p-4 transition-colors hover:border-line-strong">

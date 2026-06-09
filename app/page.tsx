@@ -10,16 +10,16 @@ export default function LandingPage() {
   const [openFaq, setOpenFaq] = useState<number>(0);
   const { trigger, overlay } = usePageTransition();
 
-  // Dynamic date for the phone mockup and the "Hoy no es..." feature card
-  const { todayFormatted, randomDayName } = useMemo(() => {
+  // Dynamic date for the phone mockup and the "Hoy no es..." feature card.
+  // El día "que no es hoy" se elige de forma determinista (hoy + 3): evita
+  // Math.random durante el render (react-hooks/purity) y mismatches de
+  // hidratación entre el HTML prerenderizado y el cliente.
+  const { todayFormatted, otherDayName } = useMemo(() => {
     const now = new Date();
-    const todayIndex = now.getDay(); // 0=Dom … 6=Sáb
-    // Pick a random day index that is NOT today
-    const candidates = [0, 1, 2, 3, 4, 5, 6].filter((d) => d !== todayIndex);
-    const pick = candidates[Math.floor(Math.random() * candidates.length)];
+    const pick = (now.getDay() + 3) % 7; // siempre un día ≠ hoy
     return {
-      todayFormatted: formatDate(now).toLowerCase(),   // e.g. "miércoles · 29 de abril"
-      randomDayName: formatDayOfWeek(pick).toLowerCase(), // e.g. "martes"
+      todayFormatted: formatDate(now).toLowerCase(),    // e.g. "miércoles · 29 de abril"
+      otherDayName: formatDayOfWeek(pick).toLowerCase(), // e.g. "sábado"
     };
   }, []);
 
@@ -133,7 +133,7 @@ export default function LandingPage() {
             <div className="phone-screen">
               <div className="app-header">
                 <div>
-                  <div className="greeting">{todayFormatted}</div>
+                  <div className="greeting" suppressHydrationWarning>{todayFormatted}</div>
                   <div className="greeting-name">Hola, Gabriel</div>
                 </div>
                 <div style={{ width: "36px", height: "36px", borderRadius: "50%", background: "rgba(212,255,58,0.15)", display: "flex", alignItems: "center", justifyContent: "center", color: "var(--lime)", fontWeight: "700", fontFamily: "var(--font-fraunces), serif" }}>G</div>
@@ -204,7 +204,7 @@ export default function LandingPage() {
           <div className="step">
             <div className="step-num">02</div>
             <h3 className="step-title">Busca el comercio</h3>
-            <p className="step-text">Jumbo, Copec, Cinemark, La Polar, Sodimac, Starbucks... escribe el nombre del comercio o escanéalo con la cámara.</p>
+            <p className="step-text">Jumbo, Copec, Cinemark, La Polar, Sodimac, Starbucks... escribe el nombre del comercio y listo.</p>
           </div>
           <div className="step">
             <div className="step-num">03</div>
@@ -256,7 +256,7 @@ export default function LandingPage() {
                 <rect x="3" y="4" width="18" height="18" rx="2" /><path d="M16 2v4M8 2v4M3 10h18" />
               </svg>
             </div>
-            <h3>Hoy no es {randomDayName}</h3>
+            <h3 suppressHydrationWarning>Hoy no es {otherDayName}</h3>
             <p>Muchas promos dependen del día. OptiWallet sabe la fecha y solo te muestra lo vigente.</p>
           </div>
 
@@ -269,6 +269,7 @@ export default function LandingPage() {
             </div>
             <h3>Favoritos cerca tuyo</h3>
             <p>Marca los comercios que visitas seguido y recibe alertas cuando haya una promo imperdible.</p>
+            <p style={{ marginTop: "10px", fontFamily: "var(--font-jetbrains), monospace", fontSize: "10px", textTransform: "uppercase", letterSpacing: "0.15em", color: "var(--copper)" }}>Próximamente</p>
           </div>
 
           <div className="feature">
@@ -289,6 +290,7 @@ export default function LandingPage() {
             </div>
             <h3>Historial de ahorro</h3>
             <p>Mira cuánto llevas ahorrado en el mes, el año, y qué tarjeta es tu caballo ganador.</p>
+            <p style={{ marginTop: "10px", fontFamily: "var(--font-jetbrains), monospace", fontSize: "10px", textTransform: "uppercase", letterSpacing: "0.15em", color: "var(--copper)" }}>Próximamente</p>
           </div>
         </div>
       </section>
@@ -339,7 +341,7 @@ export default function LandingPage() {
         <div className="install-grid">
           <div className="install-steps">
             {[
-              { n: "01", title: "Abre optiwallet.cl en Safari", desc: "Desde tu iPhone o Android. No entres a la App Store." },
+              { n: "01", title: "Abre optiwallet.vercel.app en Safari", desc: "Desde tu iPhone o Android. No entres a la App Store." },
               { n: "02", title: "Toca el botón Compartir", desc: "El ícono del cuadrado con la flecha hacia arriba, abajo al centro." },
               { n: "03", title: "\"Añadir a pantalla de inicio\"", desc: "Aparece como una app normal. Ícono, pantalla completa, todo." },
               { n: "04", title: "Listo. Abre y arma tu wallet.", desc: "Marcas tus tarjetas en 30 segundos y ya está funcionando." },
@@ -356,7 +358,7 @@ export default function LandingPage() {
 
           <div className="install-visual">
             <div className="safari-mockup">
-              <span className="safari-url">optiwallet.cl</span>
+              <span className="safari-url">optiwallet.vercel.app</span>
               <span className="share-icon">↑</span>
             </div>
             <div style={{ background: "var(--bg)", border: "1px solid var(--line)", borderRadius: "12px", padding: "24px", color: "var(--ink)", display: "flex", alignItems: "center", gap: "16px" }}>
@@ -370,7 +372,7 @@ export default function LandingPage() {
               <div style={{ marginLeft: "auto", background: "var(--lime)", color: "var(--bg)", padding: "6px 14px", borderRadius: "8px", fontSize: "12px", fontWeight: "600" }}>Añadir</div>
             </div>
             <p style={{ fontFamily: "var(--font-jetbrains), monospace", fontSize: "11px", color: "var(--ink-dim)", marginTop: "20px", textTransform: "uppercase", letterSpacing: "0.1em" }}>
-              — Funciona offline · pesa &lt; 1MB —
+              — Sin App Store · directo desde el navegador —
             </p>
           </div>
         </div>

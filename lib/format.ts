@@ -25,6 +25,19 @@ const MESES = [
   "diciembre",
 ];
 
+/**
+ * Fecha como "YYYY-MM-DD" en hora LOCAL del dispositivo.
+ * Nunca usar `toISOString()` para esto: es UTC, y en Chile (UTC-3/-4)
+ * desde las ~21:00 ya es "mañana" en UTC — mostraría las promos del día
+ * siguiente como si fueran de hoy.
+ */
+export function toISODateLocal(date: Date): string {
+  const y = date.getFullYear();
+  const m = String(date.getMonth() + 1).padStart(2, "0");
+  const d = String(date.getDate()).padStart(2, "0");
+  return `${y}-${m}-${d}`;
+}
+
 export function formatDayOfWeek(day: number): string {
   return DIAS[day] ?? "";
 }

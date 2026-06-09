@@ -60,8 +60,8 @@ const sections = [
         No usamos Google Analytics, Meta Pixel, Hotjar, Mixpanel ni ninguna herramienta
         de seguimiento de usuarios. No hay SDKs de redes sociales, no hay píxeles de
         publicidad, no hay rastreadores de sesión.
-        La única red externa que contacta la app es la CDN de fuentes tipográficas
-        de Google Fonts, que opera bajo su propia política de privacidad.
+        Incluso las fuentes tipográficas se sirven desde nuestro propio dominio
+        — tu navegador no contacta la CDN de Google Fonts al usar la app.
       </p>
     ),
   },

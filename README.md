@@ -4,7 +4,7 @@
 
 OptiWallet cruza las promociones de bancos chilenos y recomienda la mejor tarjeta según el día y el comercio. Sin datos bancarios, sin cuentas, sin descargas — funciona como PWA directo desde el navegador.
 
-> v0.1.0-beta · Solo para Chile 🇨🇱
+> v0.1.0-beta · Solo para Chile 🇨🇱 · **Producción:** [optiwallet.vercel.app](https://optiwallet.vercel.app)
 
 ---
 
@@ -16,7 +16,7 @@ OptiWallet cruza las promociones de bancos chilenos y recomienda la mejor tarjet
 | UI | React + TypeScript | 19.2 + 6.0 |
 | Estilos | Tailwind CSS 4 + vanilla CSS | 4.2.4 |
 | Base de datos | Neon PostgreSQL (serverless) | @neondatabase/serverless ^1.1.0 |
-| Deploy | Vercel (Edge Runtime) | — |
+| Deploy | Vercel (serverless Node.js, región `gru1`) | — |
 | Tipografía | Fraunces · Sora · JetBrains Mono | Google Fonts |
 | PWA | manifest.json + Apple Web App meta | — |
 
@@ -56,7 +56,7 @@ OptiWallet/
 │   ├── globals.css               # Design tokens, animaciones, utilidades globales
 │   ├── landing.css               # Estilos exclusivos de la landing (~1200 líneas)
 │   ├── app/page.tsx              # Web app principal (/app)
-│   ├── api/                      # 7 Route Handlers (Edge Runtime)
+│   ├── api/                      # 8 Route Handlers (serverless Node.js)
 │   │   ├── banks/route.ts
 │   │   ├── cards/route.ts
 │   │   ├── categories/route.ts
@@ -100,7 +100,10 @@ OptiWallet/
 │   └── apply-schema.ts           # Aplica schema.sql a Neon (npm run db:schema)
 │
 ├── public/
-│   └── manifest.json             # PWA manifest
+│   ├── manifest.json             # PWA manifest
+│   └── icon-*.png                # Íconos PWA (192 / 512 / maskable)
+│
+├── vercel.json                   # Config de deploy — pin a región gru1
 │
 └── legacy/                       # Prototipo HTML original (referencia)
 ```
@@ -118,7 +121,7 @@ El proyecto tiene dos superficies:
 | `/` | Client component | Landing page de marketing |
 | `/app` | Client component | Web app (vistas manejadas por estado React) |
 | `/blog`, `/contacto`, `/privacidad`, etc. | Server components | Páginas internas con `InnerPageLayout` |
-| `/api/*` | Edge Route Handlers | Queries directas a Neon PostgreSQL |
+| `/api/*` | Route Handlers (serverless Node.js) | Queries directas a Neon PostgreSQL |
 
 La navegación entre la landing y la app usa un overlay de transición (`PageTransition.tsx`) con logo y shimmer bar. Las vistas dentro de `/app` (`home`, `merchant`, `wallet`) se controlan por estado React, no por URL.
 
@@ -155,7 +158,7 @@ Todos los datos viven en **Neon PostgreSQL** — no hay archivos de datos estát
 |---|---|---|
 | `GET /api/banks` | — | Todos los bancos |
 | `GET /api/cards` | `?bankId=` | Tarjetas, opcionalmente por banco |
-| `GET /api/categories` | — | Categorías de comercios |
+| `GET /api/categories` | — | Categorías de comercios con conteo de comercios (`merchant_count`) |
 | `GET /api/merchants` | `?q=&category=` | Búsqueda fuzzy en nombre y aliases |
 | `GET /api/merchants/[id]` | — | Un comercio con su categoría |
 | `GET /api/promotions/[merchantId]` | — | Promos activas de un comercio |
@@ -214,9 +217,8 @@ Esto aplica `scripts/schema.sql` contra la DB en tu `DATABASE_URL`.
 - `manifest.json` en `/public`: standalone, portrait, tema `#0b0d0c`, lang `es-CL`
 - Root layout: `appleWebApp: { capable: true, statusBarStyle: "black-translucent" }`
 - Viewport: no-scale (`userScalable: false`, `viewportFit: cover`)
-- CSS respeta safe areas de iOS con `env(safe-area-inset-*)`
-
-> **Nota:** El manifest referencia `icon-192.png`, `icon-512.png`, e `icon-maskable.png` que aún no están en `/public`. Solo existe `icon.svg`.
+- CSS respeta safe areas de iOS con `env(safe-area-inset-*)` (app y landing)
+- Íconos: `icon-192.png`, `icon-512.png` e `icon-maskable.png` en `/public`
 
 ---
 

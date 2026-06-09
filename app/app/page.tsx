@@ -14,26 +14,35 @@ import { formatDate, formatDayOfWeek } from "@/lib/format";
 type View = "home" | "merchant" | "wallet";
 
 export default function HomePage() {
-  const { cardIds, hydrated, isEmpty, toggleCard, clearWallet } = useWallet();
+  const { cardIds, hydrated, initiallyEmpty, toggleCard, clearWallet } = useWallet();
 
-  // Wrap in useMemo so the Date object is stable and doesn't invalidate
-  // the effectiveDate useMemo on every render.
-  const today = useMemo(() => new Date(), []);
+  // "Hoy" como estado: una PWA puede quedar abierta días. Se refresca al
+  // volver a la app (focus/visibilitychange) y cada minuto, actualizando
+  // solo cuando cambia el día calendario para no re-renderizar de más.
+  const [today, setToday] = useState(() => new Date());
+  useEffect(() => {
+    const refresh = () => {
+      setToday((prev) => {
+        const now = new Date();
+        return prev.toDateString() === now.toDateString() ? prev : now;
+      });
+    };
+    window.addEventListener("focus", refresh);
+    document.addEventListener("visibilitychange", refresh);
+    const interval = setInterval(refresh, 60_000);
+    return () => {
+      window.removeEventListener("focus", refresh);
+      document.removeEventListener("visibilitychange", refresh);
+      clearInterval(interval);
+    };
+  }, []);
   const todayDow = today.getDay();
 
   const [selectedDay, setSelectedDay] = useState<number>(todayDow);
   const [view, setView] = useState<View>("home");
   const [selectedMerchant, setSelectedMerchant] = useState<string | null>(null);
-  const [onboardingDone, setOnboardingDone] = useState(false);
-  const [hasEvaluatedOnboarding, setHasEvaluatedOnboarding] = useState(false);
+  const [onboardingComplete, setOnboardingComplete] = useState(false);
   const [transitionDone, setTransitionDone] = useState(false);
-
-  useEffect(() => {
-    if (hydrated && !hasEvaluatedOnboarding) {
-      setOnboardingDone(!isEmpty);
-      setHasEvaluatedOnboarding(true);
-    }
-  }, [hydrated, isEmpty, hasEvaluatedOnboarding]);
 
   // Fecha efectiva para queries: si el día seleccionado no es hoy, usamos
   // la próxima ocurrencia de ese día de la semana. Para promos con rango
@@ -51,29 +60,22 @@ export default function HomePage() {
     setTransitionDone(true);
   }, []);
 
-  // Estado no hidratado o evaluando onboarding: branded loading screen
-  if (!hydrated || !hasEvaluatedOnboarding) {
+  // Estado no hidratado o transición de llegada en curso: branded loading screen
+  if (!hydrated || !transitionDone) {
     return (
       <PageTransition mode="arrive" onComplete={handleTransitionComplete} />
     );
   }
 
-  // Show transition exit if we just arrived
-  if (!transitionDone) {
-    return (
-      <PageTransition mode="arrive" onComplete={handleTransitionComplete} />
-    );
-  }
-
-  // Onboarding obligatorio si wallet vacía y no ha sido completado
-  if (!onboardingDone) {
+  // Onboarding obligatorio si la wallet estaba vacía al llegar y aún no se completa
+  if (initiallyEmpty && !onboardingComplete) {
     return (
       <WalletSetup
         selectedCardIds={cardIds}
         onToggleCard={toggleCard}
         onClearAll={clearWallet}
         onFinish={() => {
-          setOnboardingDone(true);
+          setOnboardingComplete(true);
         }}
       />
     );
