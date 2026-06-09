@@ -4,7 +4,7 @@
 
 OptiWallet cruza las promociones de bancos chilenos y recomienda la mejor tarjeta según el día y el comercio. Sin datos bancarios, sin cuentas, sin descargas — funciona como PWA directo desde el navegador.
 
-> v0.1.0-beta · Solo para Chile 🇨🇱
+> v0.1.0-beta · Solo para Chile 🇨🇱 · **Producción:** [optiwallet.vercel.app](https://optiwallet.vercel.app)
 
 ---
 
@@ -16,7 +16,7 @@ OptiWallet cruza las promociones de bancos chilenos y recomienda la mejor tarjet
 | UI | React + TypeScript | 19.2 + 6.0 |
 | Estilos | Tailwind CSS 4 + vanilla CSS | 4.2.4 |
 | Base de datos | Neon PostgreSQL (serverless) | @neondatabase/serverless ^1.1.0 |
-| Deploy | Vercel (Edge Runtime) | — |
+| Deploy | Vercel (serverless Node.js, región `gru1`) | — |
 | Tipografía | Fraunces · Sora · JetBrains Mono | Google Fonts |
 | PWA | manifest.json + Apple Web App meta | — |
 
@@ -56,7 +56,7 @@ OptiWallet/
 │   ├── globals.css               # Design tokens, animaciones, utilidades globales
 │   ├── landing.css               # Estilos exclusivos de la landing (~1200 líneas)
 │   ├── app/page.tsx              # Web app principal (/app)
-│   ├── api/                      # 7 Route Handlers (Edge Runtime)
+│   ├── api/                      # 8 Route Handlers (serverless Node.js)
 │   │   ├── banks/route.ts
 │   │   ├── cards/route.ts
 │   │   ├── categories/route.ts
@@ -102,6 +102,8 @@ OptiWallet/
 ├── public/
 │   └── manifest.json             # PWA manifest
 │
+├── vercel.json                   # Config de deploy — pin a región gru1
+│
 └── legacy/                       # Prototipo HTML original (referencia)
 ```
 
@@ -118,7 +120,7 @@ El proyecto tiene dos superficies:
 | `/` | Client component | Landing page de marketing |
 | `/app` | Client component | Web app (vistas manejadas por estado React) |
 | `/blog`, `/contacto`, `/privacidad`, etc. | Server components | Páginas internas con `InnerPageLayout` |
-| `/api/*` | Edge Route Handlers | Queries directas a Neon PostgreSQL |
+| `/api/*` | Route Handlers (serverless Node.js) | Queries directas a Neon PostgreSQL |
 
 La navegación entre la landing y la app usa un overlay de transición (`PageTransition.tsx`) con logo y shimmer bar. Las vistas dentro de `/app` (`home`, `merchant`, `wallet`) se controlan por estado React, no por URL.
 

@@ -7,7 +7,8 @@ const STORAGE_KEY = "optiwallet:cards";
 /**
  * Hook minimalista para la wallet del usuario.
  * En Fase 2.2 esto se sincroniza con backend si el usuario crea cuenta,
- * pero por ahora todo vive en localStorage y la app funciona 100% offline.
+ * pero por ahora todo vive en localStorage — sin cuentas ni sync entre
+ * dispositivos. (Los datos de promos sí requieren conexión: vienen de la API.)
  *
  * Estado combinado en un solo objeto para evitar renders en cascada al hidratar.
  * (React requiere un único setState por efecto –react-hooks/set-state-in-effect)

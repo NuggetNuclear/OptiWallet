@@ -339,7 +339,7 @@ export default function LandingPage() {
         <div className="install-grid">
           <div className="install-steps">
             {[
-              { n: "01", title: "Abre optiwallet.cl en Safari", desc: "Desde tu iPhone o Android. No entres a la App Store." },
+              { n: "01", title: "Abre optiwallet.vercel.app en Safari", desc: "Desde tu iPhone o Android. No entres a la App Store." },
               { n: "02", title: "Toca el botón Compartir", desc: "El ícono del cuadrado con la flecha hacia arriba, abajo al centro." },
               { n: "03", title: "\"Añadir a pantalla de inicio\"", desc: "Aparece como una app normal. Ícono, pantalla completa, todo." },
               { n: "04", title: "Listo. Abre y arma tu wallet.", desc: "Marcas tus tarjetas en 30 segundos y ya está funcionando." },
@@ -356,7 +356,7 @@ export default function LandingPage() {
 
           <div className="install-visual">
             <div className="safari-mockup">
-              <span className="safari-url">optiwallet.cl</span>
+              <span className="safari-url">optiwallet.vercel.app</span>
               <span className="share-icon">↑</span>
             </div>
             <div style={{ background: "var(--bg)", border: "1px solid var(--line)", borderRadius: "12px", padding: "24px", color: "var(--ink)", display: "flex", alignItems: "center", gap: "16px" }}>

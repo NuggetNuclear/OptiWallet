@@ -3,7 +3,7 @@ import { neon } from "@neondatabase/serverless";
 /**
  * Lazy-initialized Neon client.
  *
- * We don't call `neon()` at module scope because Vercel evaluates edge route
+ * We don't call `neon()` at module scope because Vercel evaluates route
  * modules during `next build` (page data collection), when DATABASE_URL isn't
  * available. Wrapping it in a getter defers initialization to request time.
  */
