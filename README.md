@@ -100,7 +100,8 @@ OptiWallet/
 │   └── apply-schema.ts           # Aplica schema.sql a Neon (npm run db:schema)
 │
 ├── public/
-│   └── manifest.json             # PWA manifest
+│   ├── manifest.json             # PWA manifest
+│   └── icon-*.png                # Íconos PWA (192 / 512 / maskable)
 │
 ├── vercel.json                   # Config de deploy — pin a región gru1
 │
@@ -157,7 +158,7 @@ Todos los datos viven en **Neon PostgreSQL** — no hay archivos de datos estát
 |---|---|---|
 | `GET /api/banks` | — | Todos los bancos |
 | `GET /api/cards` | `?bankId=` | Tarjetas, opcionalmente por banco |
-| `GET /api/categories` | — | Categorías de comercios |
+| `GET /api/categories` | — | Categorías de comercios con conteo de comercios (`merchant_count`) |
 | `GET /api/merchants` | `?q=&category=` | Búsqueda fuzzy en nombre y aliases |
 | `GET /api/merchants/[id]` | — | Un comercio con su categoría |
 | `GET /api/promotions/[merchantId]` | — | Promos activas de un comercio |
@@ -216,9 +217,8 @@ Esto aplica `scripts/schema.sql` contra la DB en tu `DATABASE_URL`.
 - `manifest.json` en `/public`: standalone, portrait, tema `#0b0d0c`, lang `es-CL`
 - Root layout: `appleWebApp: { capable: true, statusBarStyle: "black-translucent" }`
 - Viewport: no-scale (`userScalable: false`, `viewportFit: cover`)
-- CSS respeta safe areas de iOS con `env(safe-area-inset-*)`
-
-> **Nota:** El manifest referencia `icon-192.png`, `icon-512.png`, e `icon-maskable.png` que aún no están en `/public`. Solo existe `icon.svg`.
+- CSS respeta safe areas de iOS con `env(safe-area-inset-*)` (app y landing)
+- Íconos: `icon-192.png`, `icon-512.png` e `icon-maskable.png` en `/public`
 
 ---
 

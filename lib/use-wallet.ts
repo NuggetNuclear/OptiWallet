@@ -14,9 +14,11 @@ const STORAGE_KEY = "optiwallet:cards";
  * (React requiere un único setState por efecto –react-hooks/set-state-in-effect)
  */
 export function useWallet() {
-  const [state, setState] = useState<{ cardIds: string[]; hydrated: boolean }>(
-    { cardIds: [], hydrated: false },
-  );
+  const [state, setState] = useState<{
+    cardIds: string[];
+    hydrated: boolean;
+    initiallyEmpty: boolean;
+  }>({ cardIds: [], hydrated: false, initiallyEmpty: true });
 
   // Cargar desde localStorage al montar (single setState call → sin cascada)
   useEffect(() => {
@@ -31,7 +33,7 @@ export function useWallet() {
       // localStorage puede no existir (incognito en Firefox, por ejemplo)
     }
     // eslint-disable-next-line react-hooks/set-state-in-effect -- standard SSR hydration: localStorage unavailable until mount
-    setState({ cardIds: loaded, hydrated: true });
+    setState({ cardIds: loaded, hydrated: true, initiallyEmpty: loaded.length === 0 });
   }, []);
 
   const persist = useCallback((next: string[]) => {
@@ -75,6 +77,9 @@ export function useWallet() {
     cardIds: state.cardIds,
     hydrated: state.hydrated,
     isEmpty: state.cardIds.length === 0,
+    /** Si la wallet estaba vacía al hidratar — fija el flujo de onboarding
+     *  una sola vez, sin cerrarlo a mitad cuando se marca la primera tarjeta. */
+    initiallyEmpty: state.initiallyEmpty,
     addCard,
     removeCard,
     toggleCard,

@@ -1,3 +1,5 @@
+import { toISODateLocal } from "@/lib/format";
+
 // ──────────────────────────────────────────────────────────────
 // API response types (snake_case — match Neon column names)
 // ──────────────────────────────────────────────────────────────
@@ -17,9 +19,10 @@ export type ApiCard = {
 };
 
 export type ApiCategory = {
-  id:    string;
-  label: string;
-  emoji: string;
+  id:             string;
+  label:          string;
+  emoji:          string;
+  merchant_count: number;
 };
 
 export type ApiMerchant = {
@@ -134,7 +137,7 @@ export async function getRecommendationsFromApi(params: {
 }): Promise<ApiRecommendation[]> {
   const url = buildUrl("/api/recommendations", {
     cardIds:    params.cardIds,
-    date:       params.date.toISOString().split("T")[0],
+    date:       toISODateLocal(params.date),
     ...(params.merchantId ? { merchantId: params.merchantId } : {}),
   });
   const res = await fetch(url);

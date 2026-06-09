@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import {
   getBanksFromApi,
   getCardsFromApi,
@@ -16,6 +16,7 @@ import {
   type ApiRecommendation,
   type ApiPromotion,
 } from "@/lib/api-client";
+import { toISODateLocal } from "@/lib/format";
 
 // ──────────────────────────────────────────────────────────────
 // Generic result shape
@@ -28,29 +29,82 @@ interface ApiState<T> {
 }
 
 // ──────────────────────────────────────────────────────────────
+// useApiQuery — fetch-on-render compartido por todos los hooks
+//
+// `loading` se DERIVA comparando la key del último resultado con la key
+// actual, en vez de hacer setState síncrono dentro del efecto (patrón que
+// React desaconseja por causar renders en cascada —
+// react-hooks/set-state-in-effect).
+// ──────────────────────────────────────────────────────────────
+
+interface QueryResult<T> {
+  key: string;
+  data: T;
+  error: string | null;
+}
+
+function useApiQuery<T>(
+  key: string,
+  fetcher: () => Promise<T>,
+  empty: T,
+  { debounceMs = 0, skip = false }: { debounceMs?: number; skip?: boolean } = {},
+): ApiState<T> {
+  const [result, setResult] = useState<QueryResult<T> | null>(null);
+
+  // Los callers pasan closures nuevas en cada render; las guardamos en un
+  // ref para que el efecto dependa solo de `key` (que codifica los params).
+  const fetcherRef = useRef(fetcher);
+  useEffect(() => {
+    fetcherRef.current = fetcher;
+  });
+
+  // Valor "vacío" estable: los callers pasan [] / null literales en cada
+  // render; el initial state congela la primera referencia.
+  const [stableEmpty] = useState(empty);
+
+  useEffect(() => {
+    if (skip) return;
+    let cancelled = false;
+
+    const run = () => {
+      fetcherRef
+        .current()
+        .then((data) => {
+          if (!cancelled) setResult({ key, data, error: null });
+        })
+        .catch((err: Error) => {
+          if (!cancelled) setResult({ key, data: stableEmpty, error: err.message });
+        });
+    };
+
+    const timer = debounceMs > 0 ? setTimeout(run, debounceMs) : null;
+    if (timer === null) run();
+
+    return () => {
+      cancelled = true;
+      if (timer !== null) clearTimeout(timer);
+    };
+  }, [key, skip, debounceMs, stableEmpty]);
+
+  if (skip) {
+    return { data: stableEmpty, loading: false, error: null };
+  }
+
+  return {
+    // Mientras carga una key nueva se mantiene la data anterior; los
+    // componentes deciden con `loading` si muestran skeletons.
+    data: result !== null ? result.data : stableEmpty,
+    loading: result === null || result.key !== key,
+    error: result !== null && result.key === key ? result.error : null,
+  };
+}
+
+// ──────────────────────────────────────────────────────────────
 // useBanks — load all banks once
 // ──────────────────────────────────────────────────────────────
 
 export function useBanks(): ApiState<ApiBank[]> {
-  const [state, setState] = useState<ApiState<ApiBank[]>>({
-    data: [],
-    loading: true,
-    error: null,
-  });
-
-  useEffect(() => {
-    let cancelled = false;
-    getBanksFromApi()
-      .then((data) => {
-        if (!cancelled) setState({ data, loading: false, error: null });
-      })
-      .catch((err) => {
-        if (!cancelled) setState({ data: [], loading: false, error: err.message });
-      });
-    return () => { cancelled = true; };
-  }, []);
-
-  return state;
+  return useApiQuery<ApiBank[]>("banks", getBanksFromApi, []);
 }
 
 // ──────────────────────────────────────────────────────────────
@@ -58,25 +112,7 @@ export function useBanks(): ApiState<ApiBank[]> {
 // ──────────────────────────────────────────────────────────────
 
 export function useCards(): ApiState<ApiCard[]> {
-  const [state, setState] = useState<ApiState<ApiCard[]>>({
-    data: [],
-    loading: true,
-    error: null,
-  });
-
-  useEffect(() => {
-    let cancelled = false;
-    getCardsFromApi()
-      .then((data) => {
-        if (!cancelled) setState({ data, loading: false, error: null });
-      })
-      .catch((err) => {
-        if (!cancelled) setState({ data: [], loading: false, error: err.message });
-      });
-    return () => { cancelled = true; };
-  }, []);
-
-  return state;
+  return useApiQuery<ApiCard[]>("cards", () => getCardsFromApi(), []);
 }
 
 // ──────────────────────────────────────────────────────────────
@@ -84,25 +120,7 @@ export function useCards(): ApiState<ApiCard[]> {
 // ──────────────────────────────────────────────────────────────
 
 export function useCategories(): ApiState<ApiCategory[]> {
-  const [state, setState] = useState<ApiState<ApiCategory[]>>({
-    data: [],
-    loading: true,
-    error: null,
-  });
-
-  useEffect(() => {
-    let cancelled = false;
-    getCategoriesFromApi()
-      .then((data) => {
-        if (!cancelled) setState({ data, loading: false, error: null });
-      })
-      .catch((err) => {
-        if (!cancelled) setState({ data: [], loading: false, error: err.message });
-      });
-    return () => { cancelled = true; };
-  }, []);
-
-  return state;
+  return useApiQuery<ApiCategory[]>("categories", getCategoriesFromApi, []);
 }
 
 // ──────────────────────────────────────────────────────────────
@@ -113,36 +131,16 @@ export function useMerchants(
   query: string,
   category: string | null,
 ): ApiState<ApiMerchant[]> {
-  const [state, setState] = useState<ApiState<ApiMerchant[]>>({
-    data: [],
-    loading: true,
-    error: null,
-  });
-
-  useEffect(() => {
-    let cancelled = false;
-    setState((s) => ({ ...s, loading: true }));
-
-    const timer = setTimeout(() => {
+  return useApiQuery<ApiMerchant[]>(
+    `merchants:${query}:${category ?? ""}`,
+    () =>
       getMerchantsFromApi({
         q: query || undefined,
         category: category || undefined,
-      })
-        .then((data) => {
-          if (!cancelled) setState({ data, loading: false, error: null });
-        })
-        .catch((err) => {
-          if (!cancelled) setState({ data: [], loading: false, error: err.message });
-        });
-    }, query ? 200 : 0); // debounce only on text input
-
-    return () => {
-      cancelled = true;
-      clearTimeout(timer);
-    };
-  }, [query, category]);
-
-  return state;
+      }),
+    [],
+    { debounceMs: query ? 200 : 0 }, // debounce only on text input
+  );
 }
 
 // ──────────────────────────────────────────────────────────────
@@ -154,38 +152,13 @@ export function useRecommendations(
   date: Date,
   merchantId?: string,
 ): ApiState<ApiRecommendation[]> {
-  const [state, setState] = useState<ApiState<ApiRecommendation[]>>({
-    data: [],
-    loading: true,
-    error: null,
-  });
-
-  // Stabilize cardIds array reference for the effect dependency
-  const cardIdsKey = cardIds.join(",");
-  const dateKey = date.toISOString().split("T")[0];
-
-  useEffect(() => {
-    if (cardIds.length === 0) {
-      setState({ data: [], loading: false, error: null });
-      return;
-    }
-
-    let cancelled = false;
-    setState((s) => ({ ...s, loading: true }));
-
-    getRecommendationsFromApi({ cardIds, date, merchantId })
-      .then((data) => {
-        if (!cancelled) setState({ data, loading: false, error: null });
-      })
-      .catch((err) => {
-        if (!cancelled) setState({ data: [], loading: false, error: err.message });
-      });
-
-    return () => { cancelled = true; };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [cardIdsKey, dateKey, merchantId]);
-
-  return state;
+  const dateKey = toISODateLocal(date);
+  return useApiQuery<ApiRecommendation[]>(
+    `recommendations:${cardIds.join(",")}:${dateKey}:${merchantId ?? ""}`,
+    () => getRecommendationsFromApi({ cardIds, date, merchantId }),
+    [],
+    { skip: cardIds.length === 0 },
+  );
 }
 
 // ──────────────────────────────────────────────────────────────
@@ -193,28 +166,11 @@ export function useRecommendations(
 // ──────────────────────────────────────────────────────────────
 
 export function usePromotions(merchantId: string): ApiState<ApiPromotion[]> {
-  const [state, setState] = useState<ApiState<ApiPromotion[]>>({
-    data: [],
-    loading: true,
-    error: null,
-  });
-
-  useEffect(() => {
-    let cancelled = false;
-    setState((s) => ({ ...s, loading: true }));
-
-    getPromotionsForMerchantFromApi(merchantId)
-      .then((data) => {
-        if (!cancelled) setState({ data, loading: false, error: null });
-      })
-      .catch((err) => {
-        if (!cancelled) setState({ data: [], loading: false, error: err.message });
-      });
-
-    return () => { cancelled = true; };
-  }, [merchantId]);
-
-  return state;
+  return useApiQuery<ApiPromotion[]>(
+    `promotions:${merchantId}`,
+    () => getPromotionsForMerchantFromApi(merchantId),
+    [],
+  );
 }
 
 // ──────────────────────────────────────────────────────────────
@@ -222,25 +178,9 @@ export function usePromotions(merchantId: string): ApiState<ApiPromotion[]> {
 // ──────────────────────────────────────────────────────────────
 
 export function useMerchantFromApi(merchantId: string): ApiState<ApiMerchant | null> {
-  const [state, setState] = useState<ApiState<ApiMerchant | null>>({
-    data: null,
-    loading: true,
-    error: null,
-  });
-
-  useEffect(() => {
-    let cancelled = false;
-
-    getMerchantByIdFromApi(merchantId)
-      .then((merchant) => {
-        if (!cancelled) setState({ data: merchant, loading: false, error: null });
-      })
-      .catch((err) => {
-        if (!cancelled) setState({ data: null, loading: false, error: err.message });
-      });
-
-    return () => { cancelled = true; };
-  }, [merchantId]);
-
-  return state;
+  return useApiQuery<ApiMerchant | null>(
+    `merchant:${merchantId}`,
+    () => getMerchantByIdFromApi(merchantId),
+    null,
+  );
 }

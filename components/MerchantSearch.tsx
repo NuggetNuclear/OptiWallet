@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { useMerchants, useCategories } from "@/lib/hooks/use-api";
-import type { ApiMerchant, ApiCategory } from "@/lib/api-client";
+import type { ApiMerchant } from "@/lib/api-client";
 
 interface MerchantSearchProps {
   onSelect: (merchantId: string) => void;
@@ -15,16 +15,10 @@ export function MerchantSearch({ onSelect }: MerchantSearchProps) {
   const { data: merchants, loading: merchantsLoading } = useMerchants(query, categoryFilter);
   const { data: categories, loading: categoriesLoading } = useCategories();
 
-  // Count merchants per category from the full unfiltered list
-  // We use a separate hook for the full list to get accurate counts
-  const { data: allMerchants } = useMerchants("", null);
-
-  const categoryStats = categories
-    .map((cat) => ({
-      ...cat,
-      count: allMerchants.filter((m) => m.category_id === cat.id).length,
-    }))
-    .filter((c) => c.count > 0);
+  // Los conteos por categoría vienen del servidor (/api/categories): la
+  // lista de búsqueda está limitada a 50 resultados y contarla en el
+  // cliente daría conteos incorrectos con más comercios.
+  const categoryStats = categories.filter((c) => c.merchant_count > 0);
 
   return (
     <div>
@@ -79,7 +73,7 @@ export function MerchantSearch({ onSelect }: MerchantSearchProps) {
                 label={cat.label}
                 emoji={cat.emoji}
                 active={categoryFilter === cat.id}
-                count={cat.count}
+                count={cat.merchant_count}
                 onClick={() =>
                   setCategoryFilter(categoryFilter === cat.id ? null : cat.id)
                 }
