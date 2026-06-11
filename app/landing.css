@@ -66,7 +66,8 @@ nav {
   box-shadow: 0 8px 24px rgba(212, 255, 58, 0.3);
 }
 @media (max-width: 768px) {
-  nav { padding: calc(var(--safe-top) + 16px) 20px 16px; }
+  /* El padding mobile del nav vive en MOBILE OVERRIDES (al final del
+     archivo) para evitar dos bloques 768px compitiendo por la misma regla. */
   .nav-links { display: none; }
 }
 
@@ -899,14 +900,17 @@ nav {
   .landing-root h1 .strike::after { height: 3px; }
 
   nav {
-    padding: 14px 18px;
+    /* OJO: mantener --safe-top aquí. Esta regla pisa la del bloque 768px
+       de arriba (misma especificidad, aparece después) — sin el offset
+       el nav queda bajo el notch/Dynamic Island en PWA standalone. */
+    padding: calc(var(--safe-top) + 14px) 18px 14px;
   }
   .logo { font-size: 18px; gap: 6px; }
   .logo-dot { width: 8px; height: 8px; }
   .nav-cta { padding: 8px 14px; font-size: 12px; }
 
   .hero {
-    padding: 110px 20px 60px;
+    padding: calc(var(--safe-top) + 110px) 20px 60px;
     gap: 40px;
   }
   .hero::before {

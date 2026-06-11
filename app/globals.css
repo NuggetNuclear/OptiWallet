@@ -66,9 +66,26 @@
     --line-strong: var(--color-line-strong);
     --noise-opacity: 0.035;
 
-    /* Safe areas for iOS */
+    /* Safe areas for iOS (requiere viewport-fit=cover, ver app/layout.tsx) */
     --safe-top: env(safe-area-inset-top, 0px);
     --safe-bottom: env(safe-area-inset-bottom, 0px);
+
+    /* ─── Layout tokens ──────────────────────────────────
+     * Única fuente de verdad para el chrome de la app.
+     * Un futuro rediseño ajusta estos valores (y los
+     * componentes en components/layout/) en un solo lugar.
+     * IMPORTANTE: cualquier barra pegada al borde superior/
+     * inferior debe sumar --safe-top / --safe-bottom — nunca
+     * usar paddings fijos que los pisen (ver bug del notch
+     * que tuvimos en landing.css MOBILE OVERRIDES).
+     */
+    --page-px: 20px;        /* padding horizontal de página (= px-5) */
+    --topbar-pad-y: 14px;   /* padding vertical de la barra superior */
+    --dock-pad-y: 16px;     /* padding vertical del dock inferior */
+
+    /* Paddings compuestos listos para usar */
+    --topbar-pad-top: calc(var(--safe-top) + var(--topbar-pad-y));
+    --dock-pad-bottom: calc(var(--safe-bottom) + var(--dock-pad-y));
   }
 }
 

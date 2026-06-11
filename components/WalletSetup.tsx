@@ -3,6 +3,9 @@
 import { useState } from "react";
 import { useBanks, useCards } from "@/lib/hooks/use-api";
 import type { ApiBank, ApiCard } from "@/lib/api-client";
+import { TopBar } from "./layout/TopBar";
+import { BottomDock } from "./layout/BottomDock";
+import { BackButton } from "./layout/BackButton";
 
 interface WalletSetupProps {
   selectedCardIds: string[];
@@ -42,24 +45,16 @@ export function WalletSetup({
       </div>
 
       {mode === "manage" && onClose && (
-        <div
-          className="relative z-10 flex items-center justify-between"
-          style={{ paddingTop: "calc(var(--safe-top) + 14px)", paddingBottom: "14px" }}
-        >
-          <button
-            onClick={onClose}
-            className="flex items-center gap-2 text-sm text-ink-dim transition-colors hover:text-ink"
-            aria-label="Cerrar"
-          >
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
-              <path d="M19 12H5m0 0l6-6m-6 6l6 6" />
-            </svg>
-            Volver
-          </button>
-          <span className="font-mono text-[10px] uppercase tracking-widest text-ink-dim">
-            Mi wallet
-          </span>
-        </div>
+        <TopBar
+          variant="plain"
+          flush
+          left={<BackButton onClick={onClose} dim />}
+          right={
+            <span className="font-mono text-[10px] uppercase tracking-widest text-ink-dim">
+              Mi wallet
+            </span>
+          }
+        />
       )}
 
       <div
@@ -128,10 +123,7 @@ export function WalletSetup({
       </div>
 
       {/* CTA flotante */}
-      <div
-        className="fixed inset-x-0 bottom-0 z-20 border-t border-line bg-bg/90 px-5 pt-4 backdrop-blur-xl"
-        style={{ paddingBottom: "calc(var(--safe-bottom) + 16px)" }}
-      >
+      <BottomDock>
         {hasSelection && onClearAll && (
           <button
             onClick={onClearAll}
@@ -160,7 +152,7 @@ export function WalletSetup({
             "Elige al menos una tarjeta"
           )}
         </button>
-      </div>
+      </BottomDock>
     </div>
   );
 }
