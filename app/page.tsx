@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 import { usePageTransition } from "@/components/PageTransition";
+import { StandaloneRedirect } from "@/components/StandaloneRedirect";
 import { formatDate, formatDayOfWeek } from "@/lib/format";
 import "./landing.css";
 
@@ -72,6 +73,8 @@ export default function LandingPage() {
 
   return (
     <div className="landing-root">
+      {/* PWA standalone → /app (fallback client-side; el server-side vive en proxy.ts) */}
+      <StandaloneRedirect />
       {overlay}
 
       {/* ============ NAV ============ */}

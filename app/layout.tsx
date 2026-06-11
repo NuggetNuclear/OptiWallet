@@ -5,6 +5,7 @@ import type { Metadata, Viewport } from "next";
 import { Fraunces, Sora, JetBrains_Mono } from "next/font/google";
 import "./globals.css";
 import { ServiceWorkerRegistrar } from "@/components/ServiceWorkerRegistrar";
+import { StandaloneCookieSync } from "@/components/StandaloneCookieSync";
 
 const sora = Sora({
   subsets: ["latin"],
@@ -63,6 +64,8 @@ export default function RootLayout({
       <body>
         {/* Registra el SW en el cliente sin bloquear el render */}
         <ServiceWorkerRegistrar />
+        {/* Cookie ow_standalone en sync con el modo real (ver lib/standalone.ts) */}
+        <StandaloneCookieSync />
         {children}
       </body>
     </html>
