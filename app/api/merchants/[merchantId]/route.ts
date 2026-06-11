@@ -1,4 +1,5 @@
 import { sql } from "@/lib/db";
+import { isValidId } from "@/lib/validate";
 import { NextRequest, NextResponse } from "next/server";
 
 
@@ -8,6 +9,10 @@ export async function GET(
   { params }: { params: Promise<{ merchantId: string }> }
 ) {
   const { merchantId } = await params;
+
+  if (!isValidId(merchantId)) {
+    return NextResponse.json({ error: "ID inválido" }, { status: 400 });
+  }
 
   try {
     const rows = await sql`

@@ -1,4 +1,5 @@
 import { sql } from "@/lib/db";
+import { isValidId } from "@/lib/validate";
 import { NextRequest, NextResponse } from "next/server";
 
 
@@ -9,10 +10,30 @@ export async function GET(
 ) {
   const { merchantId } = await params;
 
+  if (!isValidId(merchantId)) {
+    return NextResponse.json({ error: "ID inválido" }, { status: 400 });
+  }
+
   try {
+    // Columnas explícitas (las que describe ApiPromotion) — sin created_at /
+    // updated_at ni campos internos futuros.
     const promos = await sql`
       SELECT
-        p.*,
+        p.id,
+        p.bank_id,
+        p.card_types,
+        p.merchant_id,
+        p.discount,
+        p.cap,
+        p.days_of_week,
+        p.start_date,
+        p.end_date,
+        p.modality,
+        p.code,
+        p.conditions,
+        p.source,
+        p.verified_at,
+        p.active,
         b.name AS bank_name
       FROM promotions p
       JOIN banks b ON p.bank_id = b.id

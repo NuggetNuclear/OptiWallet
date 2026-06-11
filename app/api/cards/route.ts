@@ -1,10 +1,15 @@
 import { sql } from "@/lib/db";
+import { isValidId } from "@/lib/validate";
 import { NextRequest, NextResponse } from "next/server";
 
 
 
 export async function GET(req: NextRequest) {
   const bankId = req.nextUrl.searchParams.get("bankId");
+
+  if (bankId !== null && !isValidId(bankId)) {
+    return NextResponse.json({ error: "bankId inválido" }, { status: 400 });
+  }
 
   try {
     const cards = await sql`

@@ -5,8 +5,12 @@ import { NextResponse } from "next/server";
 
 export async function GET() {
   try {
+    // Columnas explícitas: si la tabla gana campos internos a futuro,
+    // no se filtran solos por la API.
     const banks = await sql`
-      SELECT * FROM banks ORDER BY available DESC, name ASC
+      SELECT id, name, short_name, available
+      FROM banks
+      ORDER BY available DESC, name ASC
     `;
     return NextResponse.json(banks, {
       headers: { "Cache-Control": "public, s-maxage=300, stale-while-revalidate=600" },

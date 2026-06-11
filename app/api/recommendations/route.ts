@@ -1,4 +1,5 @@
 import { sql } from "@/lib/db";
+import { areValidIds, isValidId } from "@/lib/validate";
 import { NextRequest, NextResponse } from "next/server";
 
 
@@ -14,6 +15,14 @@ export async function GET(req: NextRequest) {
   if (!cardIds.length) return NextResponse.json([]);
   if (cardIds.length > 100) {
     return NextResponse.json({ error: "Demasiadas tarjetas" }, { status: 400 });
+  }
+  // Defensa en profundidad: las queries van parametrizadas, pero un ID
+  // malformado no tiene por qué llegar a la base.
+  if (!areValidIds(cardIds)) {
+    return NextResponse.json({ error: "cardIds inválidos" }, { status: 400 });
+  }
+  if (merchantId !== null && !isValidId(merchantId)) {
+    return NextResponse.json({ error: "merchantId inválido" }, { status: 400 });
   }
   if (!/^\d{4}-\d{2}-\d{2}$/.test(dateStr)) {
     return NextResponse.json({ error: "Fecha inválida (YYYY-MM-DD)" }, { status: 400 });

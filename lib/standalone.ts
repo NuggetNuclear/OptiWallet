@@ -29,9 +29,12 @@ export function isStandalone(): boolean {
 
 export function syncStandaloneCookie(): void {
   if (typeof document === "undefined") return;
+  // `secure` solo en HTTPS: en `next dev` (http://localhost) un cookie Secure
+  // sería ignorado por el browser y la redirección no se podría probar local.
+  const secure = window.location.protocol === "https:" ? "; secure" : "";
   if (isStandalone()) {
-    document.cookie = `${STANDALONE_COOKIE}=1; path=/; max-age=31536000; samesite=lax`;
+    document.cookie = `${STANDALONE_COOKIE}=1; path=/; max-age=31536000; samesite=lax${secure}`;
   } else if (document.cookie.includes(`${STANDALONE_COOKIE}=1`)) {
-    document.cookie = `${STANDALONE_COOKIE}=; path=/; max-age=0`;
+    document.cookie = `${STANDALONE_COOKIE}=; path=/; max-age=0; samesite=lax${secure}`;
   }
 }

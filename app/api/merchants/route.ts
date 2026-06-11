@@ -1,4 +1,5 @@
 import { sql } from "@/lib/db";
+import { isValidId } from "@/lib/validate";
 import { NextRequest, NextResponse } from "next/server";
 
 
@@ -8,6 +9,10 @@ export async function GET(req: NextRequest) {
   // Escapar comodines de LIKE: que buscar "100%" o "_" no actúe como patrón
   const q        = qRaw.replace(/[\\%_]/g, "\\$&");
   const category = req.nextUrl.searchParams.get("category");
+
+  if (category !== null && !isValidId(category)) {
+    return NextResponse.json({ error: "category inválida" }, { status: 400 });
+  }
 
   try {
     const merchants = await sql`
