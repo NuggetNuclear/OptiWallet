@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { useRecommendations, usePromotions, useMerchantFromApi } from "@/lib/hooks/use-api";
 import { daysOfWeekLabel, formatCLP, modalityLabel } from "@/lib/format";
 import { AlternativeCard, RecommendationCard } from "./RecommendationCard";
@@ -74,7 +74,7 @@ export function MerchantDetail({
     merchantId,
   );
 
-  const bankNameMap = buildBankNameMap(allPromos);
+  const bankNameMap = useMemo(() => buildBankNameMap(allPromos), [allPromos]);
   const getBankName = (bankId: string) => bankNameMap.get(bankId) ?? bankId;
 
   const winner = applicableRecs[0];
@@ -330,9 +330,13 @@ function PromoRow({
               </span>
             </div>
           )}
-          {promo.start_date && promo.end_date && (
+          {(promo.start_date || promo.end_date) && (
             <div className="mt-1 font-mono text-[10px] text-copper">
-              Vigente {formatIsoDate(promo.start_date)} — {formatIsoDate(promo.end_date)}
+              {promo.start_date && promo.end_date
+                ? `Vigente ${formatIsoDate(promo.start_date)} — ${formatIsoDate(promo.end_date)}`
+                : promo.start_date
+                  ? `Desde ${formatIsoDate(promo.start_date)}`
+                  : `Hasta ${formatIsoDate(promo.end_date!)}`}
             </div>
           )}
           {promo.conditions && (
@@ -352,6 +356,12 @@ function PromoRow({
 function formatIsoDate(iso: string): string {
   // Handle ISO strings like "2026-04-20T04:00:00.000Z"
   const dateStr = iso.split("T")[0];
-  const [, m, d] = dateStr.split("-");
+  const [y, m, d] = dateStr.split("-");
+  const currentYear = new Date().getFullYear();
+  const year = parseInt(y, 10);
+  // Include year when the promotion date is in a different year
+  if (year !== currentYear) {
+    return `${parseInt(d, 10)}/${parseInt(m, 10)}/${y}`;
+  }
   return `${parseInt(d, 10)}/${parseInt(m, 10)}`;
 }

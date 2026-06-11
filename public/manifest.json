@@ -2,7 +2,7 @@
   "name": "OptiWallet",
   "short_name": "OptiWallet",
   "description": "Paga con la tarjeta correcta. Recomendador de promos por comercio y día en Chile.",
-  "start_url": "/",
+  "start_url": "/app",
   "display": "standalone",
   "orientation": "portrait",
   "background_color": "#0b0d0c",

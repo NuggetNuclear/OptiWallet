@@ -81,7 +81,9 @@ export type ApiPromotion = {
 // ──────────────────────────────────────────────────────────────
 
 function buildUrl(path: string, params: Record<string, string | string[]>): string {
-  const url = new URL(path, window.location.origin);
+  // Use a dummy base for URL construction — we only need the path + query string.
+  // This avoids depending on `window.location.origin` which is unavailable in SSR.
+  const url = new URL(path, "http://localhost");
   for (const [key, val] of Object.entries(params)) {
     if (Array.isArray(val)) {
       val.forEach((v) => url.searchParams.append(key, v));
@@ -89,7 +91,7 @@ function buildUrl(path: string, params: Record<string, string | string[]>): stri
       url.searchParams.set(key, val);
     }
   }
-  return url.toString();
+  return url.pathname + url.search;
 }
 
 // ──────────────────────────────────────────────────────────────

@@ -40,33 +40,57 @@ export function useWallet() {
     setState((prev) => ({ ...prev, cardIds: next }));
     try {
       localStorage.setItem(STORAGE_KEY, JSON.stringify(next));
-    } catch {}
+    } catch (e) {
+      console.warn("[OptiWallet] No se pudo guardar la wallet en localStorage:", e);
+    }
   }, []);
 
   const addCard = useCallback(
     (cardId: string) => {
-      if (state.cardIds.includes(cardId)) return;
-      persist([...state.cardIds, cardId]);
+      setState((prev) => {
+        if (prev.cardIds.includes(cardId)) return prev;
+        const next = [...prev.cardIds, cardId];
+        try {
+          localStorage.setItem(STORAGE_KEY, JSON.stringify(next));
+        } catch (e) {
+          console.warn("[OptiWallet] No se pudo guardar la wallet en localStorage:", e);
+        }
+        return { ...prev, cardIds: next };
+      });
     },
-    [state.cardIds, persist],
+    [],
   );
 
   const removeCard = useCallback(
     (cardId: string) => {
-      persist(state.cardIds.filter((id) => id !== cardId));
+      setState((prev) => {
+        const next = prev.cardIds.filter((id) => id !== cardId);
+        try {
+          localStorage.setItem(STORAGE_KEY, JSON.stringify(next));
+        } catch (e) {
+          console.warn("[OptiWallet] No se pudo guardar la wallet en localStorage:", e);
+        }
+        return { ...prev, cardIds: next };
+      });
     },
-    [state.cardIds, persist],
+    [],
   );
 
   const toggleCard = useCallback(
     (cardId: string) => {
-      if (state.cardIds.includes(cardId)) {
-        persist(state.cardIds.filter((id) => id !== cardId));
-      } else {
-        persist([...state.cardIds, cardId]);
-      }
+      setState((prev) => {
+        const next = prev.cardIds.includes(cardId)
+          ? prev.cardIds.filter((id) => id !== cardId)
+          : [...prev.cardIds, cardId];
+        try {
+          localStorage.setItem(STORAGE_KEY, JSON.stringify(next));
+        } catch (e) {
+          console.warn("[OptiWallet] No se pudo guardar la wallet en localStorage:", e);
+        }
+        return { ...prev, cardIds: next };
+      });
     },
-    [state.cardIds, persist],
+    [],
   );
 
   const clearWallet = useCallback(() => {

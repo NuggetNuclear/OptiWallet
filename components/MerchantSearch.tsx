@@ -101,7 +101,9 @@ export function MerchantSearch({ onSelect }: MerchantSearchProps) {
               Sin resultados
             </div>
             <div className="mt-2 text-sm text-ink">
-              {`No encontramos "${query}".`}
+              {query
+                ? `No encontramos "${query}".`
+                : "No hay comercios en esta categoría."}
             </div>
             <div className="mt-1 text-xs text-ink-dim">
               Puede que aún no cubramos ese comercio.

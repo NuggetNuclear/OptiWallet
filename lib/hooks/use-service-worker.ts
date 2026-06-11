@@ -8,6 +8,7 @@ export function useServiceWorker() {
   useEffect(() => {
     // Solo en producción y si el browser soporta SW
     if (
+      process.env.NODE_ENV !== "production" ||
       typeof window === "undefined" ||
       !("serviceWorker" in navigator)
     ) {

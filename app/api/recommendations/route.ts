@@ -18,6 +18,10 @@ export async function GET(req: NextRequest) {
   if (!/^\d{4}-\d{2}-\d{2}$/.test(dateStr)) {
     return NextResponse.json({ error: "Fecha inválida (YYYY-MM-DD)" }, { status: 400 });
   }
+  // Catch logically invalid dates that pass the regex (e.g. "9999-99-99")
+  if (isNaN(new Date(dateStr + "T00:00:00Z").getTime())) {
+    return NextResponse.json({ error: "Fecha inválida" }, { status: 400 });
+  }
 
   // getUTCDay sobre medianoche UTC: día calendario exacto de dateStr,
   // independiente de la zona horaria del servidor

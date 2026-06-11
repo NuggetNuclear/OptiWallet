@@ -21,7 +21,7 @@ export function WalletSetup({
   onClose,
   onClearAll,
 }: WalletSetupProps) {
-  const [expandedBank, setExpandedBank] = useState<string | null>("bci");
+  const [expandedBank, setExpandedBank] = useState<string | null>(null);
   const hasSelection = selectedCardIds.length > 0;
   const isOnboarding = mode === "onboarding";
 

@@ -2,7 +2,12 @@ import { neon } from "@neondatabase/serverless";
 import * as fs from "fs";
 import * as path from "path";
 
-const sql = neon(process.env.DATABASE_URL!);
+if (!process.env.DATABASE_URL) {
+  console.error("❌ DATABASE_URL no está definida. Asegúrate de tener el .env configurado.");
+  process.exit(1);
+}
+
+const sql = neon(process.env.DATABASE_URL);
 
 async function applySchema() {
   const schemaPath = path.join(__dirname, "schema.sql");

@@ -7,13 +7,17 @@ import { neon } from "@neondatabase/serverless";
  * modules during `next build` (page data collection), when DATABASE_URL isn't
  * available. Wrapping it in a getter defers initialization to request time.
  */
+let cachedClient: ReturnType<typeof neon> | null = null;
+
 export function sql(
   strings: TemplateStringsArray,
   ...values: unknown[]
 ) {
-  if (!process.env.DATABASE_URL) {
-    throw new Error("DATABASE_URL no está definida");
+  if (!cachedClient) {
+    if (!process.env.DATABASE_URL) {
+      throw new Error("DATABASE_URL no está definida");
+    }
+    cachedClient = neon(process.env.DATABASE_URL);
   }
-  const query = neon(process.env.DATABASE_URL);
-  return query(strings, ...values);
+  return cachedClient(strings, ...values);
 }

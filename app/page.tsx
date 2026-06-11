@@ -6,6 +6,33 @@ import { usePageTransition } from "@/components/PageTransition";
 import { formatDate, formatDayOfWeek } from "@/lib/format";
 import "./landing.css";
 
+const FAQS = [
+  {
+    q: "¿Es realmente gratis?",
+    a: "Sí. Durante la beta es 100% gratuita. A futuro evaluaremos un plan Premium opcional con alertas geolocalizadas y comparador de cuotas, pero la funcionalidad core siempre será gratis.",
+  },
+  {
+    q: "¿Necesito conectar mi cuenta bancaria?",
+    a: "No. Jamás. Solo nos dices qué tarjetas tienes (Banco X, producto Y). No pedimos número, clave, RUT ni acceso a tu banca en línea. La app funciona sin leer un solo peso de tu cuenta.",
+  },
+  {
+    q: "¿De dónde sacan las promos?",
+    a: "De los canales oficiales de cada banco y emisor: sitios web, apps oficiales, newsletters y comunicados. Nuestro equipo actualiza la base diariamente y verifica la vigencia de cada promoción antes de publicarla.",
+  },
+  {
+    q: "¿Funciona fuera de Chile?",
+    a: "Hoy no. OptiWallet está diseñada exclusivamente para el ecosistema financiero chileno. Queremos hacer esto muy bien en un mercado antes de pensar en otros países.",
+  },
+  {
+    q: "¿Qué pasa si una promo ya no está vigente?",
+    a: "Tenemos un sistema de reporte en cada recomendación. Si ves una promo caducada, nos avisas con un toque y la bajamos en minutos. También puedes proponer promos nuevas que encuentres.",
+  },
+  {
+    q: "¿Quién está detrás de OptiWallet?",
+    a: "Un equipo de estudiantes de ingeniería de la UDP que estábamos cansados de pagar Jumbo los jueves con la tarjeta equivocada. Construido en Chile, para Chile.",
+  },
+];
+
 export default function LandingPage() {
   const [openFaq, setOpenFaq] = useState<number>(0);
   const { trigger, overlay } = usePageTransition();
@@ -24,7 +51,7 @@ export default function LandingPage() {
   }, []);
 
   const toggleFaq = (index: number) => {
-    setOpenFaq(openFaq === index ? -1 : index);
+    setOpenFaq((prev) => (prev === index ? -1 : index));
   };
 
   const [stats, setStats] = useState<{ promotions: string; merchants: string; banks: string } | null>(null);
@@ -32,7 +59,9 @@ export default function LandingPage() {
     fetch("/api/stats")
       .then((r) => r.json())
       .then(setStats)
-      .catch(() => {});
+      .catch((err) => {
+        console.warn("[OptiWallet] Error al cargar stats:", err);
+      });
   }, []);
 
   const handleAppNavigate = (e: React.MouseEvent) => {
@@ -40,32 +69,6 @@ export default function LandingPage() {
     trigger("/app");
   };
 
-  const faqs = [
-    {
-      q: "¿Es realmente gratis?",
-      a: "Sí. Durante la beta es 100% gratuita. A futuro evaluaremos un plan Premium opcional con alertas geolocalizadas y comparador de cuotas, pero la funcionalidad core siempre será gratis.",
-    },
-    {
-      q: "¿Necesito conectar mi cuenta bancaria?",
-      a: "No. Jamás. Solo nos dices qué tarjetas tienes (Banco X, producto Y). No pedimos número, clave, RUT ni acceso a tu banca en línea. La app funciona sin leer un solo peso de tu cuenta.",
-    },
-    {
-      q: "¿De dónde sacan las promos?",
-      a: "De los canales oficiales de cada banco y emisor: sitios web, apps oficiales, newsletters y comunicados. Nuestro equipo actualiza la base diariamente y verifica la vigencia de cada promoción antes de publicarla.",
-    },
-    {
-      q: "¿Funciona fuera de Chile?",
-      a: "Hoy no. OptiWallet está diseñada exclusivamente para el ecosistema financiero chileno. Queremos hacer esto muy bien en un mercado antes de pensar en otros países.",
-    },
-    {
-      q: "¿Qué pasa si una promo ya no está vigente?",
-      a: "Tenemos un sistema de reporte en cada recomendación. Si ves una promo caducada, nos avisas con un toque y la bajamos en minutos. También puedes proponer promos nuevas que encuentres.",
-    },
-    {
-      q: "¿Quién está detrás de OptiWallet?",
-      a: "Un equipo de estudiantes de ingeniería de la UDP que estábamos cansados de pagar Jumbo los jueves con la tarjeta equivocada. Construido en Chile, para Chile.",
-    },
-  ];
 
   return (
     <div className="landing-root">
@@ -185,7 +188,7 @@ export default function LandingPage() {
           {["Banco de Chile", "Santander", "BCI", "Scotiabank", "Itaú", "BancoEstado", "Falabella", "Cencosud", "Ripley", "Security", "Consorcio", "Tenpo", "MACH", "Copec Pay",
             "Banco de Chile", "Santander", "BCI", "Scotiabank", "Itaú", "BancoEstado", "Falabella", "Cencosud", "Ripley", "Security", "Consorcio", "Tenpo", "MACH", "Copec Pay"
           ].map((bank, i) => (
-            <div key={i} className="bank-chip">{bank}</div>
+            <div key={`${bank}-${i}`} className="bank-chip">{bank}</div>
           ))}
         </div>
       </section>
@@ -384,7 +387,7 @@ export default function LandingPage() {
         <h2 className="section-title">¿Y esto <em>cómo</em>?</h2>
 
         <div className="faq-list">
-          {faqs.map((faq, i) => (
+          {FAQS.map((faq, i) => (
             <div
               key={i}
               className={`faq-item${openFaq === i ? " open" : ""}`}

@@ -74,8 +74,8 @@ self.addEventListener("fetch", (event) => {
   } else if (isStaticAsset(url.pathname)) {
     event.respondWith(cacheFirstStrategy(request, STATIC_CACHE_NAME));
   } else {
-    // Páginas HTML: network-first con fallback a cache
-    event.respondWith(networkFirstStrategy(request, CACHE_NAME));
+    // Páginas HTML: network-first — use STATIC_CACHE_NAME where pages are precached
+    event.respondWith(networkFirstStrategy(request, STATIC_CACHE_NAME));
   }
 });
 
@@ -116,11 +116,12 @@ async function networkFirstStrategy(request, cacheName) {
       );
     }
 
-    // Para páginas HTML, mostramos la landing cacheada como fallback
-    return (
+    // Para páginas HTML, mostramos la landing cacheada como fallback.
+    // Check the current cache first, then STATIC_CACHE_NAME where "/" was precached.
+    const fallback =
       (await cache.match("/")) ||
-      new Response("Sin conexión", { status: 503 })
-    );
+      (await caches.open(STATIC_CACHE_NAME).then((sc) => sc.match("/")));
+    return fallback || new Response("Sin conexión", { status: 503 });
   }
 }
 
@@ -158,10 +159,7 @@ async function cacheFirstStrategy(request, cacheName) {
 // ─── HELPERS ──────────────────────────────────────────────────────────────────
 
 function isAPIRoute(pathname) {
-  return (
-    pathname.startsWith("/api/") &&
-    API_ROUTES.some((route) => pathname.startsWith(route))
-  );
+  return API_ROUTES.some((route) => pathname.startsWith(route));
 }
 
 function isStaticAsset(pathname) {

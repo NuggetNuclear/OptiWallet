@@ -123,8 +123,10 @@ export function usePageTransition() {
     setTarget(href);
   }, []);
 
+  const onComplete = useCallback(() => setTarget(null), []);
+
   const overlay = target ? (
-    <PageTransition href={target} mode="navigate" onComplete={() => setTarget(null)} />
+    <PageTransition href={target} mode="navigate" onComplete={onComplete} />
   ) : null;
 
   return { trigger, overlay };
