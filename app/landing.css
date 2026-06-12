@@ -561,6 +561,7 @@ nav {
 }
 .feature-big h3 { font-size: 44px; line-height: 1; margin-bottom: 20px; }
 .feature-big h3 em { font-style: italic; font-weight: 300; color: var(--lime); }
+.feature h3 .rotating-day { font-style: italic; font-weight: 300; color: var(--lime); }
 .feature p {
   color: var(--ink-dim);
   font-size: 15px;
@@ -1287,6 +1288,9 @@ nav {
   text-transform: uppercase;
   letter-spacing: 0.18em;
   color: var(--copper);
+  /* Reserva espacio para la X (absolute, 36px + 16px de borde) para que
+     el texto no quede debajo del botón en pantallas angostas (Android) */
+  padding-right: 56px;
 }
 
 .install-modal-title {
