@@ -28,31 +28,39 @@ export function PageTransition({ href, mode = "navigate", onComplete }: PageTran
 
   useEffect(() => {
     if (mode === "navigate") {
+      // Precargar la ruta destino para que el swap sea instantáneo
+      if (href) router.prefetch(href);
       // Phase 1: fade in (300ms)
       const t1 = setTimeout(() => setPhase("holding"), 300);
-      // Phase 2: hold + navigate (600ms after fade-in)
+      // Phase 2: navegar manteniendo el overlay OPACO. No hay fase de salida
+      // aquí: el push desmonta esta página (y el overlay con ella) mientras
+      // la página destino ya está mostrando su propio overlay "arrive",
+      // idéntico y también opaco → el empalme es invisible. Si saliéramos
+      // antes del push, se vería el landing de nuevo + corte + re-aparición.
       const t2 = setTimeout(() => {
         if (href) router.push(href);
-        setPhase("exiting");
-      }, 900);
-      // Phase 3: done (after exit animation)
-      const t3 = setTimeout(() => {
+      }, 600);
+      // Fallback: si a los 4s seguimos montados, la navegación no ocurrió
+      // (push fallido / misma ruta) — salir con gracia en vez de quedar pegado.
+      const t3 = setTimeout(() => setPhase("exiting"), 4000);
+      const t4 = setTimeout(() => {
         setPhase("done");
         onComplete?.();
-      }, 1250);
+      }, 4350);
       return () => {
         clearTimeout(t1);
         clearTimeout(t2);
         clearTimeout(t3);
+        clearTimeout(t4);
       };
     }
     // arrive mode: fade out after a brief moment
     if (mode === "arrive") {
-      const t1 = setTimeout(() => setPhase("exiting"), 100);
+      const t1 = setTimeout(() => setPhase("exiting"), 150);
       const t2 = setTimeout(() => {
         setPhase("done");
         onComplete?.();
-      }, 450);
+      }, 500);
       return () => {
         clearTimeout(t1);
         clearTimeout(t2);
