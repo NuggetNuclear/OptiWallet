@@ -2,23 +2,39 @@
 
 **Te dice con qué tarjeta pagar para ahorrar más, en cada comercio de Chile.**
 
-OptiWallet cruza las promociones de bancos chilenos y recomienda la mejor tarjeta según el día y el comercio. Sin datos bancarios, sin cuentas, sin descargas — funciona como PWA directo desde el navegador.
+OptiWallet cruza las promociones de bancos chilenos y recomienda la mejor tarjeta según el día y el comercio. Sin datos bancarios, sin cuentas, sin descargas — funciona como PWA directo desde el navegador, con soporte offline.
 
 > v0.1.0-beta · Solo para Chile 🇨🇱 · **Producción:** [optiwallet.vercel.app](https://optiwallet.vercel.app)
 
 ---
 
+## Documentación
+
+| Documento | Contenido |
+|---|---|
+| Este README | Visión general, setup, estructura, convenciones |
+| [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) | Arquitectura en detalle: routing, sistema standalone/PWA, service worker, flujo de datos, lógica de recomendaciones, jerarquía de componentes, design system |
+| [`docs/API.md`](docs/API.md) | Referencia completa de los 8 endpoints: params, validación, respuestas, errores, caching |
+| [`docs/SECURITY.md`](docs/SECURITY.md) | Postura de seguridad: headers, validación, manejo de secrets, recomendaciones operativas |
+| [`OptiWallet/security-audit-2026-06-11.md`](OptiWallet/security-audit-2026-06-11.md) | Security audit completo (hallazgos + fixes aplicados) |
+| [`OptiWallet/audit-report.md`](OptiWallet/audit-report.md) | Code audit 2026-06-10 (histórico — hallazgos ya resueltos) |
+
+---
+
 ## Stack
 
-| Capa | Tecnología | Versión |
+| Capa | Tecnología | Versión (package.json) |
 |---|---|---|
-| Framework | Next.js (App Router, Turbopack) | 16.2.4 |
-| UI | React + TypeScript | 19.2 + 6.0 |
-| Estilos | Tailwind CSS 4 + vanilla CSS | 4.2.4 |
+| Framework | Next.js (App Router, Turbopack) | ^16.2.9 |
+| UI | React + TypeScript | ^19.2.5 + ^6.0.3 |
+| Estilos | Tailwind CSS 4 (CSS-first) + vanilla CSS | ^4.2.4 |
 | Base de datos | Neon PostgreSQL (serverless) | @neondatabase/serverless ^1.1.0 |
 | Deploy | Vercel (serverless Node.js, región `gru1`) | — |
-| Tipografía | Fraunces · Sora · JetBrains Mono | Google Fonts |
-| PWA | manifest.json + Apple Web App meta | — |
+| Tipografía | Fraunces · Sora · JetBrains Mono | next/font (self-hosted en build) |
+| PWA | manifest.json + service worker + redirección standalone | — |
+| Lint | ESLint 10 flat config + eslint-config-next | ^10.2.1 |
+
+> Las versiones de `next` y `eslint-config-next` se mantienen en `^16.2.9` como **piso de seguridad** — versiones anteriores de la serie 16 tienen CVEs conocidos (ver [`docs/SECURITY.md`](docs/SECURITY.md)). No bajar de ahí.
 
 ---
 
@@ -42,7 +58,30 @@ Abre [localhost:3000](http://localhost:3000). La landing está en `/`, la app en
 
 | Variable | Requerida | Uso |
 |---|---|---|
-| `DATABASE_URL` | Sí | Connection string de Neon PostgreSQL |
+| `DATABASE_URL` | Sí | Connection string de Neon PostgreSQL. En producción vive en los **secrets de Vercel** — nunca en el repo. Solo la leen `lib/db.ts` (server) y `scripts/apply-schema.ts` (tooling local). |
+
+Notas:
+
+- El cliente de Neon se inicializa **lazy** (`lib/db.ts`): `next build` evalúa los route modules sin `DATABASE_URL` disponible, así que la conexión se difiere al primer request.
+- El service worker solo se registra en producción (`NODE_ENV === "production"`), así que en dev no hay cache que interfiera.
+
+---
+
+## Scripts
+
+| Comando | Descripción |
+|---|---|
+| `npm run dev` | Dev server con Turbopack |
+| `npm run build` | Build de producción |
+| `npm run start` | Servir build de producción |
+| `npm run lint` | ESLint (flat config, ver `eslint.config.mjs`) |
+| `npm run db:schema` | Aplica `scripts/schema.sql` a la DB de tu `.env.local` |
+
+### Gestión de la base de datos
+
+Los datos se administran directamente desde la **consola de Neon**. No hay scripts de seed — la migración inicial ya fue completada.
+
+**Failsafe:** si necesitas recrear el schema en una DB nueva: `npm run db:schema`. El script (`scripts/apply-schema.ts`) divide `schema.sql` por `;` y ejecuta cada statement — es tooling local de desarrollo, no corre en producción.
 
 ---
 
@@ -50,21 +89,28 @@ Abre [localhost:3000](http://localhost:3000). La landing está en `/`, la app en
 
 ```
 OptiWallet/
+├── proxy.ts                      # Middleware (convención Next 16, reemplaza middleware.ts):
+│                                 #   redirección server-side / → /app para PWA instalada
 ├── app/                          # Next.js App Router
-│   ├── layout.tsx                # Root layout — fuentes, meta PWA, viewport
-│   ├── page.tsx                  # Landing page (/)
-│   ├── globals.css               # Design tokens, animaciones, utilidades globales
+│   ├── layout.tsx                # Root layout — fuentes, meta PWA, viewport,
+│   │                             #   <ServiceWorkerRegistrar /> + <StandaloneCookieSync />
+│   ├── page.tsx                  # Landing page (/) — FAQs, stats dinámicos de /api/stats,
+│   │                             #   mockup de teléfono, usePageTransition, <StandaloneRedirect />
+│   ├── globals.css               # Design tokens (@theme), layout tokens, animaciones,
+│   │                             #   grain overlay, glows, botones, transiciones
 │   ├── landing.css               # Estilos exclusivos de la landing (~1200 líneas)
-│   ├── app/page.tsx              # Web app principal (/app)
-│   ├── api/                      # 8 Route Handlers (serverless Node.js)
-│   │   ├── banks/route.ts
-│   │   ├── cards/route.ts
-│   │   ├── categories/route.ts
-│   │   ├── merchants/route.ts
-│   │   ├── merchants/[merchantId]/route.ts
-│   │   ├── promotions/[merchantId]/route.ts
-│   │   ├── recommendations/route.ts
-│   │   └── stats/route.ts
+│   ├── icon.svg                  # Favicon SVG
+│   ├── app/page.tsx              # Web app principal (/app) — vistas por estado React:
+│   │                             #   home (feed+search), merchant (detalle), wallet (gestión)
+│   ├── api/                      # 8 Route Handlers (serverless Node.js) → docs/API.md
+│   │   ├── banks/route.ts        #   GET /api/banks — todos los bancos
+│   │   ├── cards/route.ts        #   GET /api/cards — tarjetas (?bankId=)
+│   │   ├── categories/route.ts   #   GET /api/categories — categorías + conteo
+│   │   ├── merchants/route.ts    #   GET /api/merchants — búsqueda fuzzy (?q=&category=)
+│   │   ├── merchants/[merchantId]/route.ts  # GET — comercio por ID
+│   │   ├── promotions/[merchantId]/route.ts # GET — promos activas de un comercio
+│   │   ├── recommendations/route.ts  # GET ★ Core: join promos × tarjetas × comercios
+│   │   └── stats/route.ts        #   GET /api/stats — conteos para la landing
 │   ├── blog/                     # Páginas internas — usan InnerPageLayout
 │   ├── contacto/
 │   ├── cookies/
@@ -75,95 +121,145 @@ OptiWallet/
 │   └── terminos/
 │
 ├── components/
-│   ├── Header.tsx                # Topbar sticky con logo, búsqueda y wallet
-│   ├── DayPicker.tsx             # Selector horizontal de día de la semana
-│   ├── TodaysFeed.tsx            # Feed de mejores promos del día
-│   ├── MerchantSearch.tsx        # Búsqueda de comercios + chips de categoría
-│   ├── MerchantDetail.tsx        # Vista detalle con promo ganadora + alternativas
-│   ├── RecommendationCard.tsx    # Card de promo ganadora y AlternativeCard
-│   ├── WalletSetup.tsx           # Onboarding / gestión de tarjetas del usuario
-│   ├── PageTransition.tsx        # Overlay de transición landing ↔ app
-│   ├── InnerPageLayout.tsx       # Layout compartido para páginas internas
-│   └── ComingSoon.tsx            # Placeholder para secciones WIP
+│   ├── layout/                   # Primitivas de layout — dueñas de los safe-areas iOS
+│   │   ├── TopBar.tsx            #   Barra superior única (safe-area top / notch / Dynamic Island)
+│   │   ├── BottomDock.tsx        #   Dock inferior fijo (safe-area bottom / home indicator)
+│   │   └── BackButton.tsx        #   Botón "Volver" estándar
+│   ├── Header.tsx                # Topbar de /app: logo, búsqueda y wallet (usa TopBar)
+│   ├── DayPicker.tsx             # Selector horizontal de día de la semana (Lun–Dom)
+│   ├── TodaysFeed.tsx            # Feed de mejores promos del día (agrupadas por comercio)
+│   ├── MerchantSearch.tsx        # Búsqueda de comercios + chips de categoría + resultados
+│   ├── MerchantDetail.tsx        # Vista detalle: promo ganadora + alternativas + monto + todas las promos
+│   ├── RecommendationCard.tsx    # Card de promo ganadora (gradiente lime) + AlternativeCard
+│   ├── WalletSetup.tsx           # Onboarding / gestión de tarjetas — BankRow expandible con cards
+│   ├── PageTransition.tsx        # Overlay de transición landing ↔ app + usePageTransition hook
+│   ├── ServiceWorkerRegistrar.tsx# Monta useServiceWorker (registro del SW, invisible)
+│   ├── StandaloneCookieSync.tsx  # Sincroniza cookie ow_standalone en todas las páginas (invisible)
+│   ├── StandaloneRedirect.tsx    # Fallback client-side de redirección standalone (solo landing)
+│   ├── InnerPageLayout.tsx       # Layout compartido para páginas internas (nav + footer + landing.css)
+│   └── ComingSoon.tsx            # Placeholder para secciones WIP (ícono + desc + mailto)
 │
 ├── lib/
-│   ├── types.ts                  # Tipos de dominio (Bank, Card, Merchant, Promotion…)
-│   ├── db.ts                     # Cliente SQL de Neon (lazy-initialized, solo server)
-│   ├── api-client.ts             # Fetch wrappers para todos los endpoints
-│   ├── use-wallet.ts             # Hook localStorage para tarjetas del usuario
-│   ├── format.ts                 # Formateo de fechas y CLP en español chileno
+│   ├── types.ts                  # Tipos de dominio (Bank, Card, Merchant, Promotion, Recommendation)
+│   ├── db.ts                     # Cliente SQL de Neon (lazy-init, solo server, NeonQueryFunction)
+│   ├── validate.ts               # Validación de IDs para la API (/^[A-Za-z0-9_.-]{1,64}$/)
+│   ├── api-client.ts             # Tipos Api* (snake_case) + fetch wrappers de los 8 endpoints
+│   ├── use-wallet.ts             # Hook localStorage para tarjetas del usuario (hydrated, initiallyEmpty)
+│   ├── standalone.ts             # Detección de PWA instalada + cookie ow_standalone + auto-reparación Android
+│   ├── format.ts                 # Fechas (es-CL), CLP, días de semana, modalidad, toISODateLocal
 │   └── hooks/
-│       └── use-api.ts            # Hooks React: useBanks, useCards, useMerchants…
+│       ├── use-api.ts            # useApiQuery genérico + hooks tipados (useBanks, useCards,
+│       │                         #   useCategories, useMerchants, useRecommendations,
+│       │                         #   usePromotions, useMerchantFromApi)
+│       └── use-service-worker.ts # Registro del SW (solo producción, post-load, updatefound listener)
 │
-├── scripts/                      # Failsafe de base de datos
-│   ├── schema.sql                # DDL PostgreSQL — fuente de verdad del schema
+├── scripts/                      # Tooling de base de datos
+│   ├── schema.sql                # DDL PostgreSQL — fuente de verdad del schema (5 tablas + 4 índices)
 │   └── apply-schema.ts           # Aplica schema.sql a Neon (npm run db:schema)
 │
 ├── public/
-│   ├── manifest.json             # PWA manifest
-│   └── icon-*.png                # Íconos PWA (192 / 512 / maskable)
+│   ├── manifest.json             # PWA manifest (standalone, portrait, es-CL, start_url: /app)
+│   ├── sw.js                     # Service worker — offline support (3 caches, 2 estrategias)
+│   ├── icon.svg                  # Ícono SVG
+│   ├── icon-192.png              # Ícono PWA 192×192
+│   ├── icon-512.png              # Ícono PWA 512×512
+│   └── icon-maskable.png         # Ícono PWA maskable 512×512
 │
+├── docs/                         # Documentación técnica detallada
+│   ├── ARCHITECTURE.md           # Arquitectura, routing, PWA, SW, data layer, componentes
+│   ├── API.md                    # Referencia de los 8 endpoints
+│   └── SECURITY.md               # Postura de seguridad + recomendaciones
+│
+├── OptiWallet/                   # Reportes de auditoría
+│   ├── audit-report.md           # Code audit 2026-06-10
+│   └── security-audit-2026-06-11.md  # Security audit 2026-06-11
+│
+├── next.config.mjs               # Security headers (CSP, HSTS…) + poweredByHeader off
 ├── vercel.json                   # Config de deploy — pin a región gru1
-│
-└── legacy/                       # Prototipo HTML original (referencia)
+├── eslint.config.mjs             # ESLint 10 flat config (con shims de compat para plugins legacy)
+├── tsconfig.json                 # TypeScript config
+├── postcss.config.mjs            # PostCSS — plugin @tailwindcss/postcss
+├── .env.example                  # Template de variables de entorno
+├── .gitignore                    # Ignores estándar + .env.local
+└── legacy/                       # Prototipo HTML original (referencia histórica)
 ```
 
 ---
 
-## Arquitectura
+## Arquitectura (resumen)
+
+> Versión completa con diagramas de flujo en [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md).
 
 ### Routing
-
-El proyecto tiene dos superficies:
 
 | Ruta | Tipo | Propósito |
 |---|---|---|
 | `/` | Client component | Landing page de marketing |
-| `/app` | Client component | Web app (vistas manejadas por estado React) |
-| `/blog`, `/contacto`, `/privacidad`, etc. | Server components | Páginas internas con `InnerPageLayout` |
+| `/app` | Client component | Web app (vistas `home` / `merchant` / `wallet` por estado React) |
+| `/blog`, `/contacto`, etc. | Server components | Páginas internas con `InnerPageLayout` |
 | `/api/*` | Route Handlers (serverless Node.js) | Queries directas a Neon PostgreSQL |
 
-La navegación entre la landing y la app usa un overlay de transición (`PageTransition.tsx`) con logo y shimmer bar. Las vistas dentro de `/app` (`home`, `merchant`, `wallet`) se controlan por estado React, no por URL.
+### Redirección standalone (PWA instalada)
+
+Cuando el usuario instala la PWA y la abre, debe aterrizar en `/app` y no en la landing. Tres piezas cooperan (detalle en `lib/standalone.ts` y [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md)):
+
+1. **`StandaloneCookieSync`** (root layout) — setea la cookie `ow_standalone=1` cuando detecta modo standalone, y la borra en navegador normal (auto-reparación para Android, donde la PWA comparte cookies con Chrome).
+2. **`proxy.ts`** (middleware, solo matcher `/`) — si la cookie existe, redirige `/` → `/app` en el edge, sin flash de landing.
+3. **`StandaloneRedirect`** (landing) — fallback client-side para la primera visita (cookie aún no existe) y para modo offline.
 
 ### Wallet del usuario
 
-Vive en `localStorage` bajo `optiwallet:cards` como un array de IDs de tarjeta. El hook `useWallet` expone un flag `hydrated` para evitar mismatches de SSR. No hay cuentas de usuario ni sync entre dispositivos.
+Vive en `localStorage` bajo `optiwallet:cards` como array de IDs de tarjeta. El hook `useWallet` expone `hydrated` (evita mismatches SSR) e `initiallyEmpty` (fija el flujo de onboarding una sola vez). **No hay cuentas, ni sync entre dispositivos, ni datos del usuario en el servidor.**
 
 ### Capa de datos
 
-Todos los datos viven en **Neon PostgreSQL** — no hay archivos de datos estáticos en el codebase. Los Route Handlers se ejecutan de manera serverless usando el cliente lazy de `lib/db.ts`.
+Todos los datos viven en **Neon PostgreSQL** — no hay archivos de datos estáticos. Los Route Handlers usan el cliente lazy de `lib/db.ts` con queries 100% parametrizadas (tagged templates). La API es **pública y de solo lectura** (solo `GET`/`SELECT`).
 
 **Tablas:**
 
 | Tabla | Contenido |
 |---|---|
-| `banks` | Bancos e instituciones; campo `available` indica si tiene promos cargadas |
+| `banks` | Bancos e instituciones; `available` indica si tiene promos cargadas |
 | `cards` | Productos de tarjeta por banco (`credit` / `debit`) |
 | `merchant_categories` | Categorías de comercios con emoji |
 | `merchants` | Comercios con aliases para búsqueda fuzzy |
-| `promotions` | Promociones activas con días, topes, fechas y modalidad |
+| `promotions` | Promociones con días, topes, fechas, modalidad y trazabilidad (`source`, `verified_at`). Índices en `merchant_id`, `bank_id`, `active` y `days_of_week` (GIN). |
 
-**Convenciones de Datos:**
+**Convenciones de datos:**
 
-- **IDs:** Se utilizan slugs descriptivos en kebab-case en lugar de UUIDs o IDs numéricos (ej. `bci`, `bci-credit`, `comida-rapida`, `papa-johns`, `bci-kfc-lunes`). Esto facilita el debugging y la referencia cruzada manual.
-- **Días de la semana (`days_of_week`):** Array de enteros donde `0 = Domingo`, `1 = Lunes`, ..., `6 = Sábado`. Un array vacío `{}` significa que la promoción aplica **todos los días**.
-- **Modalidad (`modality`):** Acepta los valores `presencial`, `online`, o `both`.
-- **Tipos de tarjeta (`card_types`):** Array de strings que especifica si la promoción aplica a crédito, débito o ambas. Valores permitidos: `credit`, `debit`.
-- **Descuentos (`discount`):** Entero del 1 al 100 que representa el porcentaje de descuento.
-- **Topes (`cap`):** Entero que representa el descuento máximo en CLP. Puede ser `null` si no hay tope.
+- **IDs:** slugs descriptivos kebab-case, no UUIDs (ej. `bci`, `bci-credit`, `comida-rapida`, `papa-johns`, `bci-kfc-lunes`). Facilita debugging y referencia cruzada manual. La API valida formato: `/^[A-Za-z0-9_.-]{1,64}$/` (`lib/validate.ts`).
+- **Días de la semana (`days_of_week`):** array de enteros, `0 = domingo` … `6 = sábado`. Array vacío `{}` = aplica **todos los días**.
+- **Modalidad (`modality`):** `presencial` | `online` | `both`.
+- **Tipos de tarjeta (`card_types`):** array con `credit` y/o `debit`.
+- **Descuentos (`discount`):** entero 1–100 (porcentaje, con CHECK en DB).
+- **Topes (`cap`):** descuento máximo en CLP; `null` = sin tope.
 
 ### Endpoints API
+
+> Referencia completa con ejemplos de request/response en [`docs/API.md`](docs/API.md).
 
 | Endpoint | Params | Descripción |
 |---|---|---|
 | `GET /api/banks` | — | Todos los bancos |
 | `GET /api/cards` | `?bankId=` | Tarjetas, opcionalmente por banco |
-| `GET /api/categories` | — | Categorías de comercios con conteo de comercios (`merchant_count`) |
-| `GET /api/merchants` | `?q=&category=` | Búsqueda fuzzy en nombre y aliases |
+| `GET /api/categories` | — | Categorías con conteo de comercios |
+| `GET /api/merchants` | `?q=&category=` | Búsqueda fuzzy en nombre y aliases (máx. 50) |
 | `GET /api/merchants/[id]` | — | Un comercio con su categoría |
 | `GET /api/promotions/[merchantId]` | — | Promos activas de un comercio |
-| `GET /api/recommendations` | `cardIds[]=&date=&merchantId=` | **Core:** join promos × tarjetas × comercios, filtra por día y fecha |
-| `GET /api/stats` | — | Conteos de promos, comercios y bancos (para la landing) |
+| `GET /api/recommendations` | `cardIds[]=&date=&merchantId=` | **Core:** join promos × tarjetas × comercios, filtra por día y vigencia |
+| `GET /api/stats` | — | Conteos de promos, comercios y bancos (landing) |
+
+---
+
+## Seguridad
+
+> Detalle completo en [`docs/SECURITY.md`](docs/SECURITY.md) y en el [audit 2026-06-11](OptiWallet/security-audit-2026-06-11.md).
+
+- **Security headers** en `next.config.mjs`: CSP, HSTS, `X-Content-Type-Options`, `X-Frame-Options`, `Referrer-Policy`, `Permissions-Policy`. `X-Powered-By` deshabilitado.
+- **SQL:** queries parametrizadas en todos los routes (tagged templates de Neon); escape de comodines LIKE en búsqueda; columnas explícitas en todos los SELECT.
+- **Validación de input:** todos los IDs que llegan por query/path se validan con `lib/validate.ts` antes de tocar la base → `400` ante input malformado.
+- **Errores:** los 500 devuelven `{"error":"Error interno"}` genérico; el detalle va a los logs de Vercel, nunca al cliente.
+- **Secrets:** `DATABASE_URL` solo en secrets de Vercel / `.env.local` (gitignored). Historial git limpio.
 
 ---
 
@@ -175,61 +271,47 @@ Tokens definidos en `globals.css` bajo `@theme {}` (Tailwind 4 CSS-first):
 |---|---|---|
 | `--bg` | `#0b0d0c` | Fondo principal |
 | `--bg-2` | `#13161a` | Superficies elevadas |
+| `--bg-3` | `#1a1f1c` | Superficies más elevadas (avatares, badges) |
 | `--ink` | `#f5f1e8` | Texto principal (blanco cálido) |
 | `--ink-dim` | `#9a958a` | Texto secundario |
 | `--lime` | `#d4ff3a` | Acento primario — CTAs, selecciones, ganadora |
-| `--copper` | `#d67846` | Acento secundario — labels, advertencias |
+| `--lime-deep` | `#a8d400` | Variante profunda de lime (gradientes) |
+| `--copper` | `#d67846` | Acento secundario — labels, advertencias, vigencias |
 | `--plum` | `#4a2d5a` | Glows decorativos |
 | `--line` | `rgba(245,241,232,0.12)` | Bordes sutiles |
+| `--line-strong` | `rgba(245,241,232,0.28)` | Bordes activos / hover |
 
-**Fuentes:** Fraunces (serif, títulos), Sora (sans, cuerpo), JetBrains Mono (monospace, labels técnicas).
+**Fuentes:** Fraunces (serif, títulos), Sora (sans, cuerpo), JetBrains Mono (monospace, labels técnicas). Self-hosted vía `next/font` — no se llama a Google Fonts en runtime.
+
+**Layout tokens:** los safe-areas de iOS (notch / Dynamic Island / home indicator) son responsabilidad exclusiva de las primitivas `TopBar` y `BottomDock`, alimentadas por tokens (`--topbar-pad-top`, `--dock-pad-bottom`, `--page-px`) en `globals.css`. Ninguna pantalla duplica `env(safe-area-inset-*)` por su cuenta.
 
 **CSS strategy:** Tailwind utilities para la app; vanilla CSS scoped bajo `.landing-root` para la landing — nunca mezclar.
 
----
-
-## Scripts
-
-| Comando | Descripción |
-|---|---|
-| `npm run dev` | Dev server con Turbopack |
-| `npm run build` | Build de producción |
-| `npm run start` | Servir build de producción |
-| `npm run lint` | ESLint |
-| `npm run db:schema` | Aplicar `scripts/schema.sql` a Neon (requiere `.env.local`) |
-
-### Gestión de la base de datos
-
-Los datos se administran directamente desde la **consola de Neon**. No hay scripts de seed — la migración inicial ya fue completada.
-
-**Failsafe:** Si necesitas recrear el schema en un DB nuevo:
-
-```bash
-npm run db:schema
-```
-
-Esto aplica `scripts/schema.sql` contra la DB en tu `DATABASE_URL`.
+**Decorativos:** grain overlay global (`body::before` con SVG feTurbulence), glows radiales (`.glow-lime`, `.glow-plum`, `.glow-copper`), pulse dot, staggered children fadeUp.
 
 ---
 
 ## PWA
 
-- `manifest.json` en `/public`: standalone, portrait, tema `#0b0d0c`, lang `es-CL`
-- Root layout: `appleWebApp: { capable: true, statusBarStyle: "black-translucent" }`
-- Viewport: no-scale (`userScalable: false`, `viewportFit: cover`)
-- CSS respeta safe areas de iOS con `env(safe-area-inset-*)` (app y landing)
-- Íconos: `icon-192.png`, `icon-512.png` e `icon-maskable.png` en `/public`
+- `manifest.json`: standalone, portrait, tema `#0b0d0c`, lang `es-CL`, `start_url: "/app"`.
+- **Service worker** (`public/sw.js`): 3 caches (`optiwallet-v1`, `optiwallet-static-v1`, `optiwallet-api-v1`); precache de shell (/, /app, manifest, íconos); network-first para API y HTML; cache-first con revalidación en background para assets estáticos. Solo se registra en producción. Detalle en [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md).
+- **Redirección standalone**: la PWA instalada abre directo en `/app` (ver Arquitectura).
+- Root layout: `appleWebApp: { capable: true, statusBarStyle: "black-translucent" }`.
+- Viewport: no-scale (`userScalable: false`, `viewportFit: cover`).
+- Íconos: `icon-192.png`, `icon-512.png`, `icon-maskable.png`.
 
 ---
 
 ## Limitaciones de la beta
 
-- La cobertura de bancos y comercios es parcial — los bancos sin promos cargadas aparecen como "próximamente" en la app
-- Sin cuentas ni sync — wallet es `localStorage` only
-- Sin service worker — no hay soporte offline real
-- Sin deep-linking dentro de `/app` — las vistas son estado React, no URL
-- Varias páginas internas son placeholders (`ComingSoon`)
-- Sin error boundaries globales
+- Cobertura de bancos y comercios parcial — los bancos sin promos cargadas aparecen como "próximamente".
+- Sin cuentas ni sync — la wallet es `localStorage` only.
+- Soporte offline básico: el SW sirve cache cuando no hay red, pero no hay UI de "estás offline" ni banner de actualización de versión (planificado).
+- Sin deep-linking dentro de `/app` — las vistas son estado React, no URL.
+- Varias páginas internas son placeholders (`ComingSoon`).
+- Sin error boundaries globales.
+- Sin rate limiting en la API (mitigado por cache de edge; recomendación: Vercel WAF — ver `docs/SECURITY.md`).
+- La fecha en `/app` se auto-actualiza al cambiar el día (focus/visibilitychange + interval 60s), pero una PWA que quede dormida muchos días puede mostrar datos stale hasta recibir foco.
 
 ---
 
