@@ -18,7 +18,7 @@ nav {
   align-items: center;
   gap: 12px;
   backdrop-filter: blur(16px);
-  background: rgba(11, 18, 14, 0.6);
+  background: rgba(11, 13, 12, 0.6);
   border-bottom: 1px solid var(--line);
 }
 .logo {
@@ -63,7 +63,7 @@ nav {
 }
 .nav-cta:hover {
   transform: translateY(-1px);
-  box-shadow: 0 8px 24px rgba(76, 175, 125, 0.3);
+  box-shadow: 0 8px 24px rgba(212, 255, 58, 0.3);
 }
 @media (max-width: 768px) {
   /* El padding mobile del nav vive en MOBILE OVERRIDES (al final del
@@ -191,7 +191,7 @@ nav {
 }
 .landing-root .btn-primary:hover {
   transform: translateY(-2px);
-  box-shadow: 0 12px 32px rgba(76, 175, 125, 0.4);
+  box-shadow: 0 12px 32px rgba(212, 255, 58, 0.4);
 }
 .landing-root .btn-primary svg { transition: transform 0.3s; }
 .landing-root .btn-primary:hover svg { transform: translateX(4px); }
@@ -549,7 +549,7 @@ nav {
   grid-column: 1;
   grid-row: 1 / 3;
   background: linear-gradient(135deg, #1a2e1c 0%, #0f1a11 100%);
-  border-color: rgba(76, 175, 125, 0.2);
+  border-color: rgba(212, 255, 58, 0.2);
 }
 .feature h3 {
   font-family: var(--font-fraunces), serif;
@@ -570,8 +570,8 @@ nav {
 .feature-icon {
   width: 48px; height: 48px;
   border-radius: 14px;
-  background: rgba(76, 175, 125, 0.1);
-  border: 1px solid rgba(76, 175, 125, 0.3);
+  background: rgba(212, 255, 58, 0.1);
+  border: 1px solid rgba(212, 255, 58, 0.3);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -601,8 +601,8 @@ nav {
   font-size: 13px;
 }
 .mini-row.best {
-  background: rgba(76, 175, 125, 0.1);
-  border: 1px solid rgba(76, 175, 125, 0.3);
+  background: rgba(212, 255, 58, 0.1);
+  border: 1px solid rgba(212, 255, 58, 0.3);
 }
 .mini-row.best .mini-pct { color: var(--lime); }
 .mini-name { color: var(--ink); font-weight: 500; }
@@ -830,7 +830,7 @@ nav {
   position: absolute;
   inset: 0;
   background:
-    radial-gradient(circle at 30% 50%, rgba(76, 175, 125, 0.15) 0%, transparent 50%),
+    radial-gradient(circle at 30% 50%, rgba(212, 255, 58, 0.15) 0%, transparent 50%),
     radial-gradient(circle at 70% 50%, rgba(74, 45, 90, 0.3) 0%, transparent 50%);
   z-index: -1;
 }
@@ -1175,8 +1175,8 @@ nav {
   width: 48px;
   height: 48px;
   border-radius: 14px;
-  background: rgba(76, 175, 125, 0.1);
-  border: 1px solid rgba(76, 175, 125, 0.3);
+  background: rgba(212, 255, 58, 0.1);
+  border: 1px solid rgba(212, 255, 58, 0.3);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -1228,7 +1228,7 @@ nav {
   position: fixed;
   inset: 0;
   z-index: 200;
-  background: rgba(11, 18, 14, 0.78);
+  background: rgba(11, 13, 12, 0.78);
   backdrop-filter: blur(6px);
   -webkit-backdrop-filter: blur(6px);
   display: flex;
@@ -1352,7 +1352,7 @@ nav {
 }
 .install-modal-native:hover {
   transform: translateY(-1px);
-  box-shadow: 0 8px 24px rgba(76, 175, 125, 0.3);
+  box-shadow: 0 8px 24px rgba(212, 255, 58, 0.3);
 }
 
 .install-modal-steps {

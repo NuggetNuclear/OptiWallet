@@ -126,8 +126,8 @@ export function RecommendationCard({ recommendation, amount, compact, onClick }:
     compact ? "sm:p-5" : ""
   }`;
   const style = {
-    background: "linear-gradient(135deg, #4caf7d 0%, #2e8b5f 100%)",
-    boxShadow: "0 20px 40px -20px rgba(76, 175, 125, 0.4)",
+    background: "linear-gradient(135deg, #d4ff3a 0%, #a8d400 100%)",
+    boxShadow: "0 20px 40px -20px rgba(212, 255, 58, 0.4)",
   };
 
   if (onClick) {

@@ -165,7 +165,7 @@ export default function LandingPage() {
                     <div className="greeting" suppressHydrationWarning>{todayFormatted}</div>
                     <div className="greeting-name">Hola, Gabriel</div>
                   </div>
-                  <div style={{ width: "36px", height: "36px", borderRadius: "50%", background: "rgba(76,175,125,0.15)", display: "flex", alignItems: "center", justifyContent: "center", color: "var(--lime)", fontWeight: "700", fontFamily: "var(--font-fraunces), serif" }}>G</div>
+                  <div style={{ width: "36px", height: "36px", borderRadius: "50%", background: "rgba(212,255,58,0.15)", display: "flex", alignItems: "center", justifyContent: "center", color: "var(--lime)", fontWeight: "700", fontFamily: "var(--font-fraunces), serif" }}>G</div>
                 </div>
 
                 <div className="search-bar">

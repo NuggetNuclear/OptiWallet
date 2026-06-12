@@ -50,16 +50,16 @@ export default function ApiDocsPage() {
           alignItems: "center",
           justifyContent: "space-between",
           padding: "14px 24px",
-          background: "#0b120e",
+          background: "#0b0d0c",
           color: "#fff",
         }}
       >
-        <Link href="/" style={{ color: "#4caf7d", fontWeight: 700, textDecoration: "none" }}>
+        <Link href="/" style={{ color: "#d4ff3a", fontWeight: 700, textDecoration: "none" }}>
           ← OptiWallet
         </Link>
         <span style={{ fontFamily: "monospace", fontSize: 12, opacity: 0.7 }}>
           API v0.1.0-beta · OpenAPI 3.1 ·{" "}
-          <a href="/api/openapi.json" style={{ color: "#4caf7d" }}>
+          <a href="/api/openapi.json" style={{ color: "#d4ff3a" }}>
             openapi.json
           </a>
         </span>

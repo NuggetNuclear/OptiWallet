@@ -2,20 +2,18 @@
 
 @theme {
   /* ─── Colors ─────────────────────────────────────────── */
-  /* Paleta B2 "billete suave": verde dólar sobre fondo verdoso oscuro,
-     dorado viejo (hilo de seguridad) como acento secundario */
-  --color-bg: #0b0e0c;
-  --color-bg-2: #121a15;
-  --color-bg-3: #19231c;
-  --color-ink: #f0ece0;
-  --color-ink-dim: #8c9a8f;
+  --color-bg: #0b0d0c;
+  --color-bg-2: #13161a;
+  --color-bg-3: #1a1f1c;
+  --color-ink: #f5f1e8;
+  --color-ink-dim: #9a958a;
   --color-paper: #ede6d3;
-  --color-lime: #4caf7d;
-  --color-lime-deep: #2e8b5f;
-  --color-copper: #c9a86a;
+  --color-lime: #d4ff3a;
+  --color-lime-deep: #a8d400;
+  --color-copper: #d67846;
   --color-plum: #4a2d5a;
-  --color-line: rgba(240, 236, 224, 0.12);
-  --color-line-strong: rgba(240, 236, 224, 0.28);
+  --color-line: rgba(245, 241, 232, 0.12);
+  --color-line-strong: rgba(245, 241, 232, 0.28);
 
   /* ─── Font families ──────────────────────────────────── */
   --font-serif: var(--font-fraunces), Georgia, serif;
@@ -129,7 +127,7 @@ body::before {
   width: 400px;
   height: 400px;
   border-radius: 50%;
-  background: radial-gradient(circle, rgba(76, 175, 125, 0.25) 0%, transparent 60%);
+  background: radial-gradient(circle, rgba(212, 255, 58, 0.25) 0%, transparent 60%);
   filter: blur(80px);
   pointer-events: none;
   z-index: 0;
@@ -210,7 +208,7 @@ body::before {
 }
 .btn-primary:hover:not(:disabled) {
   transform: translateY(-1px);
-  box-shadow: 0 8px 24px rgba(76, 175, 125, 0.3);
+  box-shadow: 0 8px 24px rgba(212, 255, 58, 0.3);
 }
 .btn-primary:disabled {
   opacity: 0.4;
