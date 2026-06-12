@@ -138,7 +138,7 @@ export function InstallModal({ open, onClose }: InstallModalProps) {
             className={`install-modal-tab${platform === "android" ? " active" : ""}`}
             onClick={() => selectPlatform("android")}
           >
-            🤖 Android
+            Android
           </button>
           <button
             role="tab"
@@ -146,14 +146,14 @@ export function InstallModal({ open, onClose }: InstallModalProps) {
             className={`install-modal-tab${platform === "ios" ? " active" : ""}`}
             onClick={() => selectPlatform("ios")}
           >
-             iPhone
+            iOS
           </button>
         </div>
 
         {/* Instalación nativa directa (solo si Chrome la ofreció) */}
         {platform === "android" && canPromptInstall && (
           <button className="install-modal-native" onClick={handleNativeInstall}>
-            ⚡ Instalar ahora con un toque
+            Instalar con un toque
           </button>
         )}
 
