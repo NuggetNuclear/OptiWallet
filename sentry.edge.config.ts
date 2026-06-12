@@ -4,4 +4,8 @@
 import * as Sentry from "@sentry/nextjs";
 import { sharedSentryOptions } from "@/lib/sentry";
 
-Sentry.init(sharedSentryOptions);
+Sentry.init({
+  ...sharedSentryOptions,
+  // Beta con poco tráfico: muestrear todo. Bajar cuando crezca.
+  tracesSampleRate: 1.0,
+});

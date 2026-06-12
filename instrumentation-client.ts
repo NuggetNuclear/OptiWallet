@@ -6,9 +6,8 @@ import { sharedSentryOptions } from "@/lib/sentry";
 
 Sentry.init({
   ...sharedSentryOptions,
-  // Sin session replay: evita peso extra en el bundle y datos de más.
+  // Sin session replay ni tracing en el browser: solo captura de errores.
+  // El tracing en cliente arrastra mucho código extra al bundle crítico
+  // (TBT/LCP); las transacciones de API se trazan en el server.
   integrations: [],
 });
-
-// Instrumenta las navegaciones del App Router como transacciones.
-export const onRouterTransitionStart = Sentry.captureRouterTransitionStart;

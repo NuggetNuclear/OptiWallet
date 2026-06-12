@@ -41,6 +41,12 @@ const securityHeaders = [
 const nextConfig = {
   reactStrictMode: true,
   poweredByHeader: false,
+  experimental: {
+    // Inlinea el CSS como <style> en el HTML (solo en build de producción).
+    // Elimina los 2 stylesheets render-blocking → mejora directa de LCP.
+    // Nuestro CSS es chico (~15KB), así que perder su caché no duele.
+    inlineCss: true,
+  },
   async headers() {
     return [
       {

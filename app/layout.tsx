@@ -32,6 +32,9 @@ const jetbrains = JetBrains_Mono({
   variable: "--font-jetbrains",
   weight: ["400", "500", "700"],
   display: "swap",
+  // Solo se usa en labels chicos: no compite por ancho de banda crítico
+  // con el CSS/HTML inicial (mejora LCP). Sora y Fraunces sí se precargan.
+  preload: false,
 });
 
 export const metadata: Metadata = {

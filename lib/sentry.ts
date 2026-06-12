@@ -12,6 +12,6 @@ export const sharedSentryOptions = {
   // Privacidad primero (coherente con la política de la app):
   // sin IP, sin headers identificables, sin cookies.
   sendDefaultPii: false,
-  // Beta con poco tráfico: muestrear todo. Bajar cuando crezca.
-  tracesSampleRate: 1.0,
+  // OJO: tracesSampleRate NO va acá. En el cliente activaría el código de
+  // tracing (~decenas de KB que pegan al TBT); solo se setea en server/edge.
 } as const;
