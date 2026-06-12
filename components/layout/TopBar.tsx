@@ -27,10 +27,10 @@ interface TopBarProps {
  * (--topbar-pad-top, --topbar-pad-y, --page-px).
  */
 export function TopBar({ left, right, variant = "bar", flush = false, className = "" }: TopBarProps) {
-  const chrome =
-    variant === "bar"
-      ? "sticky top-0 z-40 border-b border-line bg-bg/85 backdrop-blur-xl"
-      : "relative z-10";
+  const isBar = variant === "bar";
+  const chrome = isBar
+    ? "sticky top-0 z-40 border-b border-line bg-bg/85 backdrop-blur-xl"
+    : "relative z-10";
 
   return (
     <header
@@ -42,6 +42,17 @@ export function TopBar({ left, right, variant = "bar", flush = false, className 
         paddingRight: flush ? undefined : "var(--page-px)",
       }}
     >
+      {/* Franja del safe-area (status bar / notch en PWA standalone) pintada
+          con color sólido: sin esto, el bg translúcido + blur deja ver el
+          contenido scrolleado y los glows justo sobre la barra y queda sucio.
+          El color "continúa" por encima de la navbar. */}
+      {isBar && (
+        <div
+          aria-hidden
+          className="pointer-events-none absolute inset-x-0 top-0 bg-bg"
+          style={{ height: "var(--safe-top)" }}
+        />
+      )}
       {left}
       {right}
     </header>
