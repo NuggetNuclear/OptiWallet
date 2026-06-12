@@ -136,7 +136,13 @@ nav {
   font-weight: 400;
   letter-spacing: -0.04em;
   margin-bottom: 32px;
-  animation: fadeUp 1s ease-out 0.15s backwards;
+  /* Solo translate, sin opacity: el h1 es el elemento LCP y un fade desde
+     opacity:0 retrasa el LCP ~1.15s (Lighthouse: "element render delay"). */
+  animation: riseUp 0.7s ease-out 0.1s backwards;
+}
+@keyframes riseUp {
+  from { transform: translateY(16px); }
+  to   { transform: translateY(0); }
 }
 .landing-root h1 em {
   font-style: italic;
