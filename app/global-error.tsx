@@ -29,7 +29,7 @@ export default function GlobalError({
           alignItems: "center",
           justifyContent: "center",
           gap: "16px",
-          background: "#0b0d0c",
+          background: "#0b120e",
           color: "#f2f1ec",
           fontFamily: "system-ui, sans-serif",
           textAlign: "center",
@@ -42,7 +42,7 @@ export default function GlobalError({
               width: "10px",
               height: "10px",
               borderRadius: "50%",
-              background: "#d4ff3a",
+              background: "#4caf7d",
               display: "inline-block",
             }}
           />
@@ -62,8 +62,8 @@ export default function GlobalError({
           onClick={() => window.location.reload()}
           style={{
             marginTop: "8px",
-            background: "#d4ff3a",
-            color: "#0b0d0c",
+            background: "#4caf7d",
+            color: "#0b120e",
             border: "none",
             borderRadius: "999px",
             padding: "14px 32px",
