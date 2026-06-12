@@ -47,19 +47,24 @@ export default function LandingPage() {
     return formatDate(new Date()).toLowerCase();
   }, []);
 
-  // "Hoy no es: X" — rota cada segundo por los 6 días que NO son hoy,
-  // partiendo desde mañana y siguiendo el orden de la semana.
-  const notTodayDays = useMemo(() => {
+  // "Hoy no es: X" — rota cada 2s por los 6 días que NO son hoy (partiendo
+  // desde mañana). Al terminar, cambia a "Hoy es: <hoy>" + CTA durante 10s
+  // (5 ticks de 2s) y vuelve a empezar. Ciclo total: 11 ticks = 22s.
+  const { otherDays, todayName } = useMemo(() => {
     const today = new Date().getDay();
-    return Array.from({ length: 6 }, (_, k) => DAY_NAMES[(today + 1 + k) % 7]);
+    return {
+      otherDays: Array.from({ length: 6 }, (_, k) => DAY_NAMES[(today + 1 + k) % 7]),
+      todayName: DAY_NAMES[today],
+    };
   }, []);
-  const [notTodayIdx, setNotTodayIdx] = useState(0);
+  const [dayTick, setDayTick] = useState(0);
   useEffect(() => {
     const id = setInterval(() => {
-      setNotTodayIdx((prev) => (prev + 1) % 6);
-    }, 1000);
+      setDayTick((prev) => (prev + 1) % 11);
+    }, 2000);
     return () => clearInterval(id);
   }, []);
+  const showingToday = dayTick >= 6;
 
   const toggleFaq = (index: number) => {
     setOpenFaq((prev) => (prev === index ? -1 : index));
@@ -286,10 +291,14 @@ export default function LandingPage() {
                 </svg>
               </div>
               <h3 suppressHydrationWarning>
-                Hoy no es:<br />
-                <em className="rotating-day">{notTodayDays[notTodayIdx]}</em>
+                {showingToday ? "Hoy es:" : "Hoy no es:"}<br />
+                <em className="rotating-day">{showingToday ? todayName : otherDays[dayTick]}</em>
               </h3>
-              <p>Muchas promos dependen del día de la semana. OptiWallet filtra automáticamente y solo te muestra lo vigente hoy.</p>
+              <p suppressHydrationWarning>
+                {showingToday
+                  ? "Entra a la app y revisa los descuentos de hoy."
+                  : "Muchas promos dependen del día de la semana. OptiWallet filtra automáticamente y solo te muestra lo vigente hoy."}
+              </p>
             </div>
 
             <div className="feature">
