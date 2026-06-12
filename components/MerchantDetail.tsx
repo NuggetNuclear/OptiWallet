@@ -13,6 +13,8 @@ interface MerchantDetailProps {
   merchantId: string;
   cardIds: string[];
   date: Date;
+  isToday: boolean;
+  selectedDayName: string;
   onClose: () => void;
   onAddCards: () => void;
 }
@@ -26,6 +28,7 @@ function toRecCardShape(rec: ApiRecommendation, bankName: string) {
       id: rec.promotion_id,
       discount: rec.discount,
       cap: rec.cap,
+      min_purchase: rec.min_purchase,
       modality: rec.modality,
       code: rec.code,
       conditions: rec.conditions,
@@ -61,6 +64,8 @@ export function MerchantDetail({
   merchantId,
   cardIds,
   date,
+  isToday,
+  selectedDayName,
   onClose,
   onAddCards,
 }: MerchantDetailProps) {
@@ -80,7 +85,11 @@ export function MerchantDetail({
   const getBankName = (bankId: string) => bankNameMap.get(bankId) ?? bankId;
 
   const winner = applicableRecs[0];
-  const alternatives = applicableRecs.slice(1);
+  const alternatives = winner
+    ? applicableRecs.slice(1).filter(
+        (rec) => rec.promotion_id !== winner.promotion_id || rec.card_id !== winner.card_id
+      )
+    : [];
 
   const loading = merchantLoading || promosLoading || recsLoading;
 
@@ -208,7 +217,7 @@ export function MerchantDetail({
           </>
         ) : (
           <div className="mt-8 rounded-2xl border border-dashed border-line bg-bg-2/40 p-6 text-center">
-            <div className="font-serif text-xl text-ink">Hoy no hay promo para tus tarjetas aquí.</div>
+            <div className="font-serif text-xl text-ink">{isToday ? "Hoy" : `El ${selectedDayName}`} no hay promo para tus tarjetas aquí.</div>
             <p className="mt-2 text-sm text-ink-dim">
               {cardIds.length === 0
                 ? "Agrega tus tarjetas para ver recomendaciones."

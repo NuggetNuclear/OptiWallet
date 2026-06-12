@@ -37,6 +37,7 @@ CREATE TABLE IF NOT EXISTS promotions (
   merchant_id  TEXT NOT NULL REFERENCES merchants(id),
   discount     INTEGER NOT NULL CHECK (discount > 0 AND discount <= 100),
   cap          INTEGER,
+  min_purchase INTEGER,
   days_of_week SMALLINT[] NOT NULL DEFAULT '{}',
   start_date   DATE,
   end_date     DATE,

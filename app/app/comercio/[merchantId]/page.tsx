@@ -9,6 +9,7 @@ import { useParams, useRouter, useSearchParams } from "next/navigation";
 import { useWallet } from "@/lib/use-wallet";
 import { MerchantDetail } from "@/components/MerchantDetail";
 import { useToday, effectiveDateFor, parseDiaParam } from "@/lib/hooks/use-today";
+import { formatDayOfWeek } from "@/lib/format";
 import { events } from "@/lib/analytics";
 
 function MerchantContent() {
@@ -20,9 +21,13 @@ function MerchantContent() {
   const merchantId = decodeURIComponent(params.merchantId);
 
   const today = useToday();
+  const todayDow = today.getDay();
   const dia = parseDiaParam(searchParams.get("dia"));
-  const effectiveDate = effectiveDateFor(today, dia ?? today.getDay());
+  const selectedDay = dia ?? todayDow;
+  const effectiveDate = effectiveDateFor(today, selectedDay);
   const diaQuery = dia === null ? "" : `?dia=${dia}`;
+  const isToday = selectedDay === todayDow;
+  const selectedDayName = formatDayOfWeek(selectedDay).toLowerCase();
 
   useEffect(() => {
     events.merchantViewed(merchantId);
@@ -35,6 +40,8 @@ function MerchantContent() {
       merchantId={merchantId}
       cardIds={cardIds}
       date={effectiveDate}
+      isToday={isToday}
+      selectedDayName={selectedDayName}
       onClose={() => router.push(`/app${diaQuery}`)}
       onAddCards={() => router.push("/app/wallet")}
     />

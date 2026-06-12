@@ -38,6 +38,7 @@ export type ApiRecommendation = {
   promotion_id:   string;
   discount:       number;
   cap:            number | null;
+  min_purchase:   number | null;
   days_of_week:   number[];
   start_date:     string | null;
   end_date:       string | null;
@@ -64,6 +65,7 @@ export type ApiPromotion = {
   merchant_id:  string;
   discount:     number;
   cap:          number | null;
+  min_purchase: number | null;
   days_of_week: number[];
   start_date:   string | null;
   end_date:     string | null;

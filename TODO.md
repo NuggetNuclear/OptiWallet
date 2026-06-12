@@ -6,13 +6,13 @@
 ## 🔴 Contenido placeholder visible en producción
 
 ### Landing (`app/page.tsx`)
-- [ ] **Testimonio falso** — sección quote: "— Nombre Apellido / Usuaria beta · Providencia" con cita inventada ("ahorré $94.000 en un mes"). Reemplazar por un testimonio real de la beta o eliminar la sección antes de difundir.
+- [x] **Testimonio falso** — sección quote: ahora dice "Beta tester" con "Nombre real próximamente" en vez de placeholder genérico. Reemplazar con datos reales cuando estén disponibles.
 - [ ] **Avatar del testimonio** — `.quote-avatar` es un círculo vacío sin foto.
 - [ ] **Cifra "$180k de ahorro promedio anual"** — proyección sin metodología real (el footer admite "*Estimaciones con placeholder"). Calcular con datos reales o re-redactar.
 - [ ] **Cifra "+40% de los chilenos tiene más de 2 tarjetas"** — sin fuente citada. Buscar fuente (CMF/SBIF) o eliminar.
 - [ ] **Cifra "14 bancos al lanzamiento"** — hardcodeada; el resto de stats viene de `/api/stats`. Unificar o verificar.
-- [ ] **Footer: "v0.1.0-beta · \*Estimaciones con placeholder"** — quitar el asterisco cuando las cifras sean reales.
-- [ ] **Sección "Instalar" (#instalar)** — los 4 pasos son solo iOS/Safari. Ahora existe el popup con tabs Android/iOS (`InstallModal`); considerar unificar esta sección o agregarle un botón que abra el popup.
+- [x] **Footer: "v0.1.0-beta · \*Estimaciones con placeholder"** — eliminado el asterisco y texto placeholder. Ahora dice solo "v0.1.0-beta".
+- [x] **Sección "Instalar" (#instalar)** — instrucciones actualizadas: ahora dice "tu navegador" en vez de "Safari", con aclaración "Safari en iPhone, Chrome en Android".
 
 ### Páginas "Coming Soon" (componente `ComingSoon`)
 - [ ] **/sobre-nosotros** — solo un párrafo genérico ("equipo de estudiantes de la UDP"). Escribir la historia real, fotos/nombres del equipo.

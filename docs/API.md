@@ -327,7 +327,7 @@ null
 
 ## GET /api/promotions/[merchantId]
 
-Retorna todas las promociones **activas** de un comercio, con el nombre del banco.
+Retorna todas las promociones **activas y vigentes** de un comercio, con el nombre del banco.
 
 **Archivo:** `app/api/promotions/[merchantId]/route.ts`
 
@@ -348,6 +348,7 @@ Retorna todas las promociones **activas** de un comercio, con el nombre del banc
     "merchant_id": "papa-johns",
     "discount": 25,
     "cap": 5000,
+    "min_purchase": 10000,
     "days_of_week": [2],
     "start_date": "2026-04-01T04:00:00.000Z",
     "end_date": "2026-06-30T04:00:00.000Z",
@@ -370,6 +371,7 @@ Retorna todas las promociones **activas** de un comercio, con el nombre del banc
 | `merchant_id` | `string` | FK al comercio |
 | `discount` | `number` | Porcentaje de descuento (1–100) |
 | `cap` | `number \| null` | Tope de descuento en CLP. `null` = sin tope |
+| `min_purchase` | `number \| null` | Monto mínimo de compra en CLP. `null` = sin mínimo |
 | `days_of_week` | `number[]` | Días aplicables. `0`=dom … `6`=sáb. `[]` = todos los días |
 | `start_date` | `string \| null` | Inicio de vigencia (ISO) |
 | `end_date` | `string \| null` | Fin de vigencia (ISO) |
@@ -381,7 +383,7 @@ Retorna todas las promociones **activas** de un comercio, con el nombre del banc
 | `active` | `boolean` | Siempre `true` (solo retorna activas) |
 | `bank_name` | `string` | Nombre del banco (JOIN) |
 
-**Filtro:** solo promos con `active = true`.
+**Filtro:** solo promos con `active = true` y `end_date` no vencida (o sin `end_date`).
 
 **Orden:** mayor descuento primero (`discount DESC`).
 
@@ -417,6 +419,7 @@ Retorna todas las promociones **activas** de un comercio, con el nombre del banc
     "promotion_id": "bci-papa-johns-martes",
     "discount": 25,
     "cap": 5000,
+    "min_purchase": 10000,
     "days_of_week": [2],
     "start_date": "2026-04-01T04:00:00.000Z",
     "end_date": "2026-06-30T04:00:00.000Z",
@@ -443,6 +446,7 @@ Retorna todas las promociones **activas** de un comercio, con el nombre del banc
 | `promotion_id` | `string` | ID de la promoción |
 | `discount` | `number` | Porcentaje de descuento |
 | `cap` | `number \| null` | Tope en CLP |
+| `min_purchase` | `number \| null` | Monto mínimo de compra en CLP |
 | `days_of_week` | `number[]` | Días aplicables |
 | `start_date` | `string \| null` | Inicio de vigencia |
 | `end_date` | `string \| null` | Fin de vigencia |

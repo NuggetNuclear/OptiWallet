@@ -249,7 +249,7 @@ Todos los datos viven en **Neon PostgreSQL** — no hay archivos de datos estát
 | `cards` | Productos de tarjeta por banco (`credit` / `debit`) |
 | `merchant_categories` | Categorías de comercios con emoji |
 | `merchants` | Comercios con aliases para búsqueda fuzzy |
-| `promotions` | Promociones con días, topes, fechas, modalidad y trazabilidad (`source`, `verified_at`). Índices en `merchant_id`, `bank_id`, `active` y `days_of_week` (GIN). |
+| `promotions` | Promociones con días, topes, monto mínimo de compra, fechas, modalidad y trazabilidad (`source`, `verified_at`). Índices en `merchant_id`, `bank_id`, `active` y `days_of_week` (GIN). La API filtra promos vencidas por `end_date`. |
 
 **Convenciones de datos:**
 

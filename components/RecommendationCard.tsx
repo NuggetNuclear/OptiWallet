@@ -8,6 +8,7 @@ interface RecommendationCardProps {
       id: string;
       discount: number;
       cap: number | null;
+      min_purchase?: number | null;
       modality: string;
       code?: string | null;
       conditions?: string | null;
@@ -27,10 +28,26 @@ interface RecommendationCardProps {
   onClick?: () => void;
 }
 
+/**
+ * Extract a minimum purchase amount from the structured field or from
+ * free-text `conditions` as a fallback (e.g. "sobre $10.000").
+ */
+function getMinPurchase(promotion: RecommendationCardProps["recommendation"]["promotion"]): number | null {
+  if (promotion.min_purchase) return promotion.min_purchase;
+  if (!promotion.conditions) return null;
+  const match = promotion.conditions.match(/sobre\s*\$\s*([\d.]+)/i)
+    ?? promotion.conditions.match(/m[ií]nimo\s*\$\s*([\d.]+)/i);
+  if (!match) return null;
+  return parseInt(match[1].replace(/\./g, ""), 10) || null;
+}
+
 export function RecommendationCard({ recommendation, amount, compact, onClick }: RecommendationCardProps) {
   const { promotion, card, merchant, bankName } = recommendation;
 
-  const savings = amount
+  const minPurchase = getMinPurchase(promotion);
+  const belowMinimum = amount !== undefined && minPurchase !== null && amount < minPurchase;
+
+  const savings = amount && !belowMinimum
     ? Math.min(Math.round((amount * promotion.discount) / 100), promotion.cap ?? Infinity)
     : null;
 
@@ -70,6 +87,13 @@ export function RecommendationCard({ recommendation, amount, compact, onClick }:
             descuento
           </span>
         </div>
+
+        {belowMinimum && (
+          <div className="mt-2 flex items-center gap-1.5 rounded-lg bg-bg/15 px-2.5 py-1.5 font-mono text-[11px] text-bg">
+            <span>⚠️</span>
+            <span>Monto bajo el mínimo requerido ({formatCLP(minPurchase!)})</span>
+          </div>
+        )}
 
         {savings !== null && (
           <div className="mt-2 font-mono text-[11px] text-bg/80">

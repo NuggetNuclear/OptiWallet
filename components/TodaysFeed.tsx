@@ -75,7 +75,7 @@ function FeedRow({ rec, onClick }: { rec: ApiRecommendation; onClick: () => void
   return (
     <button
       onClick={onClick}
-      className="group flex w-full items-center justify-between rounded-2xl border border-line bg-bg-2 p-4 text-left transition-all hover:border-lime"
+      className="group flex w-full items-center justify-between rounded-2xl border border-line bg-bg-2 p-4 text-left transition-colors active:scale-[0.98] hover:border-lime"
     >
       <div className="flex min-w-0 items-center gap-3">
         <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-bg-3 text-xl">

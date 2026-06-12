@@ -42,6 +42,7 @@ export async function GET(req: NextRequest) {
         p.id             AS promotion_id,
         p.discount,
         p.cap,
+        p.min_purchase,
         p.days_of_week,
         p.start_date,
         p.end_date,

@@ -106,7 +106,9 @@ function HomeContent() {
         {/* Saludo + fecha */}
         <section className="pt-6">
           <div className="font-mono text-[11px] uppercase tracking-[0.15em] text-ink-dim">
-            {formatDate(today)}
+            {selectedDay === todayDow
+              ? formatDate(today)
+              : formatDate(effectiveDate)}
           </div>
           <h1 className="mt-2 font-serif text-[32px] font-normal leading-[0.98] tracking-[-0.03em] text-ink sm:text-[52px]">
             ¿Con qué pagas<br />

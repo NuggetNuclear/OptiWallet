@@ -174,6 +174,29 @@ function BankRow({
 }) {
   const hasSelected = cards.some((c) => selectedCardIds.includes(c.id));
 
+  // Unique abbreviations and brand-inspired colors per bank.
+  // Fallback: first 2 chars of name + neutral bg.
+  const BANK_DISPLAY: Record<string, { letter: string; bg: string }> = {
+    "bice":          { letter: "BI",  bg: "#003087" },
+    "falabella":     { letter: "FB",  bg: "#8CC63F" },
+    "ripley":        { letter: "RP",  bg: "#6B2D8B" },
+    "santander":     { letter: "SA",  bg: "#EC0000" },
+    "security":      { letter: "SE",  bg: "#1A3D6D" },
+    "bco-chile":     { letter: "BC",  bg: "#003A70" },
+    "bci":           { letter: "BCI", bg: "#0033A0" },
+    "banco-estado":  { letter: "BE",  bg: "#002D72" },
+    "itau":          { letter: "IU",  bg: "#FF6600" },
+    "mach":          { letter: "MA",  bg: "#6C5CE7" },
+    "mercado-pago":  { letter: "MP",  bg: "#009EE3" },
+    "scotiabank":    { letter: "SB",  bg: "#EC1C24" },
+    "tenpo":         { letter: "TP",  bg: "#00C389" },
+    "coopeuch":      { letter: "CO",  bg: "#E4002B" },
+  };
+
+  const display = BANK_DISPLAY[bank.id];
+  const iconLetter = display?.letter ?? bank.name.slice(0, 2).toUpperCase();
+  const iconBg = hasSelected ? undefined : display?.bg;
+
   return (
     <div
       className={`overflow-hidden rounded-2xl border transition-colors ${
@@ -187,11 +210,12 @@ function BankRow({
       >
         <div className="flex items-center gap-3">
           <div
-            className={`flex h-10 w-10 items-center justify-center rounded-xl font-serif text-base font-bold ${
-              hasSelected ? "bg-lime text-bg" : "bg-bg-3 text-ink"
+            className={`flex h-10 w-10 items-center justify-center rounded-xl font-mono text-[11px] font-bold tracking-wide ${
+              hasSelected ? "bg-lime text-bg" : "text-white"
             }`}
+            style={!hasSelected && iconBg ? { backgroundColor: iconBg } : !hasSelected ? { backgroundColor: "var(--bg-3)", color: "var(--ink)" } : undefined}
           >
-            {bank.name.charAt(0)}
+            {iconLetter}
           </div>
           <div>
             <div className="font-medium text-ink">{bank.name}</div>

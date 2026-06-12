@@ -42,6 +42,7 @@ export interface Promotion {
 
   discount: number; // porcentaje 0-100
   cap: number | null; // tope en CLP, null = sin tope
+  minPurchase?: number | null; // monto mínimo de compra en CLP
 
   /**
    * Días de la semana en que aplica.

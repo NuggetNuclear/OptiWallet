@@ -158,8 +158,8 @@ export const openApiSpec = {
     "/api/promotions/{merchantId}": {
       get: {
         tags: ["Promociones"],
-        summary: "Promos activas de un comercio",
-        description: `Todas las promociones activas del comercio, ordenadas por descuento. ${cacheNote}`,
+        summary: "Promos activas y vigentes de un comercio",
+        description: `Todas las promociones activas del comercio con fecha de término no vencida, ordenadas por descuento. ${cacheNote}`,
         operationId: "getPromotionsForMerchant",
         parameters: [{ $ref: "#/components/parameters/MerchantId" }],
         responses: {
@@ -333,6 +333,7 @@ export const openApiSpec = {
           merchant_id: { $ref: "#/components/schemas/Id" },
           discount: { type: "number", description: "Porcentaje de descuento", example: 25 },
           cap: { type: ["number", "null"], description: "Tope en CLP", example: 12500 },
+          min_purchase: { type: ["number", "null"], description: "Monto mínimo de compra en CLP", example: 10000 },
           days_of_week: {
             type: "array",
             items: { type: "integer", minimum: 0, maximum: 6 },
@@ -349,7 +350,7 @@ export const openApiSpec = {
           bank_name: { type: "string", example: "Scotiabank" },
         },
         required: [
-          "id", "bank_id", "card_types", "merchant_id", "discount", "cap",
+          "id", "bank_id", "card_types", "merchant_id", "discount", "cap", "min_purchase",
           "days_of_week", "start_date", "end_date", "modality", "code",
           "conditions", "source", "verified_at", "active", "bank_name",
         ],
@@ -361,6 +362,7 @@ export const openApiSpec = {
           promotion_id: { $ref: "#/components/schemas/Id" },
           discount: { type: "number", example: 25 },
           cap: { type: ["number", "null"], example: 12500 },
+          min_purchase: { type: ["number", "null"], example: 10000 },
           days_of_week: { type: "array", items: { type: "integer", minimum: 0, maximum: 6 } },
           start_date: { type: ["string", "null"], format: "date-time" },
           end_date: { type: ["string", "null"], format: "date-time" },
@@ -380,7 +382,7 @@ export const openApiSpec = {
           bank_id: { $ref: "#/components/schemas/Id" },
         },
         required: [
-          "promotion_id", "discount", "cap", "days_of_week", "start_date",
+          "promotion_id", "discount", "cap", "min_purchase", "days_of_week", "start_date",
           "end_date", "modality", "code", "conditions", "source", "verified_at",
           "merchant_id", "merchant_name", "category_id", "category_label",
           "emoji", "card_id", "card_name", "card_type", "bank_id",

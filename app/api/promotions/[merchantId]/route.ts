@@ -25,6 +25,7 @@ export async function GET(
         p.merchant_id,
         p.discount,
         p.cap,
+        p.min_purchase,
         p.days_of_week,
         p.start_date,
         p.end_date,
@@ -39,6 +40,7 @@ export async function GET(
       JOIN banks b ON p.bank_id = b.id
       WHERE p.merchant_id = ${merchantId}
         AND p.active = true
+        AND (p.end_date IS NULL OR p.end_date >= CURRENT_DATE)
       ORDER BY p.discount DESC
     `;
 

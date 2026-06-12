@@ -6,7 +6,7 @@ import { usePageTransition } from "@/components/PageTransition";
 import { StandaloneRedirect } from "@/components/StandaloneRedirect";
 import { InstallModal } from "@/components/InstallModal";
 import { events } from "@/lib/analytics";
-import { formatDate, formatDayOfWeek } from "@/lib/format";
+import { formatDate } from "@/lib/format";
 import "./landing.css";
 
 const FAQS = [
@@ -40,17 +40,9 @@ export default function LandingPage() {
   const [openFaq, setOpenFaq] = useState<number>(0);
   const { trigger, overlay } = usePageTransition();
 
-  // Dynamic date for the phone mockup and the "Hoy no es..." feature card.
-  // El día "que no es hoy" se elige de forma determinista (hoy + 3): evita
-  // Math.random durante el render (react-hooks/purity) y mismatches de
-  // hidratación entre el HTML prerenderizado y el cliente.
-  const { todayFormatted, otherDayName } = useMemo(() => {
-    const now = new Date();
-    const pick = (now.getDay() + 3) % 7; // siempre un día ≠ hoy
-    return {
-      todayFormatted: formatDate(now).toLowerCase(),    // e.g. "miércoles · 29 de abril"
-      otherDayName: formatDayOfWeek(pick).toLowerCase(), // e.g. "sábado"
-    };
+  // Dynamic date for the phone mockup.
+  const todayFormatted = useMemo(() => {
+    return formatDate(new Date()).toLowerCase();
   }, []);
 
   const toggleFaq = (index: number) => {
@@ -200,8 +192,8 @@ export default function LandingPage() {
       <section className="marquee-section" id="bancos">
         <div className="marquee-label">— Cubrimos todos los bancos y tarjetas del mercado chileno —</div>
         <div className="marquee">
-          {["Banco de Chile", "Santander", "BCI", "Scotiabank", "Itaú", "BancoEstado", "Falabella", "Cencosud", "Ripley", "Security", "Consorcio", "Tenpo", "MACH", "Copec Pay",
-            "Banco de Chile", "Santander", "BCI", "Scotiabank", "Itaú", "BancoEstado", "Falabella", "Cencosud", "Ripley", "Security", "Consorcio", "Tenpo", "MACH", "Copec Pay"
+          {["Banco de Chile", "Santander", "BCI", "Scotiabank", "Itaú", "BancoEstado", "Falabella", "Cencosud", "Ripley", "Security", "Tenpo", "MACH", "Copec Pay",
+            "Banco de Chile", "Santander", "BCI", "Scotiabank", "Itaú", "BancoEstado", "Falabella", "Cencosud", "Ripley", "Security", "Tenpo", "MACH", "Copec Pay"
           ].map((bank, i) => (
             <div key={`${bank}-${i}`} className="bank-chip">{bank}</div>
           ))}
@@ -274,8 +266,8 @@ export default function LandingPage() {
                 <rect x="3" y="4" width="18" height="18" rx="2" /><path d="M16 2v4M8 2v4M3 10h18" />
               </svg>
             </div>
-            <h3 suppressHydrationWarning>Hoy no es {otherDayName}</h3>
-            <p>Muchas promos dependen del día. OptiWallet sabe la fecha y solo te muestra lo vigente.</p>
+            <h3>Las promos cambian cada día</h3>
+            <p>Muchas promos dependen del día de la semana. OptiWallet filtra automáticamente y solo te muestra lo vigente hoy.</p>
           </div>
 
           <div className="feature">
@@ -325,8 +317,8 @@ export default function LandingPage() {
             <div className="num-label">es el ahorro promedio anual que proyectamos para un usuario activo de OptiWallet.*</div>
           </div>
           <div className="number-cell">
-            <div className="big-num"><em>0</em> seg</div>
-            <div className="num-label">de espera. La recomendación aparece en el momento, sin sincronizaciones.</div>
+            <div className="big-num"><em>~1</em> seg</div>
+            <div className="num-label">de espera. La recomendación aparece casi al instante, sin sincronizaciones.</div>
           </div>
           <div className="number-cell">
             <div className="big-num"><em>14</em></div>
@@ -344,8 +336,8 @@ export default function LandingPage() {
           <div className="quote-author">
             <div className="quote-avatar"></div>
             <div>
-              <div className="quote-name">— Nombre Apellido</div>
-              <div className="quote-role">Usuaria beta · Providencia</div>
+              <div className="quote-name">— Beta tester</div>
+              <div className="quote-role">Nombre real próximamente · Santiago</div>
             </div>
           </div>
         </div>
@@ -354,12 +346,12 @@ export default function LandingPage() {
       {/* ============ INSTALL PWA ============ */}
       <section className="section install-section" id="instalar">
         <div className="section-label">Sin descargar nada</div>
-        <h2 className="section-title">Se instala desde Safari. <em>Como una app real.</em></h2>
+        <h2 className="section-title">Se instala desde el navegador. <em>Como una app real.</em></h2>
 
         <div className="install-grid">
           <div className="install-steps">
             {[
-              { n: "01", title: "Abre optiwallet.vercel.app en Safari", desc: "Desde tu iPhone o Android. No entres a la App Store." },
+              { n: "01", title: "Abre optiwallet.vercel.app en tu navegador", desc: "Safari en iPhone, Chrome en Android. No entres a la App Store." },
               { n: "02", title: "Toca el botón Compartir", desc: "El ícono del cuadrado con la flecha hacia arriba, abajo al centro." },
               { n: "03", title: "\"Añadir a pantalla de inicio\"", desc: "Aparece como una app normal. Ícono, pantalla completa, todo." },
               { n: "04", title: "Listo. Abre y arma tu wallet.", desc: "Marcas tus tarjetas en 30 segundos y ya está funcionando." },
@@ -448,12 +440,12 @@ export default function LandingPage() {
             <a href="#como-funciona">Cómo funciona</a>
             <a href="#bancos">Bancos soportados</a>
             <a href="#instalar">Instalar</a>
-            <Link href="/roadmap">Roadmap</Link>
+            <Link href="/roadmap">Roadmap <span style={{ fontSize: '9px', opacity: 0.6 }}>(pronto)</span></Link>
           </div>
           <div className="footer-col">
             <h5>Compañía</h5>
-            <Link href="/sobre-nosotros">Sobre nosotros</Link>
-            <Link href="/blog">Blog</Link>
+            <Link href="/sobre-nosotros">Sobre nosotros <span style={{ fontSize: '9px', opacity: 0.6 }}>(pronto)</span></Link>
+            <Link href="/blog">Blog <span style={{ fontSize: '9px', opacity: 0.6 }}>(pronto)</span></Link>
             <Link href="/contacto">Contacto</Link>
             <Link href="/prensa">Prensa</Link>
           </div>
@@ -466,7 +458,7 @@ export default function LandingPage() {
         </div>
         <div className="footer-bottom">
           <div>© 2026 OptiWallet · Hecho con ☕ en Santiago, Chile</div>
-          <div>v0.1.0-beta · *Estimaciones con placeholder</div>
+          <div>v0.1.0-beta</div>
         </div>
       </footer>
     </div>
