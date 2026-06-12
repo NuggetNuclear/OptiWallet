@@ -98,6 +98,9 @@ export default function LandingPage() {
         </a>
       </nav>
 
+      {/* <main>: landmark requerido por a11y (landmark-one-main) */}
+      <main>
+
       {/* ============ HERO ============ */}
       <section className="hero">
         <div className="hero-text">
@@ -426,6 +429,8 @@ export default function LandingPage() {
         </p>
       </section>
 
+      </main>
+
       {/* ============ FOOTER ============ */}
       <footer>
         <div className="footer-inner">
@@ -436,21 +441,21 @@ export default function LandingPage() {
             </p>
           </div>
           <div className="footer-col">
-            <h5>Producto</h5>
+            <h3>Producto</h3>
             <a href="#como-funciona">Cómo funciona</a>
             <a href="#bancos">Bancos soportados</a>
             <a href="#instalar">Instalar</a>
             <Link href="/roadmap">Roadmap <span style={{ fontSize: '9px', opacity: 0.6 }}>(pronto)</span></Link>
           </div>
           <div className="footer-col">
-            <h5>Compañía</h5>
+            <h3>Compañía</h3>
             <Link href="/sobre-nosotros">Sobre nosotros <span style={{ fontSize: '9px', opacity: 0.6 }}>(pronto)</span></Link>
             <Link href="/blog">Blog <span style={{ fontSize: '9px', opacity: 0.6 }}>(pronto)</span></Link>
             <Link href="/contacto">Contacto</Link>
             <Link href="/prensa">Prensa</Link>
           </div>
           <div className="footer-col">
-            <h5>Legal</h5>
+            <h3>Legal</h3>
             <Link href="/terminos">Términos de uso</Link>
             <Link href="/privacidad">Política de privacidad</Link>
             <Link href="/cookies">Cookies</Link>

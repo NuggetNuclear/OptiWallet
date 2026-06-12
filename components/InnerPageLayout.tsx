@@ -29,21 +29,21 @@ export function InnerPageLayout({ children }: { children: React.ReactNode }) {
             </p>
           </div>
           <div className="footer-col">
-            <h5>Producto</h5>
+            <h3>Producto</h3>
             <Link href="/#como-funciona">Cómo funciona</Link>
             <Link href="/#bancos">Bancos soportados</Link>
             <Link href="/#instalar">Instalar</Link>
             <Link href="/roadmap">Roadmap</Link>
           </div>
           <div className="footer-col">
-            <h5>Compañía</h5>
+            <h3>Compañía</h3>
             <Link href="/sobre-nosotros">Sobre nosotros</Link>
             <Link href="/blog">Blog</Link>
             <Link href="/contacto">Contacto</Link>
             <Link href="/prensa">Prensa</Link>
           </div>
           <div className="footer-col">
-            <h5>Legal</h5>
+            <h3>Legal</h3>
             <Link href="/terminos">Términos de uso</Link>
             <Link href="/privacidad">Política de privacidad</Link>
             <Link href="/cookies">Cookies</Link>

@@ -47,12 +47,12 @@ export const metadata: Metadata = {
   },
 };
 
+// Sin maximumScale ni userScalable: bloquear el zoom rompe accesibilidad
+// (audit meta-viewport, peso 10 en Lighthouse) y iOS lo ignora igual.
 export const viewport: Viewport = {
   themeColor: "#0b0d0c",
   width: "device-width",
   initialScale: 1,
-  maximumScale: 1,
-  userScalable: false,
   viewportFit: "cover",
 };
 

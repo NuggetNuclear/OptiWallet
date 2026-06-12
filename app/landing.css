@@ -640,7 +640,9 @@ nav {
   letter-spacing: -0.02em;
   margin-bottom: 48px;
 }
-.quote-text em { font-style: italic; color: var(--copper); }
+/* Copper oscurecido: var(--copper) sobre --paper da 2.5:1 de contraste
+   (falla color-contrast); #9c4a1e da ~4.9:1 y mantiene el tono. */
+.quote-text em { font-style: italic; color: #9c4a1e; }
 .quote-author {
   display: flex;
   align-items: center;
@@ -851,7 +853,7 @@ nav {
   gap: 40px;
   margin-bottom: 48px;
 }
-.footer-col h5 {
+.footer-col h3 {
   font-family: var(--font-jetbrains), monospace;
   font-size: 11px;
   text-transform: uppercase;
