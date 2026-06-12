@@ -15,6 +15,8 @@ OptiWallet cruza las promociones de bancos chilenos y recomienda la mejor tarjet
 | Este README | Visión general, setup, estructura, convenciones |
 | [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) | Arquitectura en detalle: routing, sistema standalone/PWA, service worker, flujo de datos, lógica de recomendaciones, jerarquía de componentes, design system |
 | [`docs/API.md`](docs/API.md) | Referencia completa de los 8 endpoints: params, validación, respuestas, errores, caching |
+| [`/api-docs`](https://optiwallet.vercel.app/api-docs) | **Swagger UI interactivo** (self-hosted) sobre el spec [`/api/openapi.json`](https://optiwallet.vercel.app/api/openapi.json) — fuente: `lib/openapi.ts` |
+| [`TODO.md`](TODO.md) | Inventario de placeholders y pendientes operativos (prensa, sobre-nosotros, cifras de landing, activación Sentry/Plausible) |
 | [`docs/SECURITY.md`](docs/SECURITY.md) | Postura de seguridad: headers, validación, manejo de secrets, recomendaciones operativas |
 | [`OptiWallet/security-audit-2026-06-11.md`](OptiWallet/security-audit-2026-06-11.md) | Security audit completo (hallazgos + fixes aplicados) |
 | [`OptiWallet/audit-report.md`](OptiWallet/audit-report.md) | Code audit 2026-06-10 (histórico — hallazgos ya resueltos) |
@@ -59,6 +61,8 @@ Abre [localhost:3000](http://localhost:3000). La landing está en `/`, la app en
 | Variable | Requerida | Uso |
 |---|---|---|
 | `DATABASE_URL` | Sí | Connection string de Neon PostgreSQL. En producción vive en los **secrets de Vercel** — nunca en el repo. Solo la leen `lib/db.ts` (server) y `scripts/apply-schema.ts` (tooling local). |
+| `NEXT_PUBLIC_SENTRY_DSN` | No | DSN de Sentry (US-ERR, Sprint 2). **Sin definir, el SDK queda deshabilitado** — cero requests, cero overhead. Config compartida en `lib/sentry.ts`. |
+| `NEXT_PUBLIC_PLAUSIBLE_DOMAIN` | No | Dominio del sitio en Plausible (US-ANA, Sprint 2), ej. `optiwallet.vercel.app`. **Sin definir, el script no se inyecta** y `trackEvent` (`lib/analytics.ts`) es no-op. |
 
 Notas:
 
@@ -100,8 +104,13 @@ OptiWallet/
 │   │                             #   grain overlay, glows, botones, transiciones
 │   ├── landing.css               # Estilos exclusivos de la landing (~1200 líneas)
 │   ├── icon.svg                  # Favicon SVG
-│   ├── app/page.tsx              # Web app principal (/app) — vistas por estado React:
-│   │                             #   home (feed+search), merchant (detalle), wallet (gestión)
+│   ├── error.tsx                 # Error boundary global (US-ERR) — reporta a Sentry + UI branded
+│   ├── global-error.tsx          # Boundary de último recurso (root layout roto) — estilos inline
+│   ├── app/page.tsx              # Home de la app (/app): feed + search; día vía ?dia= (US-DL);
+│   │                             #   onboarding inline si la wallet está vacía
+│   ├── app/wallet/page.tsx       # /app/wallet — gestión de tarjetas (ruta real, US-DL)
+│   ├── app/comercio/[merchantId]/page.tsx  # /app/comercio/:id — detalle (ruta real, US-DL)
+│   ├── api-docs/page.tsx         # Swagger UI self-hosted (US-003)
 │   ├── api/                      # 8 Route Handlers (serverless Node.js) → docs/API.md
 │   │   ├── banks/route.ts        #   GET /api/banks — todos los bancos
 │   │   ├── cards/route.ts        #   GET /api/cards — tarjetas (?bankId=)
@@ -110,7 +119,8 @@ OptiWallet/
 │   │   ├── merchants/[merchantId]/route.ts  # GET — comercio por ID
 │   │   ├── promotions/[merchantId]/route.ts # GET — promos activas de un comercio
 │   │   ├── recommendations/route.ts  # GET ★ Core: join promos × tarjetas × comercios
-│   │   └── stats/route.ts        #   GET /api/stats — conteos para la landing
+│   │   ├── stats/route.ts        #   GET /api/stats — conteos para la landing
+│   │   └── openapi.json/route.ts #   GET /api/openapi.json — spec OpenAPI 3.1 (US-003)
 │   ├── blog/                     # Páginas internas — usan InnerPageLayout
 │   ├── contacto/
 │   ├── cookies/
@@ -132,6 +142,7 @@ OptiWallet/
 │   ├── MerchantDetail.tsx        # Vista detalle: promo ganadora + alternativas + monto + todas las promos
 │   ├── RecommendationCard.tsx    # Card de promo ganadora (gradiente lime) + AlternativeCard
 │   ├── WalletSetup.tsx           # Onboarding / gestión de tarjetas — BankRow expandible con cards
+│   ├── InstallModal.tsx          # Popup de instalación PWA: tabs Android/iOS + beforeinstallprompt
 │   ├── PageTransition.tsx        # Overlay de transición landing ↔ app + usePageTransition hook
 │   ├── ServiceWorkerRegistrar.tsx# Monta useServiceWorker (registro del SW, invisible)
 │   ├── StandaloneCookieSync.tsx  # Sincroniza cookie ow_standalone en todas las páginas (invisible)
@@ -147,10 +158,14 @@ OptiWallet/
 │   ├── use-wallet.ts             # Hook localStorage para tarjetas del usuario (hydrated, initiallyEmpty)
 │   ├── standalone.ts             # Detección de PWA instalada + cookie ow_standalone + auto-reparación Android
 │   ├── format.ts                 # Fechas (es-CL), CLP, días de semana, modalidad, toISODateLocal
+│   ├── analytics.ts              # Wrapper de Plausible + eventos de onboarding (US-ANA)
+│   ├── sentry.ts                 # Opciones compartidas de Sentry — no-op sin DSN (US-ERR)
+│   ├── openapi.ts                # Spec OpenAPI 3.1 de la API, mantenida a mano (US-003)
 │   └── hooks/
 │       ├── use-api.ts            # useApiQuery genérico + hooks tipados (useBanks, useCards,
 │       │                         #   useCategories, useMerchants, useRecommendations,
 │       │                         #   usePromotions, useMerchantFromApi)
+│       ├── use-today.ts          # "Hoy" auto-refrescante + effectiveDateFor + parseDiaParam (US-DL)
 │       └── use-service-worker.ts # Registro del SW (solo producción, post-load, updatefound listener)
 │
 ├── scripts/                      # Tooling de base de datos
@@ -163,7 +178,8 @@ OptiWallet/
 │   ├── icon.svg                  # Ícono SVG
 │   ├── icon-192.png              # Ícono PWA 192×192
 │   ├── icon-512.png              # Ícono PWA 512×512
-│   └── icon-maskable.png         # Ícono PWA maskable 512×512
+│   ├── icon-maskable.png         # Ícono PWA maskable 512×512
+│   └── swagger/                  # Swagger UI self-hosted (swagger-ui-dist@5.32.6, US-003)
 │
 ├── docs/                         # Documentación técnica detallada
 │   ├── ARCHITECTURE.md           # Arquitectura, routing, PWA, SW, data layer, componentes
@@ -174,7 +190,12 @@ OptiWallet/
 │   ├── audit-report.md           # Code audit 2026-06-10
 │   └── security-audit-2026-06-11.md  # Security audit 2026-06-11
 │
-├── next.config.mjs               # Security headers (CSP, HSTS…) + poweredByHeader off
+├── instrumentation.ts            # Hook de instrumentación Next — carga Sentry por runtime (US-ERR)
+├── instrumentation-client.ts     # Init de Sentry en el browser (US-ERR)
+├── sentry.server.config.ts       # Init de Sentry runtime Node (US-ERR)
+├── sentry.edge.config.ts         # Init de Sentry runtime Edge (US-ERR)
+├── TODO.md                       # Placeholders y pendientes operativos
+├── next.config.mjs               # Security headers (CSP con Plausible/Sentry, HSTS…) + poweredByHeader off
 ├── vercel.json                   # Config de deploy — pin a región gru1
 ├── eslint.config.mjs             # ESLint 10 flat config (con shims de compat para plugins legacy)
 ├── tsconfig.json                 # TypeScript config
@@ -194,10 +215,15 @@ OptiWallet/
 
 | Ruta | Tipo | Propósito |
 |---|---|---|
-| `/` | Client component | Landing page de marketing |
-| `/app` | Client component | Web app (vistas `home` / `merchant` / `wallet` por estado React) |
+| `/` | Client component | Landing page de marketing (+ `InstallModal` con instrucciones Android/iOS) |
+| `/app` | Client component | Home de la app: feed del día + búsqueda. Día seleccionado vía `?dia=0..6` (US-DL) |
+| `/app/wallet` | Client component | Gestión de tarjetas (deep-linkable) |
+| `/app/comercio/[merchantId]` | Client component | Detalle de comercio (deep-linkable, acepta `?dia=`) |
+| `/api-docs` | Client component | Swagger UI self-hosted sobre `/api/openapi.json` (US-003) |
 | `/blog`, `/contacto`, etc. | Server components | Páginas internas con `InnerPageLayout` |
-| `/api/*` | Route Handlers (serverless Node.js) | Queries directas a Neon PostgreSQL |
+| `/api/*` | Route Handlers (serverless Node.js) | Queries directas a Neon PostgreSQL (+ `/api/openapi.json` estático) |
+
+> **US-DL (Sprint 2):** las vistas de `/app` que antes eran estado React (`view`) son ahora rutas reales del App Router — URLs compartibles, back del browser funcional. El estado compartido entre rutas (wallet, "hoy") vive en `useWallet` y `lib/hooks/use-today.ts`. El onboarding sigue siendo estado local de `/app` (condición de wallet vacía, no una vista navegable).
 
 ### Redirección standalone (PWA instalada)
 
@@ -256,6 +282,7 @@ Todos los datos viven en **Neon PostgreSQL** — no hay archivos de datos estát
 > Detalle completo en [`docs/SECURITY.md`](docs/SECURITY.md) y en el [audit 2026-06-11](OptiWallet/security-audit-2026-06-11.md).
 
 - **Security headers** en `next.config.mjs`: CSP, HSTS, `X-Content-Type-Options`, `X-Frame-Options`, `Referrer-Policy`, `Permissions-Policy`. `X-Powered-By` deshabilitado.
+- **CSP — orígenes externos permitidos (Sprint 2):** `https://plausible.io` (script + eventos de analytics) y `https://*.ingest.*.sentry.io` (connect-src para reportes de error). Swagger UI es self-hosted en `public/swagger/` precisamente para no abrir la CSP a CDNs.
 - **SQL:** queries parametrizadas en todos los routes (tagged templates de Neon); escape de comodines LIKE en búsqueda; columnas explícitas en todos los SELECT.
 - **Validación de input:** todos los IDs que llegan por query/path se validan con `lib/validate.ts` antes de tocar la base → `400` ante input malformado.
 - **Errores:** los 500 devuelven `{"error":"Error interno"}` genérico; el detalle va a los logs de Vercel, nunca al cliente.
@@ -294,7 +321,8 @@ Tokens definidos en `globals.css` bajo `@theme {}` (Tailwind 4 CSS-first):
 ## PWA
 
 - `manifest.json`: standalone, portrait, tema `#0b0d0c`, lang `es-CL`, `start_url: "/app"`.
-- **Service worker** (`public/sw.js`): 3 caches (`optiwallet-v1`, `optiwallet-static-v1`, `optiwallet-api-v1`); precache de shell (/, /app, manifest, íconos); network-first para API y HTML; cache-first con revalidación en background para assets estáticos. Solo se registra en producción. Detalle en [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md).
+- **Service worker** (`public/sw.js`, **v2** desde Sprint 2): 3 caches (`optiwallet-v2`, `optiwallet-static-v2`, `optiwallet-api-v2`); precache de shell (/, /app, /app/wallet, manifest, íconos); network-first para API y HTML; cache-first con revalidación en background para assets estáticos. Offline, los deep links `/app/*` caen al shell cacheado de `/app` (no a la landing). Solo se registra en producción. Detalle en [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md).
+- **Instalación guiada**: `InstallModal` en la landing — popup in-page con tabs Android/iOS, autodetección de plataforma y soporte de `beforeinstallprompt` (instalación con un toque en Android Chrome).
 - **Redirección standalone**: la PWA instalada abre directo en `/app` (ver Arquitectura).
 - Root layout: `appleWebApp: { capable: true, statusBarStyle: "black-translucent" }`.
 - Viewport: no-scale (`userScalable: false`, `viewportFit: cover`).
@@ -307,9 +335,8 @@ Tokens definidos en `globals.css` bajo `@theme {}` (Tailwind 4 CSS-first):
 - Cobertura de bancos y comercios parcial — los bancos sin promos cargadas aparecen como "próximamente".
 - Sin cuentas ni sync — la wallet es `localStorage` only.
 - Soporte offline básico: el SW sirve cache cuando no hay red, pero no hay UI de "estás offline" ni banner de actualización de versión (planificado).
-- Sin deep-linking dentro de `/app` — las vistas son estado React, no URL.
-- Varias páginas internas son placeholders (`ComingSoon`).
-- Sin error boundaries globales.
+- Varias páginas internas son placeholders (`ComingSoon`) — inventario completo en [`TODO.md`](TODO.md).
+- Sentry y Plausible están integrados pero **desactivados hasta setear sus env vars** en Vercel (ver Variables de entorno y `TODO.md`).
 - Sin rate limiting en la API (mitigado por cache de edge; recomendación: Vercel WAF — ver `docs/SECURITY.md`).
 - La fecha en `/app` se auto-actualiza al cambiar el día (focus/visibilitychange + interval 60s), pero una PWA que quede dormida muchos días puede mostrar datos stale hasta recibir foco.
 

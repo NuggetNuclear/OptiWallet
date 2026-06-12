@@ -4,6 +4,13 @@
 
 Referencia completa de los 8 endpoints de la API. Todos son **Route Handlers** (serverless Node.js en Vercel) que consultan **Neon PostgreSQL** directamente.
 
+> **Sprint 2 (US-003):** la API también está documentada en formato **OpenAPI 3.1**:
+>
+> - Spec machine-readable: [`/api/openapi.json`](https://optiwallet.vercel.app/api/openapi.json) (fuente: `lib/openapi.ts`)
+> - **Swagger UI interactivo** (con "Try it out"): [`/api-docs`](https://optiwallet.vercel.app/api-docs) — self-hosted en `public/swagger/` para no abrir la CSP a CDNs.
+>
+> Si cambias un endpoint, actualiza **ambos**: este documento y `lib/openapi.ts`.
+
 ---
 
 ## Índice

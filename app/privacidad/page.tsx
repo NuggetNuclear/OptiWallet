@@ -16,10 +16,13 @@ const sections = [
         <p>
           OptiWallet <strong style={{ color: "var(--ink)" }}>no recolecta datos personales</strong>.
           No hay servidor que reciba tu nombre, tu RUT, tu correo ni ningún dato de identificación.
-          No hay cuenta de usuario. No hay contraseña. La app funciona completamente en tu dispositivo.
+          No hay cuenta de usuario. No hay contraseña. Tu wallet vive en tu dispositivo.
         </p>
         <p style={{ marginTop: "16px" }}>
-          Si prefieres no leer el resto, esto es todo lo que necesitas saber.
+          Lo único que medimos es <strong style={{ color: "var(--ink)" }}>uso agregado y
+          anónimo</strong> (estadísticas sin cookies) y <strong style={{ color: "var(--ink)" }}>errores
+          técnicos</strong> cuando algo se rompe. Ninguna de las dos cosas permite identificarte.
+          El detalle está más abajo.
         </p>
       </>
     ),
@@ -51,16 +54,59 @@ const sections = [
     ),
   },
   {
-    id: "terceros",
-    label: "Terceros",
-    title: "No hay terceros en la ecuación",
+    id: "analytics",
+    label: "Estadísticas",
+    title: "Medimos uso, no personas",
+    content: (
+      <>
+        <p>
+          Usamos <strong style={{ color: "var(--ink)" }}>Plausible Analytics</strong>, una
+          herramienta de estadísticas <strong style={{ color: "var(--ink)" }}>sin cookies y
+          sin identificadores persistentes</strong>, para entender de forma agregada cómo se
+          usa la app durante la beta: cuántas visitas hay, qué páginas se ven y cuántas
+          personas completan el armado de su wallet.
+        </p>
+        <ul style={{ marginTop: "16px", paddingLeft: "20px", display: "flex", flexDirection: "column", gap: "10px" }}>
+          {[
+            "Plausible no usa cookies ni rastrea entre sitios.",
+            "No permite identificarte ni reconstruir tu navegación individual.",
+            "Tu dirección IP no se almacena: se usa solo de forma transitoria y anonimizada para contar visitantes únicos del día.",
+            "Los eventos que medimos son acciones de producto (ej.: \"completó el onboarding\"), nunca el contenido de tu wallet asociado a ti.",
+          ].map((item) => (
+            <li key={item} style={{ color: "var(--ink-dim)", fontSize: "15px", lineHeight: "1.6" }}>
+              <span style={{ color: "var(--lime)", marginRight: "8px" }}>—</span>{item}
+            </li>
+          ))}
+        </ul>
+      </>
+    ),
+  },
+  {
+    id: "errores",
+    label: "Reporte de errores",
+    title: "Si algo se rompe, lo registramos",
     content: (
       <p>
-        OptiWallet no integra servicios de terceros que recolecten datos.
-        No usamos Google Analytics, Meta Pixel, Hotjar, Mixpanel ni ninguna herramienta
-        de seguimiento de usuarios. No hay SDKs de redes sociales, no hay píxeles de
-        publicidad, no hay rastreadores de sesión.
-        Incluso las fuentes tipográficas se sirven desde nuestro propio dominio
+        Para mantener la app funcionando usamos <strong style={{ color: "var(--ink)" }}>Sentry</strong>,
+        un servicio de monitoreo de errores. Cuando ocurre una falla técnica se envía un reporte
+        con el detalle del error (qué se rompió, en qué página, tipo de navegador). Configuramos
+        Sentry explícitamente para <strong style={{ color: "var(--ink)" }}>no enviar datos
+        personales</strong>: sin dirección IP, sin cookies, sin identificadores de usuario.
+        El contenido de tu wallet nunca viaja en estos reportes.
+      </p>
+    ),
+  },
+  {
+    id: "terceros",
+    label: "Terceros",
+    title: "Terceros: solo dos, y sin tus datos",
+    content: (
+      <p>
+        Los únicos servicios externos que integra OptiWallet son los dos de arriba:
+        Plausible (estadísticas agregadas) y Sentry (errores técnicos). No usamos Google
+        Analytics, Meta Pixel, Hotjar ni ninguna herramienta de perfilamiento de usuarios.
+        No hay SDKs de redes sociales, no hay píxeles de publicidad, no hay rastreadores
+        de sesión. Incluso las fuentes tipográficas se sirven desde nuestro propio dominio
         — tu navegador no contacta la CDN de Google Fonts al usar la app.
       </p>
     ),
@@ -68,13 +114,15 @@ const sections = [
   {
     id: "cookies",
     label: "Cookies",
-    title: "Sin cookies de seguimiento",
+    title: "Una sola cookie, y es técnica",
     content: (
       <p>
-        No usamos cookies para rastrearte, perfilarte ni mostrarte publicidad.
-        El navegador puede guardar preferencias técnicas de sesión (como el scroll o el
-        estado del DOM), pero eso no es información que nosotros leamos ni almacenemos
-        en ningún servidor.
+        No usamos cookies para rastrearte, perfilarte ni mostrarte publicidad. La única
+        cookie que existe es <code style={{ color: "var(--ink)" }}>ow_standalone</code>:
+        una marca técnica (valor fijo &quot;1&quot;, sin identificadores) que recuerda que
+        instalaste la app para llevarte directo a ella en vez de a la página de inicio.
+        El detalle completo está en la{" "}
+        <a href="/cookies" style={{ color: "var(--lime)", textDecoration: "none" }}>política de cookies</a>.
       </p>
     ),
   },
@@ -209,7 +257,7 @@ export default function PrivacidadPage() {
             flexWrap: "wrap",
             gap: "12px",
           }}>
-            <span>Última actualización: abril 2026</span>
+            <span>Última actualización: junio 2026</span>
             <a
               href="mailto:hola@optiwallet.cl?subject=Consulta%20Privacidad"
               style={{ color: "var(--lime)", textDecoration: "none" }}

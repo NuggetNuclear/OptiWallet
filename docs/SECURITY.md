@@ -45,11 +45,11 @@ Configurados en `next.config.mjs` y aplicados a **todas las rutas** (`/(.*)`):
 
 ```
 default-src 'self';
-script-src 'self' 'unsafe-inline';
+script-src 'self' 'unsafe-inline' https://plausible.io;
 style-src 'self' 'unsafe-inline';
 img-src 'self' data: blob:;
 font-src 'self';
-connect-src 'self';
+connect-src 'self' https://plausible.io https://*.ingest.sentry.io https://*.ingest.us.sentry.io https://*.ingest.de.sentry.io;
 manifest-src 'self';
 worker-src 'self';
 object-src 'none';
@@ -60,6 +60,8 @@ upgrade-insecure-requests
 ```
 
 > **Nota sobre `unsafe-inline`:** Next.js App Router hidrata con `<script>` inline. Usar nonces requeriría render dinámico en todas las páginas (vía `proxy.ts`), perdiendo el static optimization de la landing. Es un trade-off aceptable para la beta; a futuro se planea migrar a nonces.
+
+> **Orígenes externos (Sprint 2):** `https://plausible.io` (script de analytics + endpoint de eventos, US-ANA) y los dominios de ingest de Sentry en `connect-src` (reportes de error, US-ERR). Son los **únicos** orígenes externos de toda la app; Swagger UI (`/api-docs`) se sirve self-hosted desde `public/swagger/` justamente para no agregar CDNs a la CSP.
 
 ### Otros headers
 
@@ -250,11 +252,11 @@ Solo dos archivos leen `DATABASE_URL`:
 | Directiva | Valor | Razón |
 |---|---|---|
 | `default-src` | `'self'` | Solo recursos propios |
-| `script-src` | `'self' 'unsafe-inline'` | Requerido por Next.js hydration (ver nota) |
+| `script-src` | `'self' 'unsafe-inline' https://plausible.io` | Next.js hydration (ver nota) + script de Plausible (US-ANA) |
 | `style-src` | `'self' 'unsafe-inline'` | Tailwind + inline styles |
 | `img-src` | `'self' data: blob:` | Imágenes locales + SVG inline (data:) |
 | `font-src` | `'self'` | Fuentes self-hosted (next/font) |
-| `connect-src` | `'self'` | API calls solo al mismo origen |
+| `connect-src` | `'self' https://plausible.io https://*.ingest.*.sentry.io` | API propia + eventos Plausible + reportes Sentry (US-ERR) |
 | `manifest-src` | `'self'` | PWA manifest local |
 | `worker-src` | `'self'` | Service worker local |
 | `object-src` | `'none'` | Sin Flash ni plugins |

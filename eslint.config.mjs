@@ -13,6 +13,10 @@ import nextTypescript from "eslint-config-next/typescript";
  */
 /** @type {import("eslint").Linter.Config[]} */
 const eslintConfig = [
+  {
+    // Assets vendored (Swagger UI minificado) y prototipo histórico — no lintear
+    ignores: ["public/swagger/**", "legacy/**"],
+  },
   ...fixupConfigRules(nextConfig),
   ...fixupConfigRules(nextCoreWebVitals),
   ...fixupConfigRules(nextTypescript),

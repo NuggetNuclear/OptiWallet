@@ -2,14 +2,18 @@
 // Sprint 2 — PWA offline support
 // Estrategia: Cache-first para assets estáticos, Network-first para API
 
-const CACHE_NAME = "optiwallet-v1";
-const STATIC_CACHE_NAME = "optiwallet-static-v1";
-const API_CACHE_NAME = "optiwallet-api-v1";
+// v2 (Sprint 2): deep-linking — /app/wallet y /app/comercio/[id] son rutas
+// reales. Se precachea también /app/wallet y el fallback offline de rutas
+// /app/* ahora es el shell de /app (no la landing).
+const CACHE_NAME = "optiwallet-v2";
+const STATIC_CACHE_NAME = "optiwallet-static-v2";
+const API_CACHE_NAME = "optiwallet-api-v2";
 
 // Assets que cacheamos inmediatamente al instalar
 const PRECACHE_URLS = [
   "/",
   "/app",
+  "/app/wallet",
   "/manifest.json",
   "/icon-192.png",
   "/icon-512.png",
@@ -23,6 +27,8 @@ const API_ROUTES = [
   "/api/cards",
   "/api/categories",
   "/api/merchants",
+  "/api/promotions",
+  "/api/recommendations",
   "/api/stats",
 ];
 
@@ -116,11 +122,15 @@ async function networkFirstStrategy(request, cacheName) {
       );
     }
 
-    // Para páginas HTML, mostramos la landing cacheada como fallback.
-    // Check the current cache first, then STATIC_CACHE_NAME where "/" was precached.
+    // Para páginas HTML: deep links /app/* caen al shell cacheado de /app
+    // (el usuario sigue dentro de la app offline); el resto, a la landing.
+    const pathname = new URL(request.url).pathname;
+    const fallbackPath = pathname.startsWith("/app") ? "/app" : "/";
+    const staticCache = await caches.open(STATIC_CACHE_NAME);
     const fallback =
-      (await cache.match("/")) ||
-      (await caches.open(STATIC_CACHE_NAME).then((sc) => sc.match("/")));
+      (await cache.match(fallbackPath)) ||
+      (await staticCache.match(fallbackPath)) ||
+      (await staticCache.match("/"));
     return fallback || new Response("Sin conexión", { status: 503 });
   }
 }

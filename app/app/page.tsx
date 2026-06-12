@@ -1,64 +1,62 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+// app/app/page.tsx — Home de la app (US-DL Sprint 2)
+// Las vistas que antes eran estado React (`view`) ahora son rutas reales:
+//   /app                    → home (esta página), día opcional vía ?dia=0..6
+//   /app/wallet             → gestión de tarjetas
+//   /app/comercio/[id]      → detalle de comercio
+// El onboarding sigue siendo estado local: no es una vista navegable,
+// es una condición de la wallet (vacía al hidratar).
+
+import { Suspense, useCallback, useEffect, useRef, useState } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
 import { useWallet } from "@/lib/use-wallet";
 import { Header } from "@/components/Header";
 import { DayPicker } from "@/components/DayPicker";
 import { TodaysFeed } from "@/components/TodaysFeed";
 import { MerchantSearch } from "@/components/MerchantSearch";
-import { MerchantDetail } from "@/components/MerchantDetail";
 import { WalletSetup } from "@/components/WalletSetup";
 import { PageTransition } from "@/components/PageTransition";
 import { formatDate, formatDayOfWeek } from "@/lib/format";
+import { useToday, effectiveDateFor, parseDiaParam } from "@/lib/hooks/use-today";
+import { events } from "@/lib/analytics";
 
-type View = "home" | "merchant" | "wallet";
-
-export default function HomePage() {
+function HomeContent() {
+  const router = useRouter();
+  const searchParams = useSearchParams();
   const { cardIds, hydrated, initiallyEmpty, toggleCard, clearWallet } = useWallet();
 
-  // "Hoy" como estado: una PWA puede quedar abierta días. Se refresca al
-  // volver a la app (focus/visibilitychange) y cada minuto, actualizando
-  // solo cuando cambia el día calendario para no re-renderizar de más.
-  const [today, setToday] = useState(() => new Date());
-  useEffect(() => {
-    const refresh = () => {
-      setToday((prev) => {
-        const now = new Date();
-        return prev.toDateString() === now.toDateString() ? prev : now;
-      });
-    };
-    window.addEventListener("focus", refresh);
-    document.addEventListener("visibilitychange", refresh);
-    const interval = setInterval(refresh, 60_000);
-    return () => {
-      window.removeEventListener("focus", refresh);
-      document.removeEventListener("visibilitychange", refresh);
-      clearInterval(interval);
-    };
-  }, []);
+  const today = useToday();
   const todayDow = today.getDay();
 
-  const [selectedDay, setSelectedDay] = useState<number>(todayDow);
-  const [view, setView] = useState<View>("home");
-  const [selectedMerchant, setSelectedMerchant] = useState<string | null>(null);
+  // Día seleccionado vive en la URL (?dia=0..6) — deep-linkable y compartible.
+  const selectedDay = parseDiaParam(searchParams.get("dia")) ?? todayDow;
+  const setSelectedDay = useCallback(
+    (d: number) => {
+      router.replace(d === todayDow ? "/app" : `/app?dia=${d}`, { scroll: false });
+    },
+    [router, todayDow],
+  );
+
+  const effectiveDate = effectiveDateFor(today, selectedDay);
+  const diaQuery = selectedDay === todayDow ? "" : `?dia=${selectedDay}`;
+
   const [onboardingComplete, setOnboardingComplete] = useState(false);
   const [transitionDone, setTransitionDone] = useState(false);
-
-  // Fecha efectiva para queries: si el día seleccionado no es hoy, usamos
-  // la próxima ocurrencia de ese día de la semana. Para promos con rango
-  // de fechas usamos la fecha real (no la simulada) — el usuario puede ver
-  // "lo que aplica el martes" en general.
-  const effectiveDate = useMemo(() => {
-    if (selectedDay === todayDow) return today;
-    const d = new Date(today);
-    const diff = (selectedDay - todayDow + 7) % 7;
-    d.setDate(d.getDate() + diff);
-    return d;
-  }, [selectedDay, todayDow, today]);
 
   const handleTransitionComplete = useCallback(() => {
     setTransitionDone(true);
   }, []);
+
+  // Métrica de onboarding: se dispara una sola vez cuando se muestra el setup
+  const showOnboarding = hydrated && initiallyEmpty && !onboardingComplete;
+  const onboardingTracked = useRef(false);
+  useEffect(() => {
+    if (showOnboarding && !onboardingTracked.current) {
+      onboardingTracked.current = true;
+      events.onboardingStarted();
+    }
+  }, [showOnboarding]);
 
   // Estado no hidratado o transición de llegada en curso: branded loading screen
   if (!hydrated || !transitionDone) {
@@ -68,45 +66,16 @@ export default function HomePage() {
   }
 
   // Onboarding obligatorio si la wallet estaba vacía al llegar y aún no se completa
-  if (initiallyEmpty && !onboardingComplete) {
+  if (showOnboarding) {
     return (
       <WalletSetup
         selectedCardIds={cardIds}
         onToggleCard={toggleCard}
         onClearAll={clearWallet}
         onFinish={() => {
+          events.onboardingCompleted(cardIds.length);
           setOnboardingComplete(true);
         }}
-      />
-    );
-  }
-
-  // Si decide gestionar wallet desde home
-  if (view === "wallet") {
-    return (
-      <WalletSetup
-        mode="manage"
-        selectedCardIds={cardIds}
-        onToggleCard={toggleCard}
-        onClearAll={clearWallet}
-        onFinish={() => setView("home")}
-        onClose={() => setView("home")}
-      />
-    );
-  }
-
-  // Vista de comercio
-  if (view === "merchant" && selectedMerchant) {
-    return (
-      <MerchantDetail
-        merchantId={selectedMerchant}
-        cardIds={cardIds}
-        date={effectiveDate}
-        onClose={() => {
-          setView("home");
-          setSelectedMerchant(null);
-        }}
-        onAddCards={() => setView("wallet")}
       />
     );
   }
@@ -126,7 +95,7 @@ export default function HomePage() {
       </div>
 
       <Header
-        onOpenWallet={() => setView("wallet")}
+        onOpenWallet={() => router.push("/app/wallet")}
         onSearchClick={() => {
           document.getElementById('search-section')?.scrollIntoView({ behavior: 'smooth' });
         }}
@@ -166,8 +135,7 @@ export default function HomePage() {
             date={effectiveDate}
             isToday={selectedDay === todayDow}
             onMerchantClick={(id) => {
-              setSelectedMerchant(id);
-              setView("merchant");
+              router.push(`/app/comercio/${encodeURIComponent(id)}${diaQuery}`);
             }}
           />
         </section>
@@ -184,8 +152,7 @@ export default function HomePage() {
         <section id="search-section" className="mt-5">
           <MerchantSearch
             onSelect={(id) => {
-              setSelectedMerchant(id);
-              setView("merchant");
+              router.push(`/app/comercio/${encodeURIComponent(id)}${diaQuery}`);
             }}
           />
         </section>
@@ -208,5 +175,14 @@ export default function HomePage() {
         </footer>
       </main>
     </div>
+  );
+}
+
+// useSearchParams exige un boundary de Suspense para el prerender estático.
+export default function HomePage() {
+  return (
+    <Suspense fallback={null}>
+      <HomeContent />
+    </Suspense>
   );
 }

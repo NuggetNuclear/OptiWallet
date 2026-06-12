@@ -60,8 +60,11 @@ OptiWallet es una **PWA** construida con **Next.js 16 App Router**. El frontend 
 
 | Ruta | Tipo | Módulo | Propósito |
 |---|---|---|---|
-| `/` | Client component | `app/page.tsx` | Landing page de marketing. Renderiza `LandingPage` con stats dinámicos de `/api/stats`. |
-| `/app` | Client component | `app/app/page.tsx` | Web app principal. Vistas `home`, `merchant` y `wallet` por estado React (sin URL routing interno). |
+| `/` | Client component | `app/page.tsx` | Landing page de marketing. Stats dinámicos de `/api/stats` + `InstallModal` (popup Android/iOS). |
+| `/app` | Client component | `app/app/page.tsx` | Home de la app: feed del día + búsqueda. Día seleccionado deep-linkable vía `?dia=0..6`. Onboarding inline si la wallet está vacía. |
+| `/app/wallet` | Client component | `app/app/wallet/page.tsx` | Gestión de tarjetas (US-DL: antes era `view === "wallet"`). |
+| `/app/comercio/[merchantId]` | Client component | `app/app/comercio/[merchantId]/page.tsx` | Detalle de comercio, acepta `?dia=` (US-DL: antes era `view === "merchant"`). |
+| `/api-docs` | Client component | `app/api-docs/page.tsx` | Swagger UI self-hosted sobre `/api/openapi.json` (US-003). |
 | `/blog`, `/contacto`, `/cookies`, `/prensa`, `/privacidad`, `/roadmap`, `/sobre-nosotros`, `/terminos` | Server components | `app/<slug>/page.tsx` | Páginas internas que usan `InnerPageLayout`. |
 | `/api/banks` | Route Handler | `app/api/banks/route.ts` | Todos los bancos. |
 | `/api/cards` | Route Handler | `app/api/cards/route.ts` | Tarjetas, opcionalmente por banco. |
@@ -71,6 +74,23 @@ OptiWallet es una **PWA** construida con **Next.js 16 App Router**. El frontend 
 | `/api/promotions/[merchantId]` | Route Handler | `app/api/promotions/[merchantId]/route.ts` | Promos activas de un comercio. |
 | `/api/recommendations` | Route Handler | `app/api/recommendations/route.ts` | **Core:** recomendaciones cruzadas. |
 | `/api/stats` | Route Handler | `app/api/stats/route.ts` | Conteos para la landing. |
+| `/api/openapi.json` | Route Handler (estático) | `app/api/openapi.json/route.ts` | Spec OpenAPI 3.1 (fuente: `lib/openapi.ts`). |
+
+### Deep-linking en `/app` (US-DL, Sprint 2)
+
+Las vistas de la app son **rutas reales del App Router** — URLs compartibles y back del browser funcional:
+
+- El **estado compartido** entre rutas no vive en un store global: la wallet se rehidrata de `localStorage` en cada ruta (`useWallet`) y "hoy" se recalcula con `lib/hooks/use-today.ts` (`useToday` + `effectiveDateFor` + `parseDiaParam`).
+- El **día seleccionado** viaja por la URL (`?dia=0..6`, donde 0=domingo) y se propaga de `/app` a `/app/comercio/[id]` al navegar. Valores inválidos caen de vuelta a "hoy".
+- El **onboarding** sigue siendo estado local de `/app`: es una condición (wallet vacía al hidratar), no una vista navegable.
+- Las páginas que leen `useSearchParams` van envueltas en `<Suspense>` (requisito de Next para el prerender estático).
+
+### Errores y observabilidad (US-ERR / US-ANA, Sprint 2)
+
+- **`app/error.tsx`**: error boundary global — captura excepciones de render bajo el root layout, las reporta a Sentry y muestra UI branded con retry.
+- **`app/global-error.tsx`**: último recurso si el propio root layout falla — renderiza `<html>/<body>` propios con estilos inline.
+- **Sentry** (`@sentry/nextjs`): init por runtime vía `instrumentation.ts` (Node/Edge) + `instrumentation-client.ts` (browser); opciones compartidas en `lib/sentry.ts`. **Deshabilitado sin `NEXT_PUBLIC_SENTRY_DSN`**. `sendDefaultPii: false` — coherente con la política de privacidad.
+- **Plausible** (`lib/analytics.ts` + `<Script>` en root layout): analytics cookieless, activado solo con `NEXT_PUBLIC_PLAUSIBLE_DOMAIN`. Eventos de onboarding: `Onboarding Started/Completed`, `Wallet Updated`, `CTA Click`, `Install Modal Opened`, `Install Instructions Viewed`, `Merchant Viewed`.
 
 ### Middleware (`proxy.ts`)
 
@@ -163,14 +183,16 @@ export const viewport: Viewport = {
 
 | Cache | Nombre | Contenido |
 |---|---|---|
-| General | `optiwallet-v1` | Reservado (fallback) |
-| Estático | `optiwallet-static-v1` | Shell precacheado + assets estáticos |
-| API | `optiwallet-api-v1` | Respuestas de API cacheadas |
+| General | `optiwallet-v2` | Reservado (fallback) |
+| Estático | `optiwallet-static-v2` | Shell precacheado + assets estáticos |
+| API | `optiwallet-api-v2` | Respuestas de API cacheadas |
+
+> **v2 (Sprint 2):** bump por el deep-linking — se precachea también `/app/wallet` y el fallback offline de rutas `/app/*` pasó a ser el shell de `/app`. El `activate` limpia los caches v1 automáticamente.
 
 ### Precache (install)
 
 Se cachean al instalar el SW:
-- `/`, `/app`, `/manifest.json`
+- `/`, `/app`, `/app/wallet`, `/manifest.json`
 - `/icon-192.png`, `/icon-512.png`, `/icon-maskable.png`
 
 ### Estrategias de cache (fetch)
@@ -189,7 +211,7 @@ Se cachean al instalar el SW:
 
 **Fallback offline:**
 - Respuestas JSON: `{"error":"Sin conexión","offline":true}` con `503`.
-- Páginas HTML: sirve `/` (landing cacheada) como fallback.
+- Páginas HTML: deep links `/app/*` caen al shell cacheado de `/app` (el usuario sigue dentro de la app); el resto cae a `/` (landing cacheada).
 
 ### Registro
 

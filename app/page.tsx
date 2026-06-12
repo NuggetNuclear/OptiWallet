@@ -4,6 +4,8 @@ import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 import { usePageTransition } from "@/components/PageTransition";
 import { StandaloneRedirect } from "@/components/StandaloneRedirect";
+import { InstallModal } from "@/components/InstallModal";
+import { events } from "@/lib/analytics";
 import { formatDate, formatDayOfWeek } from "@/lib/format";
 import "./landing.css";
 
@@ -65,17 +67,27 @@ export default function LandingPage() {
       });
   }, []);
 
-  const handleAppNavigate = (e: React.MouseEvent) => {
+  const handleAppNavigate = (e: React.MouseEvent, cta: string) => {
     e.preventDefault();
+    events.ctaClick(cta);
     trigger("/app");
   };
 
+  // Modal de instalación (Sprint 2): popup in-page con instrucciones
+  // Android/iOS en vez de mandar al usuario directo a /app.
+  const [installModalOpen, setInstallModalOpen] = useState(false);
+  const openInstallModal = (e: React.MouseEvent, source: string) => {
+    e.preventDefault();
+    events.installModalOpened(source);
+    setInstallModalOpen(true);
+  };
 
   return (
     <div className="landing-root">
       {/* PWA standalone → /app (fallback client-side; el server-side vive en proxy.ts) */}
       <StandaloneRedirect />
       {overlay}
+      <InstallModal open={installModalOpen} onClose={() => setInstallModalOpen(false)} />
 
       {/* ============ NAV ============ */}
       <nav>
@@ -89,8 +101,8 @@ export default function LandingPage() {
           <a href="#instalar">Instalar</a>
           <a href="#faq">FAQ</a>
         </div>
-        <a href="/app" onClick={handleAppNavigate} className="nav-cta" data-id="nav-cta">
-          Probar gratis →
+        <a href="/app" onClick={(e) => handleAppNavigate(e, "nav")} className="nav-cta" data-id="nav-cta">
+          Entrar a la app →
         </a>
       </nav>
 
@@ -109,12 +121,12 @@ export default function LandingPage() {
             según el día y el comercio. Sin saldos. Sin clave. Solo recomendaciones.
           </p>
           <div className="hero-ctas">
-            <a href="/app" onClick={handleAppNavigate} className="btn-primary" data-id="hero-cta">
+            <button onClick={(e) => openInstallModal(e, "hero")} className="btn-primary" data-id="hero-cta">
               Agregar al inicio
               <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
-                <path d="M1 8h14m0 0l-6-6m6 6l-6 6" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
+                <path d="M8 1v10m0 0L4 7m4 4l4-4M2 14h12" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
               </svg>
-            </a>
+            </button>
             <a href="#como-funciona" className="btn-ghost">Ver cómo funciona</a>
           </div>
           <div className="hero-stats">
@@ -406,18 +418,17 @@ export default function LandingPage() {
       {/* ============ FINAL CTA ============ */}
       <section className="final-cta">
         <h2>Deja de pagar<br /><em>por pagar mal.</em></h2>
-        <a
-          href="/app"
-          onClick={handleAppNavigate}
+        <button
+          onClick={(e) => openInstallModal(e, "final")}
           className="btn-primary"
           style={{ padding: "20px 36px", fontSize: "17px", display: "inline-flex", width: "auto" }}
           data-id="final-cta"
         >
           Instalar OptiWallet
           <svg width="18" height="18" viewBox="0 0 16 16" fill="none">
-            <path d="M1 8h14m0 0l-6-6m6 6l-6 6" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
+            <path d="M8 1v10m0 0L4 7m4 4l4-4M2 14h12" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
           </svg>
-        </a>
+        </button>
         <p style={{ marginTop: "24px", fontFamily: "var(--font-jetbrains), monospace", fontSize: "12px", color: "var(--ink-dim)", textTransform: "uppercase", letterSpacing: "0.15em" }}>
           Gratis · Sin registro · Sin descargas
         </p>

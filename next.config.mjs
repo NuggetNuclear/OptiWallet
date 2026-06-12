@@ -4,15 +4,18 @@
 // CSP nota: Next App Router hidrata con <script> inline, así que script-src
 // necesita 'unsafe-inline' mientras no usemos nonces (los nonces vía proxy.ts
 // forzarían render dinámico en todas las páginas y perderíamos el static
-// optimization de la landing). Todo lo demás queda bloqueado: sin orígenes
-// externos (fuentes self-hosted por next/font), sin embeds, sin frames.
+// optimization de la landing). Orígenes externos permitidos (Sprint 2):
+//  - https://plausible.io        → script de analytics + endpoint de eventos (US-ANA)
+//  - https://*.ingest.*.sentry.io → envío de errores a Sentry (US-ERR)
+// Todo lo demás queda bloqueado: fuentes self-hosted por next/font, sin
+// embeds, sin frames. Swagger UI (/api-docs) es self-hosted en /public/swagger.
 const ContentSecurityPolicy = [
   "default-src 'self'",
-  "script-src 'self' 'unsafe-inline'",
+  "script-src 'self' 'unsafe-inline' https://plausible.io",
   "style-src 'self' 'unsafe-inline'",
   "img-src 'self' data: blob:",
   "font-src 'self'",
-  "connect-src 'self'",
+  "connect-src 'self' https://plausible.io https://*.ingest.sentry.io https://*.ingest.us.sentry.io https://*.ingest.de.sentry.io",
   "manifest-src 'self'",
   "worker-src 'self'",
   "object-src 'none'",

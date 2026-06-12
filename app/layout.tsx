@@ -1,11 +1,16 @@
 // app/layout.tsx
-// CAMBIO Sprint 2: agregado ServiceWorkerRegistrar para PWA
+// CAMBIO Sprint 2: ServiceWorkerRegistrar (PWA) + Plausible analytics (US-ANA).
 
 import type { Metadata, Viewport } from "next";
+import Script from "next/script";
 import { Fraunces, Sora, JetBrains_Mono } from "next/font/google";
 import "./globals.css";
 import { ServiceWorkerRegistrar } from "@/components/ServiceWorkerRegistrar";
 import { StandaloneCookieSync } from "@/components/StandaloneCookieSync";
+
+// Plausible (US-ANA): analytics cookieless y agregado — sin banner de consentimiento.
+// Sin la env var el script no se inyecta (dev y forks quedan limpios).
+const PLAUSIBLE_DOMAIN = process.env.NEXT_PUBLIC_PLAUSIBLE_DOMAIN;
 
 const sora = Sora({
   subsets: ["latin"],
@@ -66,6 +71,14 @@ export default function RootLayout({
         <ServiceWorkerRegistrar />
         {/* Cookie ow_standalone en sync con el modo real (ver lib/standalone.ts) */}
         <StandaloneCookieSync />
+        {PLAUSIBLE_DOMAIN && (
+          <Script
+            defer
+            data-domain={PLAUSIBLE_DOMAIN}
+            src="https://plausible.io/js/script.js"
+            strategy="afterInteractive"
+          />
+        )}
         {children}
       </body>
     </html>
