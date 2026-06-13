@@ -22,7 +22,7 @@ describe("Cliente de API (api-client)", () => {
     mockResponseStatus = 200;
     mockResponseBody = {};
 
-    globalThis.fetch = async (url: string | URL | Request, options?: RequestInit) => {
+    globalThis.fetch = async (url: string | URL | Request) => {
       lastUrl = url.toString();
       return {
         ok: mockResponseStatus >= 200 && mockResponseStatus < 300,
@@ -101,8 +101,8 @@ describe("Cliente de API (api-client)", () => {
   });
 
   it("getPromotionsForMerchantFromApi escapa caracteres especiales en path", async () => {
-    await getPromotionsForMerchantFromApi("mcdonald's");
-    strictEqual(lastUrl, "/api/promotions/mcdonald%27s");
+    await getPromotionsForMerchantFromApi("mcdonald / spa");
+    strictEqual(lastUrl, "/api/promotions/mcdonald%20%2F%20spa");
   });
 
   it("propaga errores HTTP arrojando un Error", async () => {
