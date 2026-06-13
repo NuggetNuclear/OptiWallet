@@ -1,6 +1,6 @@
 # API Reference — OptiWallet
 
-> Última actualización: 2026-06-12 · v0.1.0-beta
+> Última actualización: 2026-06-13 · v0.1.0-beta
 
 Referencia completa de los 8 endpoints de la API. Todos son **Route Handlers** (serverless Node.js en Vercel) que consultan **Neon PostgreSQL** directamente.
 

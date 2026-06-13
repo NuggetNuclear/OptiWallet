@@ -1,6 +1,6 @@
 # Seguridad — OptiWallet
 
-> Última actualización: 2026-06-12 · v0.1.0-beta
+> Última actualización: 2026-06-13 · v0.1.0-beta
 
 Este documento describe la postura de seguridad de OptiWallet, las defensas implementadas, y las recomendaciones operativas pendientes. Para los hallazgos de auditorías específicas, ver los reportes en [`OptiWallet/`](../OptiWallet/).
 
@@ -202,9 +202,10 @@ Los errores de validación sí devuelven un mensaje descriptivo:
 
 ### Acceso en código
 
-Solo dos archivos leen `DATABASE_URL`:
+Solo tres archivos leen `DATABASE_URL`:
 1. `lib/db.ts` — cliente SQL lazy (server-side, Route Handlers)
 2. `scripts/apply-schema.ts` — tooling local de desarrollo
+3. `scripts/seed.ts` — reset destructivo + datos mock (tooling local)
 
 **Protección en build:** el cliente lazy no inicializa `neon()` si `DATABASE_URL` no está definida. Esto previene crashes durante `next build`, donde Vercel evalúa los route modules sin secrets disponibles.
 
@@ -281,7 +282,7 @@ Mejoras de seguridad recomendadas para post-beta:
 |---|---|---|
 | **Rate limiting** | ❌ Pendiente | La API no tiene rate limiting. Mitigado parcialmente por el cache de edge de Vercel. Recomendación: activar **Vercel WAF** o implementar rate limiting por IP en el middleware. |
 | **CSP con nonces** | ❌ Pendiente | Reemplazar `'unsafe-inline'` por nonces dinámicos en `script-src`. Requiere evaluar el impacto en static optimization. |
-| **Error boundaries** | ❌ Pendiente | Sin error boundaries globales en React. Un error en un componente puede crashear toda la app. |
+| **Error boundaries** | ✅ Implementado | `app/error.tsx` (boundary global, reporta a Sentry) y `app/global-error.tsx` (boundary de último recurso con estilos inline). Ver [`ARCHITECTURE.md`](ARCHITECTURE.md). |
 
 ### Prioridad media
 
@@ -297,6 +298,6 @@ Mejoras de seguridad recomendadas para post-beta:
 
 | Mejora | Estado | Detalle |
 |---|---|---|
-| **Logging estructurado** | ❌ Pendiente | Los `console.error` actuales son suficientes con Vercel Logs, pero un servicio de logging (Sentry, Datadog) daría mejor visibilidad. |
+| **Logging estructurado** | ✅ Parcial | **Sentry** está activo en producción (DSN configurado en Vercel, 2026-06-13). Los `console.error` de Route Handlers van a Vercel Logs, y los errores de render/request se reportan a Sentry automáticamente vía `captureException` / `captureRequestError`. |
 | **CORS headers** | ✅ No necesario | La API es solo para consumo propio (`connect-src 'self'`). No se necesitan CORS headers. |
 | **CSRF** | ✅ No necesario | Solo endpoints GET (no hay mutaciones). Sin cookies de sesión. |

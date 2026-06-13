@@ -112,3 +112,4 @@ out/
 *.pem
 Thumbs.db
 .node_repl_history
+swagger-update-tmp

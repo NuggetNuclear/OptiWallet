@@ -1,6 +1,6 @@
 # Arquitectura de OptiWallet
 
-> Última actualización: 2026-06-12 · v0.1.0-beta
+> Última actualización: 2026-06-13 · v0.1.0-beta
 
 Este documento describe la arquitectura técnica completa de OptiWallet. Para la visión general y el setup local, ver [`README.md`](../README.md).
 

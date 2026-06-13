@@ -25,15 +25,15 @@
 
 ## 🟡 Operativo Sprint 2 (para activar lo implementado)
 
-- [ ] **Sentry**: crear proyecto en sentry.io y setear `NEXT_PUBLIC_SENTRY_DSN` en Vercel (sin la variable, el SDK queda apagado). Ver `.env.example`.
+- [x] **Sentry**: proyecto creado en sentry.io y `NEXT_PUBLIC_SENTRY_DSN` seteado en Vercel. SDK activo en producción desde 2026-06-13.
 - [ ] **Sentry sourcemaps** (opcional): agregar `withSentryConfig` en `next.config.mjs` + `SENTRY_AUTH_TOKEN` para stack traces legibles en producción.
 - [ ] **Plausible**: agregar el sitio `optiwallet.vercel.app` en plausible.io y setear `NEXT_PUBLIC_PLAUSIBLE_DOMAIN` en Vercel.
 - [ ] **Plausible goals**: registrar los eventos custom como Goals para verlos en el dashboard: `Onboarding Started`, `Onboarding Completed`, `Wallet Updated`, `CTA Click`, `Install Modal Opened`, `Install Instructions Viewed`, `Merchant Viewed`.
-- [ ] **npm install local**: tras este sprint hay una dependencia nueva (`@sentry/nextjs`). Correr `npm install` en la máquina local (el `node_modules` quedó incompleto).
+- [x] **Dependencias limpiadas**: `vitest` y `tsx` eliminados — los tests corren con `node:test` (nativo) y los scripts de DB con `node` directo (TypeScript strip-types de Node ≥ 22). `npm install` ya no trae dependencias vulnerables (`esbuild`).
 
 ## 🟢 Deuda menor / mejoras
 
-- [ ] Banner de "nueva versión disponible" cuando el Service Worker detecta update (hoy solo `console.info` — ver `lib/hooks/use-service-worker.ts`, anotado para Sprint 3).
-- [ ] Swagger UI (`/api-docs`): los assets en `public/swagger/` son swagger-ui-dist@5.32.6 copiados a mano; documentar/automatizar el bump de versión.
+- [x] Banner de "nueva versión disponible" cuando el Service Worker detecta update — pill flotante glassmorphism con botón "Actualizar" y dismiss. Hook `useServiceWorker` ahora expone `updateAvailable`, `applyUpdate()` y `dismiss()`.
+- [x] Swagger UI (`/api-docs`): los assets en `public/swagger/` ahora se actualizan con `npm run swagger:update` (script `scripts/update-swagger-ui.ts`). Versión actual: swagger-ui-dist@5.32.6.
 - [ ] Favoritos + alertas e Historial de ahorro: marcados "Próximamente" en la landing — alinear con el roadmap publicado.
-- [ ] Página 404 personalizada (`app/not-found.tsx`) con el branding de la app.
+- [x] Página 404 personalizada (`app/not-found.tsx`) — diseño premium con "404" outline, glows decorativos, stagger animations y CTAs branded.

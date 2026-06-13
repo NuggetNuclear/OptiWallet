@@ -10,7 +10,8 @@
     "db:schema": "dotenv -e .env.local -- node scripts/apply-schema.ts",
     "db:seed": "dotenv -e .env.local -- node scripts/seed.ts",
     "test": "node --test lib/**/*.test.ts",
-    "test:watch": "node --test --watch lib/**/*.test.ts"
+    "test:watch": "node --test --watch lib/**/*.test.ts",
+    "swagger:update": "node scripts/update-swagger-ui.ts"
   },
   "dependencies": {
     "@neondatabase/serverless": "^1.1.0",

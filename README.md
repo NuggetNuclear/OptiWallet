@@ -31,9 +31,11 @@ OptiWallet cruza las promociones de bancos chilenos y recomienda la mejor tarjet
 | UI | React + TypeScript | ^19.2.5 + ^6.0.3 |
 | Estilos | Tailwind CSS 4 (CSS-first) + vanilla CSS | ^4.2.4 |
 | Base de datos | Neon PostgreSQL (serverless) | @neondatabase/serverless ^1.1.0 |
+| Observabilidad | Sentry (`@sentry/nextjs`) | ^10.57.0 |
 | Deploy | Vercel (serverless Node.js, región `gru1`) | — |
 | Tipografía | Fraunces · Sora · JetBrains Mono | next/font (self-hosted en build) |
 | PWA | manifest.json + service worker + redirección standalone | — |
+| Testing | `node:test` + `node:assert` (nativo, cero dependencias) | Node ≥ 22 |
 | Lint | ESLint 10 flat config + eslint-config-next | ^10.2.1 |
 
 > Las versiones de `next` y `eslint-config-next` se mantienen en `^16.2.9` como **piso de seguridad** — versiones anteriores de la serie 16 tienen CVEs conocidos (ver [`docs/SECURITY.md`](docs/SECURITY.md)). No bajar de ahí.
@@ -79,17 +81,22 @@ Notas:
 | `npm run build` | Build de producción |
 | `npm run start` | Servir build de producción |
 | `npm run lint` | ESLint (flat config, ver `eslint.config.mjs`) |
+| `npm test` | Tests unitarios con `node:test` (nativo, cero dependencias) |
+| `npm run test:watch` | Tests en modo watch |
 | `npm run db:schema` | Aplica `scripts/schema.sql` a la DB de tu `.env.local` |
 | `npm run db:seed` | **Destructivo.** DROP + recrea las tablas desde `schema.sql` y carga datos mock. Único modo de propagar cambios de schema (ver abajo). |
+| `npm run swagger:update` | Descarga la última versión de `swagger-ui-dist` y actualiza `public/swagger/` |
 
 ### Gestión de la base de datos
 
-Hay dos scripts de base de datos (corren local, nunca en producción):
+Hay dos scripts de base de datos (corren local con Node nativo, nunca en producción):
 
 - `npm run db:schema` aplica `scripts/schema.sql` con `CREATE TABLE IF NOT EXISTS`. **Ojo:** no altera tablas que ya existen — agregar una columna al `.sql` no la agrega a una tabla ya creada en Neon.
 - `npm run db:seed` es **destructivo**: dropea las tablas, las recrea desde `schema.sql` y carga datos mock. Es el único modo de propagar cambios de schema hoy (no hay tooling de migración real todavía).
 
 **Failsafe:** si necesitas recrear el schema en una DB nueva: `npm run db:schema`. El script (`scripts/apply-schema.ts`) divide `schema.sql` por `;` y ejecuta cada statement — es tooling local de desarrollo, no corre en producción.
+
+> Los scripts de DB y los tests corren directamente con `node` (TypeScript nativo vía strip-types de Node ≥ 22). No se necesitan transpiladores como `tsx` ni frameworks de testing como `vitest`.
 
 ---
 
@@ -174,7 +181,8 @@ OptiWallet/
 │
 ├── scripts/                      # Tooling de base de datos
 │   ├── schema.sql                # DDL PostgreSQL — fuente de verdad del schema (5 tablas + 4 índices)
-│   └── apply-schema.ts           # Aplica schema.sql a Neon (npm run db:schema)
+│   ├── apply-schema.ts           # Aplica schema.sql a Neon (npm run db:schema)
+│   └── seed.ts                   # Reset destructivo + datos mock (npm run db:seed)
 │
 ├── public/
 │   ├── manifest.json             # PWA manifest (standalone, portrait, es-CL, start_url: /app)
@@ -340,7 +348,7 @@ Tokens definidos en `globals.css` bajo `@theme {}` (Tailwind 4 CSS-first):
 - Sin cuentas ni sync — la wallet es `localStorage` only.
 - Soporte offline básico: el SW sirve cache cuando no hay red, pero no hay UI de "estás offline" ni banner de actualización de versión (planificado).
 - Varias páginas internas son placeholders (`ComingSoon`) — inventario completo en [`TODO.md`](TODO.md).
-- Sentry y Plausible están integrados pero **desactivados hasta setear sus env vars** en Vercel (ver Variables de entorno y `TODO.md`).
+- **Sentry** está integrado y **activo** en producción (`NEXT_PUBLIC_SENTRY_DSN` configurado en Vercel). **Plausible** está integrado pero **desactivado hasta setear `NEXT_PUBLIC_PLAUSIBLE_DOMAIN`** en Vercel (ver Variables de entorno y `TODO.md`).
 - Sin rate limiting en la API (mitigado por cache de edge; recomendación: Vercel WAF — ver `docs/SECURITY.md`).
 - La fecha en `/app` se auto-actualiza al cambiar el día (focus/visibilitychange + interval 60s), pero una PWA que quede dormida muchos días puede mostrar datos stale hasta recibir foco.
 

@@ -44,6 +44,15 @@ self.addEventListener("install", (event) => {
   );
 });
 
+// ─── MESSAGE ──────────────────────────────────────────────────────────────────
+// Permite que la app pida explícitamente que el SW en espera tome control.
+// Usado por el banner de "nueva versión disponible" (applyUpdate).
+self.addEventListener("message", (event) => {
+  if (event.data && event.data.type === "SKIP_WAITING") {
+    self.skipWaiting();
+  }
+});
+
 // ─── ACTIVATE ─────────────────────────────────────────────────────────────────
 // Limpia caches viejos de versiones anteriores del SW.
 self.addEventListener("activate", (event) => {
