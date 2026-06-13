@@ -20,18 +20,6 @@ const PRECACHE_URLS = [
   "/icon-maskable.png",
 ];
 
-// Rutas de API que cacheamos con estrategia network-first
-// (si no hay red, sirve el cache)
-const API_ROUTES = [
-  "/api/banks",
-  "/api/cards",
-  "/api/categories",
-  "/api/merchants",
-  "/api/promotions",
-  "/api/recommendations",
-  "/api/stats",
-];
-
 // ─── INSTALL ──────────────────────────────────────────────────────────────────
 // Se ejecuta una sola vez cuando el SW se registra por primera vez.
 // Precacheamos los assets críticos para que la app funcione offline.
@@ -112,6 +100,8 @@ async function networkFirstStrategy(request, cacheName) {
 
     return networkResponse;
   } catch {
+    const pathname = new URL(request.url).pathname;
+
     // Sin red — intentamos servir desde cache
     const cachedResponse = await cache.match(request);
 
@@ -120,7 +110,7 @@ async function networkFirstStrategy(request, cacheName) {
     }
 
     // Si tampoco hay cache, devolvemos una respuesta de error amigable
-    if (request.headers.get("accept")?.includes("application/json")) {
+    if (isAPIRoute(pathname) || request.headers.get("accept")?.includes("application/json")) {
       return new Response(
         JSON.stringify({ error: "Sin conexión", offline: true }),
         {
@@ -132,7 +122,6 @@ async function networkFirstStrategy(request, cacheName) {
 
     // Para páginas HTML: deep links /app/* caen al shell cacheado de /app
     // (el usuario sigue dentro de la app offline); el resto, a la landing.
-    const pathname = new URL(request.url).pathname;
     const fallbackPath = pathname.startsWith("/app") ? "/app" : "/";
     const staticCache = await caches.open(STATIC_CACHE_NAME);
     const fallback =
@@ -177,7 +166,7 @@ async function cacheFirstStrategy(request, cacheName) {
 // ─── HELPERS ──────────────────────────────────────────────────────────────────
 
 function isAPIRoute(pathname) {
-  return API_ROUTES.some((route) => pathname.startsWith(route));
+  return pathname.startsWith("/api/");
 }
 
 function isStaticAsset(pathname) {

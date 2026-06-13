@@ -4,8 +4,8 @@ import {
   calculateSavings,
   rankRecommendations,
   calculateStackedSavings,
-} from "./recommendations.ts";
-import type { ApiRecommendation } from "./api-client";
+} from "../lib/recommendations.ts";
+import type { ApiRecommendation } from "../lib/api-client";
 
 // Helper para crear recomendaciones mock fácilmente
 function createMockRec(overrides: Partial<ApiRecommendation>): ApiRecommendation {
