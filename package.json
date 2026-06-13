@@ -8,7 +8,9 @@
     "start": "next start",
     "lint": "eslint .",
     "db:schema": "dotenv -e .env.local -- tsx scripts/apply-schema.ts",
-    "db:seed": "dotenv -e .env.local -- tsx scripts/seed.ts"
+    "db:seed": "dotenv -e .env.local -- tsx scripts/seed.ts",
+    "test": "vitest run",
+    "test:watch": "vitest"
   },
   "dependencies": {
     "@neondatabase/serverless": "^1.1.0",
@@ -30,7 +32,8 @@
     "postcss": "^8.5.12",
     "tailwindcss": "^4.2.4",
     "tsx": "^4.21.0",
-    "typescript": "^6.0.3"
+    "typescript": "^6.0.3",
+    "vitest": "^4.1.8"
   },
   "overrides": {
     "eslint": "$eslint",

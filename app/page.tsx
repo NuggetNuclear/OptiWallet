@@ -353,13 +353,13 @@ export default function LandingPage() {
         <section className="quote-section">
           <div className="quote-inner">
             <p className="quote-text">
-              &quot;Antes pagaba todo con la misma tarjeta porque no sabía cuál usar. Con OptiWallet, <em>ahorré $94.000 en un mes</em> solo ordenando con qué pago el super y la bencina.&quot;
+              &quot;Antes pagaba todo con la misma tarjeta porque no sabía cuál usar. Con OptiWallet, <em>ahorré $50.000 en un mes</em> solo ordenando con qué pago los cafés y la bencina.&quot;
             </p>
             <div className="quote-author">
               <div className="quote-avatar"></div>
               <div>
-                <div className="quote-name">— Beta tester</div>
-                <div className="quote-role">Nombre real próximamente · Santiago</div>
+                <div className="quote-name"> Beta tester anónimo</div>
+                <div className="quote-role">Santiago</div>
               </div>
             </div>
           </div>

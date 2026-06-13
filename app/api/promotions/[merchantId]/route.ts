@@ -10,6 +10,10 @@ export async function GET(
 ) {
   const { merchantId } = await params;
 
+  // "Hoy" en hora de Chile (no en el UTC del server gru1), coherente con
+  // /api/recommendations: evita esconder promos que vencen hoy unas horas antes.
+  const today = new Intl.DateTimeFormat("en-CA", { timeZone: "America/Santiago" }).format(new Date());
+
   if (!isValidId(merchantId)) {
     return NextResponse.json({ error: "ID inválido" }, { status: 400 });
   }
@@ -40,7 +44,7 @@ export async function GET(
       JOIN banks b ON p.bank_id = b.id
       WHERE p.merchant_id = ${merchantId}
         AND p.active = true
-        AND (p.end_date IS NULL OR p.end_date >= CURRENT_DATE)
+        AND (p.end_date IS NULL OR p.end_date >= ${today}::date)
       ORDER BY p.discount DESC
     `;
 

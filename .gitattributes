@@ -1,0 +1,21 @@
+# Normaliza los fin de línea: en el repo todo va como LF, sin importar el SO.
+# Esto evita los diffs gigantes de CRLF↔LF (ver auditoría 2026-06-13, hallazgo P1).
+* text=auto eol=lf
+
+# Texto explícito (LF en el repo)
+*.ts    text eol=lf
+*.tsx   text eol=lf
+*.js    text eol=lf
+*.mjs   text eol=lf
+*.json  text eol=lf
+*.css   text eol=lf
+*.sql   text eol=lf
+*.md    text eol=lf
+*.html  text eol=lf
+*.svg   text eol=lf
+
+# Binarios (nunca tocar)
+*.png   binary
+*.ico   binary
+*.woff  binary
+*.woff2 binary

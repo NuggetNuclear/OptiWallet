@@ -80,10 +80,14 @@ Notas:
 | `npm run start` | Servir build de producción |
 | `npm run lint` | ESLint (flat config, ver `eslint.config.mjs`) |
 | `npm run db:schema` | Aplica `scripts/schema.sql` a la DB de tu `.env.local` |
+| `npm run db:seed` | **Destructivo.** DROP + recrea las tablas desde `schema.sql` y carga datos mock. Único modo de propagar cambios de schema (ver abajo). |
 
 ### Gestión de la base de datos
 
-Los datos se administran directamente desde la **consola de Neon**. No hay scripts de seed — la migración inicial ya fue completada.
+Hay dos scripts de base de datos (corren local, nunca en producción):
+
+- `npm run db:schema` aplica `scripts/schema.sql` con `CREATE TABLE IF NOT EXISTS`. **Ojo:** no altera tablas que ya existen — agregar una columna al `.sql` no la agrega a una tabla ya creada en Neon.
+- `npm run db:seed` es **destructivo**: dropea las tablas, las recrea desde `schema.sql` y carga datos mock. Es el único modo de propagar cambios de schema hoy (no hay tooling de migración real todavía).
 
 **Failsafe:** si necesitas recrear el schema en una DB nueva: `npm run db:schema`. El script (`scripts/apply-schema.ts`) divide `schema.sql` por `;` y ejecuta cada statement — es tooling local de desarrollo, no corre en producción.
 

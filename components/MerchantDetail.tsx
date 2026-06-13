@@ -207,7 +207,7 @@ export function MerchantDetail({
                 <div className="mt-3 space-y-2">
                   {alternatives.map((rec) => (
                     <AlternativeCard
-                      key={rec.promotion_id}
+                      key={`${rec.promotion_id}:${rec.card_id}`}
                       recommendation={toRecCardShape(rec, getBankName(rec.bank_id))}
                     />
                   ))}
