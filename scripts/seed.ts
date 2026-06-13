@@ -112,7 +112,7 @@ async function reset() {
   }
 
   console.log("📋 Reaplicando schema.sql…");
-  const schema = fs.readFileSync(path.join(__dirname, "schema.sql"), "utf-8");
+  const schema = fs.readFileSync(path.join(import.meta.dirname, "schema.sql"), "utf-8");
   const statements = schema.split(";").map((s) => s.trim()).filter((s) => s.length > 0);
   for (const stmt of statements) {
     await sql.query(stmt);

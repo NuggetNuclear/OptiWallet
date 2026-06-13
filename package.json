@@ -7,10 +7,10 @@
     "build": "next build",
     "start": "next start",
     "lint": "eslint .",
-    "db:schema": "dotenv -e .env.local -- tsx scripts/apply-schema.ts",
-    "db:seed": "dotenv -e .env.local -- tsx scripts/seed.ts",
-    "test": "vitest run",
-    "test:watch": "vitest"
+    "db:schema": "dotenv -e .env.local -- node scripts/apply-schema.ts",
+    "db:seed": "dotenv -e .env.local -- node scripts/seed.ts",
+    "test": "node --test lib/**/*.test.ts",
+    "test:watch": "node --test --watch lib/**/*.test.ts"
   },
   "dependencies": {
     "@neondatabase/serverless": "^1.1.0",
@@ -31,9 +31,7 @@
     "eslint-config-next": "^16.2.9",
     "postcss": "^8.5.12",
     "tailwindcss": "^4.2.4",
-    "tsx": "^4.21.0",
-    "typescript": "^6.0.3",
-    "vitest": "^4.1.8"
+    "typescript": "^6.0.3"
   },
   "overrides": {
     "eslint": "$eslint",

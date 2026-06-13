@@ -10,7 +10,7 @@ if (!process.env.DATABASE_URL) {
 const sql = neon(process.env.DATABASE_URL);
 
 async function applySchema() {
-  const schemaPath = path.join(__dirname, "schema.sql");
+  const schemaPath = path.join(import.meta.dirname, "schema.sql");
   const schema = fs.readFileSync(schemaPath, "utf-8");
   
   // Split by semicolons and run each statement individually
