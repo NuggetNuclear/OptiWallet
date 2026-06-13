@@ -2,13 +2,14 @@
 
 > Última actualización: 2026-06-13 · v0.1.0-beta
 
-Este documento describe la postura de seguridad de OptiWallet, las defensas implementadas, y las recomendaciones operativas pendientes. Para los hallazgos de auditorías específicas, ver los reportes en [`OptiWallet/`](../OptiWallet/).
+Este documento describe la postura de seguridad de OptiWallet, las defensas implementadas, y las recomendaciones operativas pendientes. Para los hallazgos de auditorías específicas, ver los reportes en [`OptiWallet/`](../OptiWallet/). Para la seguridad específica del panel de administración, ver [`docs/ADMIN.md`](ADMIN.md#seguridad-del-panel).
 
 ---
 
 ## Índice
 
 - [Superficie de ataque](#superficie-de-ataque)
+- [Panel de administración](#panel-de-administración)
 - [Security headers](#security-headers)
 - [SQL y base de datos](#sql-y-base-de-datos)
 - [Validación de input](#validación-de-input)
@@ -27,13 +28,56 @@ OptiWallet tiene una superficie de ataque **intencionalmente reducida**:
 
 | Aspecto | Postura |
 |---|---|
-| Autenticación | No hay cuentas de usuario. Sin login, sin sesiones, sin tokens. |
+| Autenticación de usuario final | No hay cuentas de usuario. Sin login, sin sesiones, sin tokens. |
 | Datos sensibles | No se almacenan datos personales del usuario. La wallet es `localStorage` local. |
-| API | Solo `GET` / `SELECT`. No hay escritura, no hay mutaciones. |
-| Base de datos | Neon PostgreSQL con un solo usuario de conexión (solo lectura en la práctica). |
+| API pública | Solo `GET` / `SELECT`. No hay escritura, no hay mutaciones. |
+| API admin (`/api/admin/*`) | Escritura completa, protegida por sesión HMAC-SHA256 + TOTP. Ver sección siguiente. |
+| Base de datos | Neon PostgreSQL serverless. El connection string solo vive en el servidor y en Vercel secrets. |
 | Uploads | No hay uploads de archivos. |
 | Pagos | No hay integración de pagos. |
 | OAuth / terceros | No hay integraciones con servicios externos. |
+
+---
+
+## Panel de administración
+
+El panel admin en `/admin` agrega una **superficie de ataque adicional y controlada**. Está completamente separado de la app pública.
+
+### Modelo de acceso
+
+| Capa | Protección |
+|---|---|
+| Rutas `/admin/*` | `proxy.ts` (Edge Runtime) verifica la cookie HMAC antes de renderizar cualquier página |
+| Endpoints `/api/admin/*` | `getAdminFromRequest()` verifica la cookie al inicio de cada Route Handler |
+| Formulario de login | Rate limiting: 5 intentos fallidos/IP/15 min (tabla `admin_login_attempts`) |
+| Paso 1 login | bcrypt costo 12 + anti-enumeración (mismo error para email desconocido y contraseña incorrecta) |
+| Paso 2 login | TOTP obligatorio (Google Authenticator, ±1 ventana de 30s) |
+| Sesión | Cookie `HttpOnly; Secure; SameSite=Strict; Path=/admin`, firmada HMAC-SHA256, 8h de duración |
+
+### Nuevas cookies
+
+| Cookie | Uso | HttpOnly | SameSite | Path |
+|---|---|---|---|---|
+| `ow_admin_session` | Sesión de admin, firmada HMAC-SHA256 | ✓ | Strict | `/admin` |
+
+### Nuevas variables de entorno
+
+| Variable | Descripción |
+|---|---|
+| `ADMIN_SESSION_SECRET` | Secreto para firmar sesiones HMAC-SHA256. Generar con `openssl rand -hex 32`. **Nunca debe aparecer en el repositorio.** |
+
+### Compartimentalización
+
+Los módulos con lógica de autenticación están marcados con `import "server-only"`:
+- `lib/admin-auth.ts` — bcryptjs + otpauth (no se pueden ejecutar en el browser)
+- `lib/admin-session.ts` — cookies y tokens HMAC
+- `lib/db.ts` — cliente de base de datos
+
+Si un Client Component importa cualquiera de estos módulos, Next.js lanza un error en build time antes de que el código llegue a producción.
+
+### Referencia completa
+
+Ver [`docs/ADMIN.md`](ADMIN.md) para la arquitectura detallada, walkthrough de despliegue y referencia de API del panel.
 
 ---
 

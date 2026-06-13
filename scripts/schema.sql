@@ -55,3 +55,23 @@ CREATE INDEX IF NOT EXISTS idx_promotions_merchant ON promotions(merchant_id);
 CREATE INDEX IF NOT EXISTS idx_promotions_bank     ON promotions(bank_id);
 CREATE INDEX IF NOT EXISTS idx_promotions_active   ON promotions(active);
 CREATE INDEX IF NOT EXISTS idx_promotions_days     ON promotions USING GIN(days_of_week);
+
+-- admin_users
+CREATE TABLE IF NOT EXISTS admin_users (
+  id            TEXT PRIMARY KEY,
+  email         TEXT NOT NULL UNIQUE,
+  password_hash TEXT NOT NULL,
+  totp_secret   TEXT NOT NULL,
+  totp_enabled  BOOLEAN NOT NULL DEFAULT false,
+  created_at    TIMESTAMPTZ NOT NULL DEFAULT now(),
+  last_login_at TIMESTAMPTZ
+);
+
+-- admin_login_attempts (rate limiting — one row per failed attempt)
+CREATE TABLE IF NOT EXISTS admin_login_attempts (
+  id           BIGSERIAL PRIMARY KEY,
+  ip_address   TEXT NOT NULL,
+  attempted_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+CREATE INDEX IF NOT EXISTS idx_admin_login_ip_time ON admin_login_attempts(ip_address, attempted_at);
