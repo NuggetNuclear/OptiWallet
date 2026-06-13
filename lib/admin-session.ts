@@ -103,7 +103,7 @@ export function setSessionCookie(res: NextResponse, token: string): void {
     httpOnly: true,
     secure: process.env.NODE_ENV === "production",
     sameSite: "strict",
-    path: "/admin",
+    path: "/",
     maxAge: 8 * 60 * 60,
   });
 }
@@ -113,7 +113,7 @@ export function clearSessionCookie(res: NextResponse): void {
     httpOnly: true,
     secure: process.env.NODE_ENV === "production",
     sameSite: "strict",
-    path: "/admin",
+    path: "/",
     maxAge: 0,
   });
 }
