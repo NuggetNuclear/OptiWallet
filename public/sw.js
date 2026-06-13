@@ -40,7 +40,6 @@ self.addEventListener("install", (event) => {
     caches
       .open(STATIC_CACHE_NAME)
       .then((cache) => cache.addAll(PRECACHE_URLS))
-      .then(() => self.skipWaiting()) // activa el SW inmediatamente sin esperar
   );
 });
 
@@ -158,7 +157,7 @@ async function cacheFirstStrategy(request, cacheName) {
       .then((networkResponse) => {
         if (networkResponse.ok) cache.put(request, networkResponse);
       })
-      .catch(() => {}); // silencia errores de red en background
+      .catch(() => { }); // silencia errores de red en background
 
     return cachedResponse;
   }
