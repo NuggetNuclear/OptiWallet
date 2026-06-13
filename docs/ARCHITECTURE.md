@@ -350,6 +350,16 @@ El endpoint `/api/recommendations` es el **core del producto**. Cruza tarjetas d
 
 **Día de la semana:** se calcula con `getUTCDay()` sobre `dateStr + "T00:00:00Z"` — así el día corresponde siempre al calendario de la fecha recibida, independiente de la zona del servidor.
 
+### Cálculo de Ahorro y Priorización Dinámica (`lib/recommendations.ts`)
+
+Para evitar duplicación y permitir un testeo robusto, la lógica de negocio del cálculo de descuentos y el ordenamiento dinámico se centraliza en `lib/recommendations.ts`:
+
+1. **`calculateSavings`**: Calcula el ahorro real en pesos chilenos considerando el porcentaje de descuento, el tope máximo (`cap`) y el monto mínimo de compra (`min_purchase`).
+2. **`rankRecommendations` (Excluyentes)**:
+   * Por defecto, ordena por porcentaje de descuento.
+   * Si el usuario ingresa un monto en la vista de detalle del comercio, re-ordena dinámicamente las recomendaciones por **ahorro real en pesos**. Esto resuelve el caso de decisiones **excluyentes**: para montos de compra altos, una tarjeta con menor porcentaje de descuento pero mayor tope puede ser la ganadora frente a otra con más descuento pero menor tope.
+3. **`calculateStackedSavings` (Apilables)**: Calcula el ahorro acumulado al aplicar de forma sucesiva múltiples promociones (ej. un cupón del comercio junto a un beneficio de tarjeta bancaria). El descuento secundario se aplica de manera acumulativa sobre el monto restante después del primer descuento.
+
 ---
 
 ## State management (cliente)

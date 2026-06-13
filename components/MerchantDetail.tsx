@@ -7,6 +7,7 @@ import { AlternativeCard, RecommendationCard } from "./RecommendationCard";
 import { TopBar } from "./layout/TopBar";
 import { BackButton } from "./layout/BackButton";
 import type { ApiRecommendation, ApiPromotion } from "@/lib/api-client";
+import { rankRecommendations } from "@/lib/recommendations";
 
 
 interface MerchantDetailProps {
@@ -84,9 +85,14 @@ export function MerchantDetail({
   const bankNameMap = useMemo(() => buildBankNameMap(allPromos), [allPromos]);
   const getBankName = (bankId: string) => bankNameMap.get(bankId) ?? bankId;
 
-  const winner = applicableRecs[0];
+  // Ordenar dinámicamente las recomendaciones basándose en el monto ingresado
+  const rankedRecs = useMemo(() => {
+    return rankRecommendations(applicableRecs, amount);
+  }, [applicableRecs, amount]);
+
+  const winner = rankedRecs[0];
   const alternatives = winner
-    ? applicableRecs.slice(1).filter(
+    ? rankedRecs.slice(1).filter(
         (rec) => rec.promotion_id !== winner.promotion_id || rec.card_id !== winner.card_id
       )
     : [];

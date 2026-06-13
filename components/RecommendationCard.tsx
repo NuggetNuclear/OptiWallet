@@ -1,6 +1,7 @@
 "use client";
 
 import { formatCLP, modalityLabel } from "@/lib/format";
+import { calculateSavings } from "@/lib/recommendations";
 
 interface RecommendationCardProps {
   recommendation: {
@@ -47,8 +48,8 @@ export function RecommendationCard({ recommendation, amount, compact, onClick }:
   const minPurchase = getMinPurchase(promotion);
   const belowMinimum = amount !== undefined && minPurchase !== null && amount < minPurchase;
 
-  const savings = amount && !belowMinimum
-    ? Math.min(Math.round((amount * promotion.discount) / 100), promotion.cap ?? Infinity)
+  const savings = amount !== undefined && !belowMinimum
+    ? calculateSavings(amount, promotion.discount, promotion.cap, minPurchase)
     : null;
 
   const Inner = (

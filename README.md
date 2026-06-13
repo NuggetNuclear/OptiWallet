@@ -169,6 +169,7 @@ OptiWallet/
 │   ├── use-wallet.ts             # Hook localStorage para tarjetas del usuario (hydrated, initiallyEmpty)
 │   ├── standalone.ts             # Detección de PWA instalada + cookie ow_standalone + auto-reparación Android
 │   ├── format.ts                 # Fechas (es-CL), CLP, días de semana, modalidad, toISODateLocal
+│   ├── recommendations.ts        # Motor de cálculo y ranking de ahorros, topes y promociones apilables
 │   ├── analytics.ts              # Wrapper de Plausible + eventos de onboarding (US-ANA)
 │   ├── sentry.ts                 # Opciones compartidas de Sentry — no-op sin DSN (US-ERR)
 │   ├── openapi.ts                # Spec OpenAPI 3.1 de la API, mantenida a mano (US-003)
