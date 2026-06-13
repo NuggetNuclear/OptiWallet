@@ -1,3 +1,5 @@
+import "server-only";
+
 /**
  * Session token signing and cookie helpers.
  * Uses Web Crypto API (globalThis.crypto.subtle) — edge-runtime compatible.

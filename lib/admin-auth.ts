@@ -1,3 +1,4 @@
+import "server-only";
 import bcrypt from "bcryptjs";
 import { TOTP, Secret } from "otpauth";
 

@@ -31,12 +31,15 @@ OptiWallet es una **PWA** construida con **Next.js 16 App Router**. El frontend 
 │                    Vercel (gru1)                     │
 │                                                     │
 │  proxy.ts (middleware)                               │
-│    └─ Redirección / → /app (cookie ow_standalone)   │
+│    ├─ Redirección / → /app (cookie ow_standalone)   │
+│    └─ Auth guard /admin/* (cookie ow_admin_session) │
 │                                                     │
 │  app/                                                │
 │    ├─ page.tsx         → Landing (client)            │
 │    ├─ app/page.tsx     → Web app (client)            │
-│    ├─ api/*            → 8 Route Handlers            │
+│    ├─ admin/*          → Panel admin (server+client) │
+│    ├─ api/*            → 8 Route Handlers públicos   │
+│    ├─ api/admin/*      → API admin (auth requerida)  │
 │    └─ blog/, contacto/ → Páginas internas (server)   │
 │                                                     │
 │  Route Handlers ──→ Neon PostgreSQL (serverless)     │
@@ -75,6 +78,14 @@ OptiWallet es una **PWA** construida con **Next.js 16 App Router**. El frontend 
 | `/api/recommendations` | Route Handler | `app/api/recommendations/route.ts` | **Core:** recomendaciones cruzadas. |
 | `/api/stats` | Route Handler | `app/api/stats/route.ts` | Conteos para la landing. |
 | `/api/openapi.json` | Route Handler (estático) | `app/api/openapi.json/route.ts` | Spec OpenAPI 3.1 (fuente: `lib/openapi.ts`). |
+| `/admin` | Server + client components | `app/admin/` | Dashboard del panel de administración (requiere sesión). |
+| `/admin/login` | Client component | `app/admin/login/page.tsx` | Login dos fases: contraseña → TOTP. |
+| `/admin/totp-setup` | Client component | `app/admin/totp-setup/page.tsx` | Enrolamiento TOTP (primer login). |
+| `/admin/users` | Client component | `app/admin/users/page.tsx` | CRUD de admins. |
+| `/admin/data/*` | Client components | `app/admin/data/*/page.tsx` | CRUD de `banks`, `cards`, `categories`, `merchants`, `promotions`. |
+| `/api/admin/auth/*` | Route Handlers | `app/api/admin/auth/` | Login, verify-totp, logout, me. |
+| `/api/admin/users/*` | Route Handlers | `app/api/admin/users/` | CRUD de admin users + TOTP setup. |
+| `/api/admin/data/*` | Route Handlers | `app/api/admin/data/` | CRUD + deps de las 5 entidades. |
 
 ### Deep-linking en `/app` (US-DL, Sprint 2)
 
@@ -96,9 +107,12 @@ Las vistas de la app son **rutas reales del App Router** — URLs compartibles y
 
 Next.js 16 usa `proxy.ts` en la raíz como convención de middleware (reemplaza a `middleware.ts`, que está deprecado en esta versión).
 
-- **Matcher:** solo `/` — no toca ni API, ni assets, ni `/app`.
-- **Lógica:** si la cookie `ow_standalone=1` existe, redirige `/ → /app` con `307 Temporary Redirect`.
-- **Propósito:** que la PWA instalada aterrice directamente en la app, sin flash de landing.
+- **Matcher:** `/` y `/admin/:path*`.
+- **Guard admin:** si el path empieza con `/admin` y no es `/admin/login`, verifica la cookie `ow_admin_session` (HMAC-SHA256). Si no es válida o está ausente → `307 /admin/login`. Si la sesión existe pero `totp_enabled = false` → `307 /admin/totp-setup`.
+- **Guard PWA:** si path es `/` y la cookie `ow_standalone=1` existe → `307 /app`.
+- **Propósito dual:** que la PWA instalada aterrice en la app + proteger el panel admin en el Edge antes de renderizar nada.
+
+Para la arquitectura completa del panel de administración, ver [`docs/ADMIN.md`](ADMIN.md).
 
 ---
 

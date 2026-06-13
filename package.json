@@ -22,7 +22,8 @@
     "otpauth": "^9.4.0",
     "qrcode": "^1.5.4",
     "react": "^19.2.5",
-    "react-dom": "^19.2.5"
+    "react-dom": "^19.2.5",
+    "server-only": "^0.0.1"
   },
   "devDependencies": {
     "@eslint/compat": "^2.0.5",
