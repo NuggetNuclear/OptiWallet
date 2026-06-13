@@ -2,30 +2,44 @@
 
 import { useState } from "react";
 
+type Step = "form" | "totp" | "done";
+
 export default function SetupPage() {
-  const [setupToken, setSetupToken] = useState("");
+  const [step, setStep] = useState<Step>("form");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
-  const [result, setResult] = useState<{ qr_data_url: string; totp_uri: string; id: string } | null>(null);
+  const [confirmPassword, setConfirmPassword] = useState("");
+  const [adminId, setAdminId] = useState("");
+  const [qrDataUrl, setQrDataUrl] = useState("");
+  const [totpUri, setTotpUri] = useState("");
+  const [totpCode, setTotpCode] = useState("");
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
 
-  // Hidden if ADMIN_SETUP_TOKEN is not set — API returns 404
-  async function handleSubmit(e: React.FormEvent) {
+  async function handleCreate(e: React.FormEvent) {
     e.preventDefault();
     setError("");
+
+    if (password !== confirmPassword) {
+      setError("Las contraseñas no coinciden");
+      return;
+    }
+
     setLoading(true);
     try {
       const res = await fetch("/api/admin/setup", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ setup_token: setupToken, email, password }),
+        body: JSON.stringify({ action: "create", email, password }),
       });
       const data = await res.json();
       if (!res.ok) {
         setError(data.error ?? "Error desconocido");
       } else {
-        setResult(data);
+        setAdminId(data.id);
+        setQrDataUrl(data.qr_data_url);
+        setTotpUri(data.totp_uri);
+        setStep("totp");
       }
     } catch {
       setError("Error de red");
@@ -34,62 +48,111 @@ export default function SetupPage() {
     }
   }
 
-  if (result) {
+  async function handleVerifyTotp(e: React.FormEvent) {
+    e.preventDefault();
+    setError("");
+    setLoading(true);
+    try {
+      const res = await fetch("/api/admin/setup", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action: "verify", admin_id: adminId, code: totpCode }),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        setError(data.error ?? "Código incorrecto");
+      } else {
+        setStep("done");
+      }
+    } catch {
+      setError("Error de red");
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  if (step === "done") {
     return (
-      <div style={{ fontFamily: "sans-serif", maxWidth: 480, margin: "40px auto", padding: "0 20px" }}>
-        <h1 style={{ color: "#d4ff3a" }}>✓ Admin creado</h1>
-        <p><strong>ID:</strong> {result.id}</p>
-        <p><strong>Email:</strong> {email}</p>
-
-        <h2 style={{ marginTop: 32 }}>1. Escanea este QR con Google Authenticator</h2>
-        <p style={{ color: "#aaa", fontSize: 14 }}>
-          Abre Google Authenticator → "+" → "Escanear código QR"
+      <div style={containerStyle}>
+        <div style={{ fontSize: 48, marginBottom: 16 }}>✅</div>
+        <h1 style={{ color: "#d4ff3a", marginBottom: 8 }}>Todo listo</h1>
+        <p style={{ color: "#aaa", marginBottom: 32 }}>
+          Tu cuenta de administrador está activa y Google Authenticator está configurado.
         </p>
-        {/* eslint-disable-next-line @next/next/no-img-element */}
-        <img src={result.qr_data_url} alt="TOTP QR Code" style={{ width: 240, height: 240, display: "block", margin: "16px 0" }} />
-
-        <h2 style={{ marginTop: 24 }}>2. O toca este enlace para agregar manualmente</h2>
-        <a
-          href={result.totp_uri}
-          style={{ wordBreak: "break-all", color: "#d4ff3a", fontSize: 13 }}
-        >
-          {result.totp_uri}
+        <a href="/admin/login" style={buttonStyle}>
+          Ir al login →
         </a>
+      </div>
+    );
+  }
 
-        <div style={{ background: "#1a1f1c", border: "1px solid #d4ff3a", borderRadius: 8, padding: 16, marginTop: 32 }}>
-          <strong>⚠️ Próximos pasos (importante):</strong>
-          <ol style={{ marginTop: 8, paddingLeft: 20, lineHeight: 2 }}>
-            <li>Agrega el QR a Google Authenticator <em>ahora</em></li>
-            <li>Ve a Vercel → Settings → Environment Variables</li>
-            <li><strong>Elimina</strong> la variable <code>ADMIN_SETUP_TOKEN</code></li>
-            <li>Redeploy (o espera el próximo deploy)</li>
-            <li>Ve a <a href="/admin/login" style={{ color: "#d4ff3a" }}>/admin/login</a> para ingresar</li>
-          </ol>
+  if (step === "totp") {
+    return (
+      <div style={containerStyle}>
+        <h1 style={{ color: "#d4ff3a", marginBottom: 4 }}>Configura Google Authenticator</h1>
+        <p style={{ color: "#aaa", fontSize: 14, marginBottom: 24 }}>
+          Escanea el código QR con Google Authenticator, luego ingresa el código de 6 dígitos para confirmar que está funcionando.
+        </p>
+
+        {/* QR */}
+        <div style={{ textAlign: "center", marginBottom: 24 }}>
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img
+            src={qrDataUrl}
+            alt="QR TOTP"
+            style={{ width: 220, height: 220, borderRadius: 8, background: "#fff", padding: 8 }}
+          />
         </div>
+
+        <details style={{ marginBottom: 24 }}>
+          <summary style={{ color: "#aaa", fontSize: 13, cursor: "pointer" }}>
+            ¿No puedes escanear? Usa el enlace manual
+          </summary>
+          <a
+            href={totpUri}
+            style={{ wordBreak: "break-all", color: "#d4ff3a", fontSize: 12, display: "block", marginTop: 8 }}
+          >
+            {totpUri}
+          </a>
+        </details>
+
+        <form onSubmit={handleVerifyTotp} style={{ display: "flex", flexDirection: "column", gap: 16 }}>
+          <label>
+            <span style={labelStyle}>Código de verificación (6 dígitos)</span>
+            <input
+              type="text"
+              inputMode="numeric"
+              pattern="[0-9]{6}"
+              maxLength={6}
+              value={totpCode}
+              onChange={(e) => setTotpCode(e.target.value.replace(/\D/g, ""))}
+              required
+              autoFocus
+              placeholder="000000"
+              style={{ ...inputStyle, fontSize: 24, letterSpacing: 8, textAlign: "center" }}
+            />
+          </label>
+
+          {error && <p style={errorStyle}>{error}</p>}
+
+          <button type="submit" disabled={loading || totpCode.length !== 6} style={buttonStyle}>
+            {loading ? "Verificando..." : "Confirmar y activar"}
+          </button>
+        </form>
       </div>
     );
   }
 
   return (
-    <div style={{ fontFamily: "sans-serif", maxWidth: 420, margin: "60px auto", padding: "0 20px" }}>
-      <h1 style={{ color: "#d4ff3a" }}>Setup inicial de OptiWallet</h1>
-      <p style={{ color: "#aaa" }}>Crea el primer administrador. Esta página solo funciona mientras <code>ADMIN_SETUP_TOKEN</code> esté definida en Vercel.</p>
+    <div style={containerStyle}>
+      <h1 style={{ color: "#d4ff3a", marginBottom: 4 }}>Crear administrador</h1>
+      <p style={{ color: "#aaa", fontSize: 14, marginBottom: 28 }}>
+        Solo funciona si no hay admins registrados aún.
+      </p>
 
-      <form onSubmit={handleSubmit} style={{ marginTop: 32, display: "flex", flexDirection: "column", gap: 16 }}>
+      <form onSubmit={handleCreate} style={{ display: "flex", flexDirection: "column", gap: 16 }}>
         <label>
-          <span style={{ display: "block", marginBottom: 4, fontSize: 13, color: "#aaa" }}>Setup token (el valor de ADMIN_SETUP_TOKEN)</span>
-          <input
-            type="password"
-            value={setupToken}
-            onChange={(e) => setSetupToken(e.target.value)}
-            required
-            style={inputStyle}
-            placeholder="Tu ADMIN_SETUP_TOKEN"
-          />
-        </label>
-
-        <label>
-          <span style={{ display: "block", marginBottom: 4, fontSize: 13, color: "#aaa" }}>Email del admin</span>
+          <span style={labelStyle}>Email</span>
           <input
             type="email"
             value={email}
@@ -101,7 +164,7 @@ export default function SetupPage() {
         </label>
 
         <label>
-          <span style={{ display: "block", marginBottom: 4, fontSize: 13, color: "#aaa" }}>Contraseña (mín. 8 caracteres)</span>
+          <span style={labelStyle}>Contraseña (mín. 8 caracteres)</span>
           <input
             type="password"
             value={password}
@@ -113,19 +176,62 @@ export default function SetupPage() {
           />
         </label>
 
-        {error && (
-          <p style={{ color: "#ff6b6b", background: "#2a1a1a", padding: "10px 14px", borderRadius: 6, margin: 0 }}>
-            {error}
-          </p>
-        )}
+        <label>
+          <span style={labelStyle}>Vuelve a introducir tu contraseña</span>
+          <input
+            type="password"
+            value={confirmPassword}
+            onChange={(e) => setConfirmPassword(e.target.value)}
+            required
+            minLength={8}
+            style={{
+              ...inputStyle,
+              borderColor: confirmPassword && confirmPassword !== password
+                ? "#ff6b6b"
+                : confirmPassword && confirmPassword === password
+                  ? "#d4ff3a"
+                  : "rgba(245,241,232,0.2)",
+            }}
+            placeholder="••••••••"
+          />
+          {confirmPassword && confirmPassword !== password && (
+            <span style={{ color: "#ff6b6b", fontSize: 12, marginTop: 4, display: "block" }}>
+              Las contraseñas no coinciden
+            </span>
+          )}
+        </label>
 
-        <button type="submit" disabled={loading} style={buttonStyle}>
-          {loading ? "Creando..." : "Crear administrador"}
+        {error && <p style={errorStyle}>{error}</p>}
+
+        <button
+          type="submit"
+          disabled={loading || !password || password !== confirmPassword}
+          style={{
+            ...buttonStyle,
+            opacity: loading || !password || password !== confirmPassword ? 0.5 : 1,
+            cursor: loading || !password || password !== confirmPassword ? "not-allowed" : "pointer",
+          }}
+        >
+          {loading ? "Creando..." : "Crear y configurar 2FA →"}
         </button>
       </form>
     </div>
   );
 }
+
+const containerStyle: React.CSSProperties = {
+  fontFamily: "sans-serif",
+  maxWidth: 440,
+  margin: "60px auto",
+  padding: "0 20px",
+};
+
+const labelStyle: React.CSSProperties = {
+  display: "block",
+  marginBottom: 6,
+  fontSize: 13,
+  color: "#aaa",
+};
 
 const inputStyle: React.CSSProperties = {
   width: "100%",
@@ -138,8 +244,19 @@ const inputStyle: React.CSSProperties = {
   boxSizing: "border-box",
 };
 
+const errorStyle: React.CSSProperties = {
+  color: "#ff6b6b",
+  background: "#2a1a1a",
+  padding: "10px 14px",
+  borderRadius: 6,
+  margin: 0,
+  fontSize: 14,
+};
+
 const buttonStyle: React.CSSProperties = {
-  padding: "12px",
+  display: "block",
+  width: "100%",
+  padding: "13px",
   background: "#d4ff3a",
   color: "#0b0d0c",
   border: "none",
@@ -147,5 +264,7 @@ const buttonStyle: React.CSSProperties = {
   fontWeight: 700,
   fontSize: 15,
   cursor: "pointer",
+  textAlign: "center",
+  textDecoration: "none",
   marginTop: 8,
 };
