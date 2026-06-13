@@ -2,158 +2,157 @@ import { describe, it, beforeEach, afterEach } from "node:test";
 import { strictEqual, ok } from "node:assert";
 import { isStandalone, syncStandaloneCookie, STANDALONE_COOKIE } from "../lib/standalone.ts";
 
-describe("Detección Standalone PWA", () => {
-  let originalWindow: unknown;
-  let originalDocument: unknown;
+type G = Record<string, unknown>;
 
-  beforeEach(() => {
-    originalWindow = (globalThis as Record<string, unknown>).window;
-    originalDocument = (globalThis as Record<string, unknown>).document;
-  });
+function mockWindow(opts: { matchMedia?: boolean; iosStandalone?: boolean; protocol?: string }) {
+  (globalThis as G).window = {
+    location: { protocol: opts.protocol ?? "https:" },
+    navigator: opts.iosStandalone !== undefined ? { standalone: opts.iosStandalone } : {},
+    matchMedia: (q: string) => ({
+      matches: q === "(display-mode: standalone)" && (opts.matchMedia ?? false),
+    }),
+  };
+}
 
-  afterEach(() => {
-    (globalThis as Record<string, unknown>).window = originalWindow;
-    (globalThis as Record<string, unknown>).document = originalDocument;
-  });
+function makeCookieStore() {
+  let cookies: string[] = [];
+  let lastSet = "";
+  return {
+    get cookie() { return cookies.join("; "); },
+    set cookie(val: string) {
+      lastSet = val;
+      const parts = val.split(";").map((s: string) => s.trim());
+      const [name] = parts[0].split("=");
+      if (parts.some((p: string) => p.startsWith("max-age=0"))) {
+        cookies = cookies.filter((c: string) => !c.startsWith(name + "="));
+      } else {
+        cookies = cookies.filter((c: string) => !c.startsWith(name + "="));
+        cookies.push(parts[0]);
+      }
+    },
+    lastSet() { return lastSet; },
+    cookies() { return cookies; },
+    preset(c: string[]) { cookies = [...c]; },
+    clearLastSet() { lastSet = ""; },
+  };
+}
 
-  it("retorna false si window es undefined (SSR)", () => {
-    (globalThis as Record<string, unknown>).window = undefined;
+// ──────────────────────────── isStandalone ────────────────────────────────────
+
+describe("isStandalone — deteccion de modo PWA", () => {
+  let savedWindow: unknown;
+  beforeEach(() => { savedWindow = (globalThis as G).window; });
+  afterEach(() => { (globalThis as G).window = savedWindow; });
+
+  it("retorna false si window es undefined (SSR / Node)", () => {
+    (globalThis as G).window = undefined;
     strictEqual(isStandalone(), false);
   });
 
-  it("retorna true si display-mode es standalone en matchMedia", () => {
-    const mockMatchMedia = (query: string) => ({
-      matches: query === "(display-mode: standalone)",
-    });
-
-    (globalThis as Record<string, unknown>).window = {
-      navigator: {},
-      matchMedia: mockMatchMedia,
-    };
-
+  it("retorna true si display-mode es standalone (Android / Desktop PWA)", () => {
+    mockWindow({ matchMedia: true });
     strictEqual(isStandalone(), true);
   });
 
   it("retorna true si navigator.standalone es true (iOS Safari)", () => {
-    const mockMatchMedia = () => ({ matches: false });
-
-    (globalThis as Record<string, unknown>).window = {
-      navigator: { standalone: true },
-      matchMedia: mockMatchMedia,
-    };
-
+    mockWindow({ matchMedia: false, iosStandalone: true });
     strictEqual(isStandalone(), true);
   });
 
-  it("retorna false si no se cumple ninguna condición standalone", () => {
-    const mockMatchMedia = () => ({ matches: false });
+  it("retorna true si ambas condiciones son verdaderas simultaneamente", () => {
+    mockWindow({ matchMedia: true, iosStandalone: true });
+    strictEqual(isStandalone(), true);
+  });
 
-    (globalThis as Record<string, unknown>).window = {
-      navigator: { standalone: false },
-      matchMedia: mockMatchMedia,
-    };
+  it("retorna false si ninguna condicion se cumple (navegador estandar)", () => {
+    mockWindow({ matchMedia: false, iosStandalone: false });
+    strictEqual(isStandalone(), false);
+  });
 
+  it("retorna false si navigator.standalone es undefined (Chrome sin PWA)", () => {
+    mockWindow({ matchMedia: false });
     strictEqual(isStandalone(), false);
   });
 });
 
-describe("Sincronización de Cookies de Standalone", () => {
-  let originalWindow: unknown;
-  let originalDocument: unknown;
-  let mockCookies: string[] = [];
+// ────────────────────────── syncStandaloneCookie ──────────────────────────────
 
+describe("syncStandaloneCookie — sincronizacion de cookie SSR<->client", () => {
+  let savedWindow: unknown;
+  let savedDocument: unknown;
   beforeEach(() => {
-    originalWindow = (globalThis as Record<string, unknown>).window;
-    originalDocument = (globalThis as Record<string, unknown>).document;
-    mockCookies = [];
-
-    // Mock minimal del document.cookie
-    const doc = {
-      get cookie() {
-        return mockCookies.join("; ");
-      },
-      set cookie(val: string) {
-        const parts = val.split(";");
-        const nameVal = parts[0].trim();
-        const [name] = nameVal.split("=");
-        // Si max-age=0, borramos la cookie
-        if (parts.some((p) => p.includes("max-age=0"))) {
-          mockCookies = mockCookies.filter((c) => !c.startsWith(`${name}=`));
-        } else {
-          // Reemplazar o insertar
-          mockCookies = mockCookies.filter((c) => !c.startsWith(`${name}=`));
-          mockCookies.push(nameVal);
-        }
-      },
-    };
-    (globalThis as Record<string, unknown>).document = doc;
+    savedWindow = (globalThis as G).window;
+    savedDocument = (globalThis as G).document;
   });
-
   afterEach(() => {
-    (globalThis as Record<string, unknown>).window = originalWindow;
-    (globalThis as Record<string, unknown>).document = originalDocument;
+    (globalThis as G).window = savedWindow;
+    (globalThis as G).document = savedDocument;
   });
 
   it("es no-op si document es undefined (SSR)", () => {
-    (globalThis as Record<string, unknown>).document = undefined;
-    // No debería fallar
+    (globalThis as G).document = undefined;
     syncStandaloneCookie();
     ok(true);
   });
 
-  it("crea la cookie standalone si la app está en modo standalone", () => {
-    (globalThis as Record<string, unknown>).window = {
-      location: { protocol: "https:" },
-      navigator: {},
-      matchMedia: (q: string) => ({ matches: q === "(display-mode: standalone)" }),
-    };
-
+  it("en modo standalone + HTTPS: crea la cookie con ; secure", () => {
+    const store = makeCookieStore();
+    (globalThis as G).document = store;
+    mockWindow({ matchMedia: true, protocol: "https:" });
     syncStandaloneCookie();
-    ok(mockCookies.includes(`${STANDALONE_COOKIE}=1`));
+    ok(store.cookies().includes(STANDALONE_COOKIE + "=1"), "debe crear la cookie");
+    ok(store.lastSet().includes("; secure"), "debe incluir ; secure en HTTPS");
   });
 
-  it("elimina la cookie standalone si la app está en navegador estándar", () => {
-    // Seteamos la cookie inicialmente
-    mockCookies = [`${STANDALONE_COOKIE}=1`];
-
-    (globalThis as Record<string, unknown>).window = {
-      location: { protocol: "https:" },
-      navigator: {},
-      matchMedia: () => ({ matches: false }),
-    };
-
+  it("en modo standalone + HTTP: crea la cookie sin ; secure", () => {
+    const store = makeCookieStore();
+    (globalThis as G).document = store;
+    mockWindow({ matchMedia: true, protocol: "http:" });
     syncStandaloneCookie();
-    strictEqual(mockCookies.length, 0);
+    ok(store.cookies().includes(STANDALONE_COOKIE + "=1"), "debe crear la cookie");
+    ok(!store.lastSet().includes("; secure"), "NO debe incluir ; secure en HTTP");
   });
 
-  it("aplica secure en HTTPS pero no en HTTP (desarrollo local)", () => {
-    // 1. Caso HTTPS: debe inyectar "; secure"
-    let lastCookieSet = "";
-    (globalThis as Record<string, unknown>).document = {
-      get cookie() {
-        return "";
-      },
-      set cookie(val: string) {
-        lastCookieSet = val;
-      },
-    };
-    (globalThis as Record<string, unknown>).window = {
-      location: { protocol: "https:" },
-      navigator: {},
-      matchMedia: () => ({ matches: true }),
-    };
-
+  it("la cookie incluye max-age=31536000 (1 anio) al crearla", () => {
+    const store = makeCookieStore();
+    (globalThis as G).document = store;
+    mockWindow({ matchMedia: true, protocol: "https:" });
     syncStandaloneCookie();
-    ok(lastCookieSet.includes("; secure"));
+    ok(store.lastSet().includes("max-age=31536000"), "debe incluir max-age de 1 anio");
+  });
 
-    // 2. Caso HTTP: no debe inyectar "; secure"
-    lastCookieSet = "";
-    (globalThis as Record<string, unknown>).window = {
-      location: { protocol: "http:" },
-      navigator: {},
-      matchMedia: () => ({ matches: true }),
-    };
+  it("la cookie incluye path=/ y samesite=lax", () => {
+    const store = makeCookieStore();
+    (globalThis as G).document = store;
+    mockWindow({ matchMedia: true, protocol: "https:" });
     syncStandaloneCookie();
-    ok(!lastCookieSet.includes("; secure"));
+    ok(store.lastSet().includes("path=/"), "debe incluir path=/");
+    ok(store.lastSet().includes("samesite=lax"), "debe incluir samesite=lax");
+  });
+
+  it("NOT standalone + cookie existente: la elimina con max-age=0", () => {
+    const store = makeCookieStore();
+    store.preset([STANDALONE_COOKIE + "=1"]);
+    (globalThis as G).document = store;
+    mockWindow({ matchMedia: false, iosStandalone: false, protocol: "https:" });
+    syncStandaloneCookie();
+    strictEqual(store.cookies().length, 0, "debe eliminar la cookie");
+    ok(store.lastSet().includes("max-age=0"), "debe usar max-age=0 para borrar");
+  });
+
+  it("NOT standalone + cookie NO existe: no escribe nada (sin write innecesario)", () => {
+    const store = makeCookieStore();
+    (globalThis as G).document = store;
+    mockWindow({ matchMedia: false, iosStandalone: false, protocol: "https:" });
+    syncStandaloneCookie();
+    strictEqual(store.lastSet(), "", "no debe escribir si la cookie ya no existe");
+  });
+
+  it("iOS standalone (navigator.standalone): tambien crea la cookie", () => {
+    const store = makeCookieStore();
+    (globalThis as G).document = store;
+    mockWindow({ matchMedia: false, iosStandalone: true, protocol: "https:" });
+    syncStandaloneCookie();
+    ok(store.cookies().includes(STANDALONE_COOKIE + "=1"));
   });
 });

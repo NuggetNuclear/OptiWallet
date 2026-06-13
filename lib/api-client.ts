@@ -1,4 +1,4 @@
-import { toISODateLocal } from "./format.ts";
+import { toISODateLocal } from "./format";
 
 // ──────────────────────────────────────────────────────────────
 // API response types (snake_case — match Neon column names)

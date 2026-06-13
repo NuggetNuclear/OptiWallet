@@ -1,5 +1,5 @@
 import { describe, it, beforeEach, afterEach } from "node:test";
-import { strictEqual, deepStrictEqual, rejects } from "node:assert";
+import { strictEqual, deepStrictEqual, rejects, ok } from "node:assert";
 import {
   getBanksFromApi,
   getCardsFromApi,
@@ -10,106 +10,184 @@ import {
   getPromotionsForMerchantFromApi,
 } from "../lib/api-client.ts";
 
-describe("Cliente de API (api-client)", () => {
+// ──────────────────────── URLs construidas correctamente ─────────────────────
+
+describe("Cliente de API — URLs", () => {
   let originalFetch: typeof globalThis.fetch;
-  let lastUrl: string | null = null;
-  let mockResponseStatus = 200;
-  let mockResponseBody: unknown = {};
+  let lastUrl = "";
+  let mockStatus = 200;
+  let mockBody: unknown = {};
 
   beforeEach(() => {
     originalFetch = globalThis.fetch;
-    lastUrl = null;
-    mockResponseStatus = 200;
-    mockResponseBody = {};
-
+    lastUrl = "";
+    mockStatus = 200;
+    mockBody = {};
     globalThis.fetch = async (url: string | URL | Request) => {
       lastUrl = url.toString();
       return {
-        ok: mockResponseStatus >= 200 && mockResponseStatus < 300,
-        status: mockResponseStatus,
-        json: async () => mockResponseBody,
+        ok: mockStatus >= 200 && mockStatus < 300,
+        status: mockStatus,
+        json: async () => mockBody,
       } as Response;
     };
   });
 
-  afterEach(() => {
-    globalThis.fetch = originalFetch;
-  });
+  afterEach(() => { globalThis.fetch = originalFetch; });
 
-  it("getBanksFromApi llama al endpoint correcto", async () => {
-    mockResponseBody = [{ id: "santander", name: "Santander" }];
+  // getBanksFromApi
+  it("getBanksFromApi -> /api/banks, retorna datos", async () => {
+    mockBody = [{ id: "santander", name: "Santander", short_name: null, available: true }];
     const res = await getBanksFromApi();
     strictEqual(lastUrl, "/api/banks");
-    deepStrictEqual(res, [{ id: "santander", name: "Santander" }]);
+    deepStrictEqual(res, mockBody);
   });
 
-  it("getCardsFromApi llama con bankId opcional", async () => {
-    mockResponseBody = [{ id: "card-1" }];
-
-    // Sin bankId
+  // getCardsFromApi
+  it("getCardsFromApi sin bankId -> /api/cards", async () => {
     await getCardsFromApi();
     strictEqual(lastUrl, "/api/cards");
+  });
 
-    // Con bankId
+  it("getCardsFromApi con bankId -> /api/cards?bankId=...", async () => {
     await getCardsFromApi("santander");
     strictEqual(lastUrl, "/api/cards?bankId=santander");
   });
 
-  it("getCategoriesFromApi llama al endpoint correcto", async () => {
+  // getCategoriesFromApi
+  it("getCategoriesFromApi -> /api/categories", async () => {
     await getCategoriesFromApi();
     strictEqual(lastUrl, "/api/categories");
   });
 
-  it("getMerchantsFromApi soporta filtros q y category", async () => {
-    // Sin filtros
+  // getMerchantsFromApi
+  it("getMerchantsFromApi sin params -> /api/merchants", async () => {
     await getMerchantsFromApi();
     strictEqual(lastUrl, "/api/merchants");
+  });
 
-    // Con q
+  it("getMerchantsFromApi con q -> ?q=...", async () => {
     await getMerchantsFromApi({ q: "jumbo" });
     strictEqual(lastUrl, "/api/merchants?q=jumbo");
+  });
 
-    // Con category
+  it("getMerchantsFromApi con category -> ?category=...", async () => {
     await getMerchantsFromApi({ category: "supermercado" });
     strictEqual(lastUrl, "/api/merchants?category=supermercado");
+  });
 
-    // Con ambos
+  it("getMerchantsFromApi con q y category -> ambos params", async () => {
     await getMerchantsFromApi({ q: "lider", category: "supermercado" });
     strictEqual(lastUrl, "/api/merchants?q=lider&category=supermercado");
   });
 
-  it("getRecommendationsFromApi construye query array para cardIds", async () => {
-    const params = {
+  // getRecommendationsFromApi
+  it("getRecommendationsFromApi con multiples cardIds -> params repetidos en URL", async () => {
+    await getRecommendationsFromApi({
       cardIds: ["santander-credit", "bci-debit"],
-      date: new Date(2026, 5, 13), // 13 de junio, 2026
-      merchantId: "jumbo",
-    };
-
-    await getRecommendationsFromApi(params);
-    strictEqual(
-      lastUrl,
-      "/api/recommendations?cardIds=santander-credit&cardIds=bci-debit&date=2026-06-13&merchantId=jumbo"
-    );
+      date: new Date(2026, 5, 13),
+    });
+    strictEqual(lastUrl, "/api/recommendations?cardIds=santander-credit&cardIds=bci-debit&date=2026-06-13");
   });
 
-  it("getMerchantByIdFromApi maneja 404 retornando null", async () => {
-    mockResponseStatus = 404;
-    mockResponseBody = null;
-    const res = await getMerchantByIdFromApi("non-existent");
-    strictEqual(lastUrl, "/api/merchants/non-existent");
+  it("getRecommendationsFromApi con un solo cardId", async () => {
+    await getRecommendationsFromApi({ cardIds: ["card-1"], date: new Date(2026, 5, 13) });
+    strictEqual(lastUrl, "/api/recommendations?cardIds=card-1&date=2026-06-13");
+  });
+
+  it("getRecommendationsFromApi con merchantId -> incluye param", async () => {
+    await getRecommendationsFromApi({ cardIds: ["c-1"], date: new Date(2026, 5, 13), merchantId: "jumbo" });
+    strictEqual(lastUrl, "/api/recommendations?cardIds=c-1&date=2026-06-13&merchantId=jumbo");
+  });
+
+  it("getRecommendationsFromApi sin merchantId -> NO incluye el param", async () => {
+    await getRecommendationsFromApi({ cardIds: ["c-1"], date: new Date(2026, 5, 13) });
+    ok(!lastUrl.includes("merchantId"), "URL no debe incluir merchantId");
+  });
+
+  it("getRecommendationsFromApi usa fecha LOCAL no UTC (bug timezone)", async () => {
+    // 23:30 local en Chile -> toISOString() daria el dia siguiente en UTC
+    await getRecommendationsFromApi({ cardIds: ["x"], date: new Date(2026, 5, 13, 23, 30) });
+    ok(lastUrl.includes("date=2026-06-13"), "debe ser 2026-06-13, no el dia siguiente");
+  });
+
+  // getMerchantByIdFromApi
+  it("getMerchantByIdFromApi con 200 -> retorna el comercio", async () => {
+    mockBody = { id: "jumbo", name: "Jumbo", category_id: "super", aliases: [], category_label: "Supermercado", emoji: "shopping" };
+    const res = await getMerchantByIdFromApi("jumbo");
+    strictEqual(lastUrl, "/api/merchants/jumbo");
+    deepStrictEqual(res, mockBody);
+  });
+
+  it("getMerchantByIdFromApi con 404 -> retorna null sin throw", async () => {
+    mockStatus = 404;
+    const res = await getMerchantByIdFromApi("no-existe");
+    strictEqual(lastUrl, "/api/merchants/no-existe");
     strictEqual(res, null);
   });
 
-  it("getPromotionsForMerchantFromApi escapa caracteres especiales en path", async () => {
-    await getPromotionsForMerchantFromApi("mcdonald / spa");
-    strictEqual(lastUrl, "/api/promotions/mcdonald%20%2F%20spa");
+  it("getMerchantByIdFromApi encodes caracteres especiales en el ID", async () => {
+    await getMerchantByIdFromApi("mcdonald / spa");
+    strictEqual(lastUrl, "/api/merchants/mcdonald%20%2F%20spa");
   });
 
-  it("propaga errores HTTP arrojando un Error", async () => {
-    mockResponseStatus = 500;
-    await rejects(
-      getBanksFromApi(),
-      /API error 500/
-    );
+  // getPromotionsForMerchantFromApi
+  it("getPromotionsForMerchantFromApi -> /api/promotions/:id", async () => {
+    mockBody = [];
+    await getPromotionsForMerchantFromApi("jumbo");
+    strictEqual(lastUrl, "/api/promotions/jumbo");
+  });
+
+  it("getPromotionsForMerchantFromApi encodes caracteres especiales", async () => {
+    await getPromotionsForMerchantFromApi("cafe & more");
+    strictEqual(lastUrl, "/api/promotions/cafe%20%26%20more");
+  });
+});
+
+// ──────────────────────────── Errores HTTP ────────────────────────────────────
+
+describe("Cliente de API — errores HTTP", () => {
+  let originalFetch: typeof globalThis.fetch;
+  let mockStatus = 500;
+
+  beforeEach(() => {
+    originalFetch = globalThis.fetch;
+    globalThis.fetch = async () => ({
+      ok: false,
+      status: mockStatus,
+      json: async () => null,
+    } as Response);
+  });
+
+  afterEach(() => { globalThis.fetch = originalFetch; });
+
+  it("500 en getBanksFromApi -> lanza Error con el codigo", async () => {
+    mockStatus = 500;
+    await rejects(getBanksFromApi(), /API error 500/);
+  });
+
+  it("503 en getCardsFromApi -> lanza Error con el codigo", async () => {
+    mockStatus = 503;
+    await rejects(getCardsFromApi("bci"), /API error 503/);
+  });
+
+  it("422 en getMerchantsFromApi -> lanza Error", async () => {
+    mockStatus = 422;
+    await rejects(getMerchantsFromApi({ q: "test" }), /API error 422/);
+  });
+
+  it("500 en getPromotionsForMerchantFromApi -> lanza Error", async () => {
+    mockStatus = 500;
+    await rejects(getPromotionsForMerchantFromApi("jumbo"), /API error 500/);
+  });
+
+  it("404 en getCardsFromApi -> lanza Error (solo getMerchantById tiene trato especial)", async () => {
+    mockStatus = 404;
+    await rejects(getCardsFromApi(), /API error 404/);
+  });
+
+  it("500 en getMerchantByIdFromApi -> lanza Error (no retorna null)", async () => {
+    mockStatus = 500;
+    await rejects(getMerchantByIdFromApi("jumbo"), /API error 500/);
   });
 });
