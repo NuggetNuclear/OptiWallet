@@ -1,5 +1,6 @@
 import { sql } from "@/lib/db";
-import { requireAdmin } from "@/lib/admin-guard";
+import { requireAdmin, clientIp } from "@/lib/admin-guard";
+import { logAdminAction } from "@/lib/admin-log";
 import { isValidId } from "@/lib/validate";
 import { NextRequest, NextResponse } from "next/server";
 
@@ -23,7 +24,8 @@ export async function GET(req: NextRequest, { params }: Params) {
 }
 
 export async function PATCH(req: NextRequest, { params }: Params) {
-  if (!await requireAdmin(req)) {
+  const session = await requireAdmin(req);
+  if (!session) {
     return NextResponse.json({ error: "No autorizado" }, { status: 401, headers: NO_CACHE });
   }
   const { id } = await params;
@@ -35,9 +37,19 @@ export async function PATCH(req: NextRequest, { params }: Params) {
     const rows = await sql`SELECT id FROM merchant_categories WHERE id = ${id}`;
     if (!rows.length) return NextResponse.json(null, { status: 404, headers: NO_CACHE });
 
-    if (label !== undefined) await sql`UPDATE merchant_categories SET label = ${label} WHERE id = ${id}`;
-    if (emoji !== undefined) await sql`UPDATE merchant_categories SET emoji = ${emoji} WHERE id = ${id}`;
+    const changes: string[] = [];
+    if (label !== undefined) {
+      await sql`UPDATE merchant_categories SET label = ${label} WHERE id = ${id}`;
+      changes.push(`label="${label}"`);
+    }
+    if (emoji !== undefined) {
+      await sql`UPDATE merchant_categories SET emoji = ${emoji} WHERE id = ${id}`;
+      changes.push(`emoji="${emoji}"`);
+    }
 
+    if (changes.length) {
+      await logAdminAction(session, "update", "category", id, changes.join(", "), clientIp(req));
+    }
     return NextResponse.json({ status: "ok" }, { headers: NO_CACHE });
   } catch (err) {
     console.error("PATCH /api/admin/data/categories/[id] failed:", err);
@@ -46,7 +58,8 @@ export async function PATCH(req: NextRequest, { params }: Params) {
 }
 
 export async function DELETE(req: NextRequest, { params }: Params) {
-  if (!await requireAdmin(req)) {
+  const session = await requireAdmin(req);
+  if (!session) {
     return NextResponse.json({ error: "No autorizado" }, { status: 401, headers: NO_CACHE });
   }
   const { id } = await params;
@@ -62,7 +75,9 @@ export async function DELETE(req: NextRequest, { params }: Params) {
         );
       }
     }
+    const labelRow = await sql`SELECT label FROM merchant_categories WHERE id = ${id}`;
     await sql`DELETE FROM merchant_categories WHERE id = ${id}`;
+    await logAdminAction(session, "delete", "category", id, `Categoría "${labelRow[0]?.label ?? id}" eliminada`, clientIp(req));
     return NextResponse.json({ status: "ok" }, { headers: NO_CACHE });
   } catch (err) {
     console.error("DELETE /api/admin/data/categories/[id] failed:", err);

@@ -1,5 +1,6 @@
 import { sql } from "@/lib/db";
-import { requireAdmin } from "@/lib/admin-guard";
+import { requireAdmin, clientIp } from "@/lib/admin-guard";
+import { logAdminAction } from "@/lib/admin-log";
 import { isValidId } from "@/lib/validate";
 import { NextRequest, NextResponse } from "next/server";
 
@@ -25,7 +26,8 @@ export async function GET(req: NextRequest) {
 }
 
 export async function POST(req: NextRequest) {
-  if (!await requireAdmin(req)) {
+  const session = await requireAdmin(req);
+  if (!session) {
     return NextResponse.json({ error: "No autorizado" }, { status: 401, headers: NO_CACHE });
   }
   try {
@@ -37,6 +39,7 @@ export async function POST(req: NextRequest) {
     if (!emoji || typeof emoji !== "string") return NextResponse.json({ error: "emoji requerido" }, { status: 400, headers: NO_CACHE });
 
     await sql`INSERT INTO merchant_categories (id, label, emoji) VALUES (${id}, ${label}, ${emoji})`;
+    await logAdminAction(session, "create", "category", id, `Categoría "${label}" creada`, clientIp(req));
     return NextResponse.json({ id }, { status: 201, headers: NO_CACHE });
   } catch (err) {
     console.error("POST /api/admin/data/categories failed:", err);

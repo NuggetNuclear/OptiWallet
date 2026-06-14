@@ -118,8 +118,7 @@ export default function CategoriesPage() {
         <div className="admin-loading"><span className="admin-spinner" aria-hidden="true" />Cargando…</div>
       ) : cats.length === 0 ? (
         <div className="admin-empty">
-          <div className="admin-empty-icon">🏷️</div>
-          <div className="admin-empty-text">No hay categorías todavía. Crea la primera con “+ Nueva categoría”.</div>
+          <div className="admin-empty-text">No hay categorías todavía. Crea la primera con "+ Nueva categoría".</div>
         </div>
       ) : (
         <div className="admin-table-wrap">

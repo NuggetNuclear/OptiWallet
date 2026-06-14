@@ -1,5 +1,7 @@
 import { sql } from "@/lib/db";
 import { requireAdmin } from "@/lib/admin-guard";
+import { logAdminAction } from "@/lib/admin-log";
+import { clientIp } from "@/lib/admin-guard";
 import { isValidId } from "@/lib/validate";
 import { NextRequest, NextResponse } from "next/server";
 
@@ -19,7 +21,8 @@ export async function GET(req: NextRequest) {
 }
 
 export async function POST(req: NextRequest) {
-  if (!await requireAdmin(req)) {
+  const session = await requireAdmin(req);
+  if (!session) {
     return NextResponse.json({ error: "No autorizado" }, { status: 401, headers: NO_CACHE });
   }
   try {
@@ -33,6 +36,7 @@ export async function POST(req: NextRequest) {
       INSERT INTO banks (id, name, short_name, available)
       VALUES (${id}, ${name}, ${short_name ?? null}, ${available ?? false})
     `;
+    await logAdminAction(session, "create", "bank", id, `Banco "${name}" creado`, clientIp(req));
     return NextResponse.json({ id }, { status: 201, headers: NO_CACHE });
   } catch (err) {
     console.error("POST /api/admin/data/banks failed:", err);

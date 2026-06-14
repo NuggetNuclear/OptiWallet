@@ -476,11 +476,6 @@ textarea.admin-input {
   transform: translateY(-2px);
 }
 
-.admin-entity-icon {
-  font-size: 24px;
-  margin-bottom: 8px;
-}
-
 .admin-entity-label {
   font-weight: 600;
   font-size: 14px;
@@ -672,6 +667,71 @@ textarea.admin-input {
   font-size: 11px;
   color: var(--ink-dim);
   cursor: pointer;
+}
+
+/* ─── Toggle switch ─────────────────────────────────────────────────────── */
+
+.admin-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  background: none;
+  border: none;
+  cursor: pointer;
+  padding: 0;
+  font-family: inherit;
+}
+
+.admin-toggle:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.admin-toggle-track {
+  position: relative;
+  display: inline-block;
+  width: 36px;
+  height: 20px;
+  background: rgba(245, 241, 232, 0.12);
+  border: 1px solid var(--line-strong);
+  border-radius: 10px;
+  transition: background 0.2s, border-color 0.2s;
+  flex-shrink: 0;
+}
+
+.admin-toggle[aria-checked="true"] .admin-toggle-track {
+  background: rgba(212, 255, 58, 0.25);
+  border-color: var(--lime);
+}
+
+.admin-toggle-thumb {
+  position: absolute;
+  top: 2px;
+  left: 2px;
+  width: 14px;
+  height: 14px;
+  background: var(--ink-dim);
+  border-radius: 50%;
+  transition: transform 0.2s, background 0.2s;
+}
+
+.admin-toggle[aria-checked="true"] .admin-toggle-thumb {
+  transform: translateX(16px);
+  background: var(--lime);
+}
+
+.admin-toggle-label {
+  font-family: var(--font-mono), ui-monospace, monospace;
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--ink-dim);
+  transition: color 0.2s;
+}
+
+.admin-toggle[aria-checked="true"] .admin-toggle-label {
+  color: var(--lime);
 }
 
 /* ─── Accessibility ──────────────────────────────────────────────────────── */

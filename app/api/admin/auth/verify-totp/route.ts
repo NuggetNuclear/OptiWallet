@@ -3,6 +3,7 @@ import { verifyTotp } from "@/lib/admin-auth";
 import { decryptSecret } from "@/lib/admin-crypto";
 import { verifyPendingMfa, signSession, setSessionCookie } from "@/lib/admin-session";
 import { clientIp, isRateLimited, recordFailedAttempt } from "@/lib/admin-guard";
+import { logAdminAction } from "@/lib/admin-log";
 import type { AdminUser } from "@/lib/admin-types";
 import { NextRequest, NextResponse } from "next/server";
 
@@ -49,9 +50,13 @@ export async function POST(req: NextRequest) {
 
     await sql`UPDATE admin_users SET last_login_at = now() WHERE id = ${adminId}`;
 
-    const token = await signSession({ adminId: user.id, email: user.email, totp_enabled: true });
+    const session = { adminId: user.id, email: user.email, totp_enabled: true };
+    const token = await signSession(session);
     const res = NextResponse.json({ status: "ok" });
     setSessionCookie(res, token);
+
+    await logAdminAction(session, "login", "auth", null, `Inicio de sesión desde ${ip}`, ip);
+
     return res;
   } catch (err) {
     console.error("POST /api/admin/auth/verify-totp failed:", err);

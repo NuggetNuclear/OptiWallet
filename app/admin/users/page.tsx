@@ -70,8 +70,7 @@ export default function AdminUsersPage() {
         <div className="admin-loading"><span className="admin-spinner" aria-hidden="true" />Cargando…</div>
       ) : users.length === 0 ? (
         <div className="admin-empty">
-          <div className="admin-empty-icon">👤</div>
-          <div className="admin-empty-text">No hay administradores. Crea el primero con “+ Nuevo admin”.</div>
+          <div className="admin-empty-text">No hay administradores. Crea el primero con "+ Nuevo admin".</div>
         </div>
       ) : (
         <div className="admin-table-wrap">

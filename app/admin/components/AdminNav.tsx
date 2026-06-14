@@ -6,15 +6,16 @@ import { useState } from "react";
 
 const NAV = [
   { section: "Base de datos", items: [
-    { href: "/admin/data/banks",       label: "Bancos",      icon: "🏦" },
-    { href: "/admin/data/cards",       label: "Tarjetas",    icon: "💳" },
-    { href: "/admin/data/categories",  label: "Categorías",  icon: "🏷️" },
-    { href: "/admin/data/merchants",   label: "Comercios",   icon: "🏪" },
-    { href: "/admin/data/promotions",  label: "Promociones", icon: "🎁" },
+    { href: "/admin/data/banks",       label: "Bancos"      },
+    { href: "/admin/data/cards",       label: "Tarjetas"    },
+    { href: "/admin/data/categories",  label: "Categorías"  },
+    { href: "/admin/data/merchants",   label: "Comercios"   },
+    { href: "/admin/data/promotions",  label: "Promociones" },
   ]},
   { section: "Sistema", items: [
-    { href: "/admin",       label: "Dashboard",   icon: "📊" },
-    { href: "/admin/users", label: "Admins",      icon: "👤" },
+    { href: "/admin",       label: "Dashboard"            },
+    { href: "/admin/users", label: "Administradores"      },
+    { href: "/admin/audit", label: "Registro de actividad" },
   ]},
 ];
 
@@ -56,14 +57,13 @@ export function AdminNav({ email }: { email: string }) {
         {NAV.map(({ section, items }) => (
           <div key={section}>
             <div className="admin-nav-section">{section}</div>
-            {items.map(({ href, label, icon }) => (
+            {items.map(({ href, label }) => (
               <Link
                 key={href}
                 href={href}
                 aria-current={isActive(href) ? "page" : undefined}
                 className={`admin-nav-link ${isActive(href) ? "active" : ""}`}
               >
-                <span className="admin-nav-icon" aria-hidden="true">{icon}</span>
                 {label}
               </Link>
             ))}

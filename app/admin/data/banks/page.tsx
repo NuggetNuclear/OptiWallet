@@ -6,19 +6,21 @@ import { DeleteModal } from "../../components/DeleteModal";
 
 interface Bank { id: string; name: string; short_name: string | null; available: boolean }
 
-const EMPTY: Omit<Bank, never> = { id: "", name: "", short_name: "", available: false };
+const EMPTY: Bank = { id: "", name: "", short_name: "", available: false };
 
 export default function BanksPage() {
-  const [banks,   setBanks]   = useState<Bank[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [form,    setForm]    = useState<Bank | null>(null);
-  const [isNew,   setIsNew]   = useState(false);
-  const [saving,  setSaving]  = useState(false);
-  const [error,   setError]   = useState("");
-  const [success, setSuccess] = useState("");
-  const [delTarget, setDelTarget] = useState<Bank | null>(null);
-  const [deps,    setDeps]    = useState<{ cards: {id:string;name:string}[]; promotions: {id:string}[] } | null>(null);
-  const [deleting, setDeleting] = useState(false);
+  const [banks,      setBanks]      = useState<Bank[]>([]);
+  const [loading,    setLoading]    = useState(true);
+  const [form,       setForm]       = useState<Bank | null>(null);
+  const [isNew,      setIsNew]      = useState(false);
+  const [saving,     setSaving]     = useState(false);
+  const [error,      setError]      = useState("");
+  const [success,    setSuccess]    = useState("");
+  const [delTarget,  setDelTarget]  = useState<Bank | null>(null);
+  const [deps,       setDeps]       = useState<{ cards: {id:string;name:string}[]; promotions: {id:string}[] } | null>(null);
+  const [deleting,   setDeleting]   = useState(false);
+  const [toggleTarget, setToggleTarget] = useState<Bank | null>(null);
+  const [toggling,   setToggling]   = useState(false);
 
   async function load() {
     const r = await fetch("/api/admin/data/banks");
@@ -65,6 +67,28 @@ export default function BanksPage() {
     setDeleting(false);
   }
 
+  async function confirmToggle() {
+    if (!toggleTarget) return;
+    setToggling(true);
+    try {
+      const res = await fetch(`/api/admin/data/banks/${toggleTarget.id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ available: !toggleTarget.available }),
+      });
+      if (res.ok) {
+        setSuccess(`Banco ${toggleTarget.available ? "desactivado" : "activado"}`);
+        load();
+      } else {
+        const d = await res.json();
+        setError(d.error ?? "Error");
+      }
+    } catch { setError("Error de red"); } finally {
+      setToggling(false);
+      setToggleTarget(null);
+    }
+  }
+
   return (
     <AdminShell>
       {delTarget && (
@@ -78,6 +102,37 @@ export default function BanksPage() {
           onCancel={() => { setDelTarget(null); setDeps(null); }}
           loading={deleting}
         />
+      )}
+
+      {toggleTarget && (
+        <div className="admin-modal-overlay">
+          <div className="admin-modal" role="dialog" aria-modal="true">
+            <p className="admin-modal-title">
+              {toggleTarget.available ? "Desactivar banco" : "Activar banco"}
+            </p>
+            <p style={{ fontSize: 13, color: "var(--ink-dim)", marginBottom: 24 }}>
+              {toggleTarget.available
+                ? `"${toggleTarget.name}" quedará oculto en la aplicación y sus promociones dejarán de mostrarse.`
+                : `"${toggleTarget.name}" volverá a ser visible en la aplicación.`}
+            </p>
+            <div style={{ display: "flex", gap: 10 }}>
+              <button
+                className={`admin-btn ${toggleTarget.available ? "admin-btn-danger" : "admin-btn-primary"}`}
+                onClick={confirmToggle}
+                disabled={toggling}
+              >
+                {toggling ? "Guardando…" : toggleTarget.available ? "Desactivar" : "Activar"}
+              </button>
+              <button
+                className="admin-btn admin-btn-ghost"
+                onClick={() => setToggleTarget(null)}
+                disabled={toggling}
+              >
+                Cancelar
+              </button>
+            </div>
+          </div>
+        </div>
       )}
 
       <div className="admin-header">
@@ -128,8 +183,7 @@ export default function BanksPage() {
         <div className="admin-loading"><span className="admin-spinner" aria-hidden="true" />Cargando…</div>
       ) : banks.length === 0 ? (
         <div className="admin-empty">
-          <div className="admin-empty-icon">🏦</div>
-          <div className="admin-empty-text">No hay bancos todavía. Crea el primero con “+ Nuevo banco”.</div>
+          <div className="admin-empty-text">No hay bancos todavía. Crea el primero con "+ Nuevo banco".</div>
         </div>
       ) : (
         <div className="admin-table-wrap">
@@ -143,7 +197,22 @@ export default function BanksPage() {
                   <td><code className="admin-code">{b.id}</code></td>
                   <td>{b.name}</td>
                   <td className="admin-cell-dim">{b.short_name ?? "—"}</td>
-                  <td><span className={`admin-badge ${b.available ? "admin-badge-green" : "admin-badge-dim"}`}>{b.available ? "Sí" : "No"}</span></td>
+                  <td>
+                    <button
+                      className="admin-toggle"
+                      role="switch"
+                      aria-checked={b.available}
+                      aria-label={b.available ? "Desactivar banco" : "Activar banco"}
+                      onClick={() => setToggleTarget(b)}
+                    >
+                      <span className="admin-toggle-track">
+                        <span className="admin-toggle-thumb" />
+                      </span>
+                      <span className="admin-toggle-label">
+                        {b.available ? "Activo" : "Inactivo"}
+                      </span>
+                    </button>
+                  </td>
                   <td>
                     <div className="admin-actions">
                       <button className="admin-btn admin-btn-ghost admin-btn-sm" onClick={() => openEdit(b)}>Editar</button>
