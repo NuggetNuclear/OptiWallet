@@ -45,7 +45,7 @@ describe("formatDayOfWeek — nombre completo del dia", () => {
     [0, "Domingo"], [1, "Lunes"], [2, "Martes"], [3, "Miercoles"],
     [4, "Jueves"], [5, "Viernes"], [6, "Sabado"],
   ];
-  for (const [dow, _nombre] of casos) {
+  for (const [dow] of casos) {
     // Verificar solo que retorna string no vacio (nombres con tildes varían segun locale)
     it("dow " + dow + " retorna string no vacio", () => {
       const result = formatDayOfWeek(dow);

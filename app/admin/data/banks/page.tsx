@@ -25,7 +25,7 @@ export default function BanksPage() {
     if (r.ok) setBanks(await r.json());
     setLoading(false);
   }
-  useEffect(() => { load(); }, []);
+  useEffect(() => { (async () => { await load(); })(); }, []);
 
   function openNew() { setForm({ ...EMPTY }); setIsNew(true); setError(""); setSuccess(""); }
   function openEdit(b: Bank) { setForm({ ...b }); setIsNew(false); setError(""); setSuccess(""); }

@@ -1,5 +1,6 @@
 import { sql } from "@/lib/db";
 import { hashPassword, generateTotpSecret, generateTotpUri } from "@/lib/admin-auth";
+import { encryptSecret } from "@/lib/admin-crypto";
 import { requireAdmin } from "@/lib/admin-guard";
 import QRCode from "qrcode";
 import { NextRequest, NextResponse } from "next/server";
@@ -57,7 +58,7 @@ export async function POST(req: NextRequest) {
 
     await sql`
       INSERT INTO admin_users (id, email, password_hash, totp_secret, totp_enabled)
-      VALUES (${id}, ${email}, ${passwordHash}, ${totpSecret}, false)
+      VALUES (${id}, ${email}, ${passwordHash}, ${encryptSecret(totpSecret)}, false)
     `;
 
     return NextResponse.json(

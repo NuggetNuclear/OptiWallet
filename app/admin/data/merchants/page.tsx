@@ -33,7 +33,7 @@ export default function MerchantsPage() {
     if (cr.ok) setCategories(await cr.json());
     setLoading(false);
   }
-  useEffect(() => { load(); }, []);
+  useEffect(() => { (async () => { await load(); })(); }, []);
 
   function openNew()               { setForm({ ...EMPTY }); setAliasInput(""); setIsNew(true);  setError(""); setSuccess(""); }
   function openEdit(m: Merchant)   {

@@ -25,7 +25,7 @@ export default function CategoriesPage() {
     if (r.ok) setCats(await r.json());
     setLoading(false);
   }
-  useEffect(() => { load(); }, []);
+  useEffect(() => { (async () => { await load(); })(); }, []);
 
   function openNew()             { setForm({ ...EMPTY }); setIsNew(true);  setError(""); setSuccess(""); }
   function openEdit(c: Category) { setForm({ ...c });     setIsNew(false); setError(""); setSuccess(""); }

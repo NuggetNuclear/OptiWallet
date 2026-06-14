@@ -30,7 +30,7 @@ export default function CardsPage() {
     if (br.ok) setBanks(await br.json());
     setLoading(false);
   }
-  useEffect(() => { load(); }, []);
+  useEffect(() => { (async () => { await load(); })(); }, []);
 
   function openNew()        { setForm({ ...EMPTY }); setIsNew(true);  setError(""); setSuccess(""); }
   function openEdit(c: Card){ setForm({ ...c });     setIsNew(false); setError(""); setSuccess(""); }

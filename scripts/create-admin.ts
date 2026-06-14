@@ -5,12 +5,18 @@
  */
 
 import { neon } from "@neondatabase/serverless";
-import { hashPassword, generateTotpSecret, generateTotpUri } from "../lib/admin-auth";
+import { hashPassword, generateTotpSecret, generateTotpUri } from "../lib/admin-auth.ts";
+import { encryptSecret } from "../lib/admin-crypto.ts";
 import QRCode from "qrcode";
 import { createInterface } from "readline";
 
 if (!process.env.DATABASE_URL) {
   console.error("❌  DATABASE_URL no está definida — crea un .env.local primero");
+  process.exit(1);
+}
+
+if (!process.env.ADMIN_SESSION_SECRET && !process.env.ADMIN_TOTP_ENC_KEY) {
+  console.error("❌  ADMIN_TOTP_ENC_KEY o ADMIN_SESSION_SECRET es requerido para cifrar el secreto TOTP");
   process.exit(1);
 }
 
@@ -92,7 +98,7 @@ async function main() {
 
   await db`
     INSERT INTO admin_users (id, email, password_hash, totp_secret, totp_enabled)
-    VALUES (${id}, ${email}, ${hash}, ${secret}, false)
+    VALUES (${id}, ${email}, ${hash}, ${encryptSecret(secret)}, false)
   `;
 
   const qr = await QRCode.toString(uri, { type: "terminal", small: true });

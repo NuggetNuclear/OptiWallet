@@ -48,30 +48,36 @@ El panel admin en `/admin` agrega una **superficie de ataque adicional y control
 | Capa | Protección |
 |---|---|
 | Rutas `/admin/*` | `proxy.ts` (Edge Runtime) verifica la cookie HMAC antes de renderizar cualquier página |
-| Endpoints `/api/admin/*` | `getAdminFromRequest()` verifica la cookie al inicio de cada Route Handler |
-| Formulario de login | Rate limiting: 5 intentos fallidos/IP/15 min (tabla `admin_login_attempts`) |
+| Endpoints `/api/admin/*` | `requireAdmin()` valida la cookie **y la re-verifica contra la DB** en cada Route Handler: un admin eliminado, con TOTP reseteado o deshabilitado pierde acceso de inmediato |
+| Rate limiting | 5 intentos fallidos/IP/15 min (tabla `admin_login_attempts`), compartido entre login, verify-totp y enrolamiento TOTP — sin superficies de fuerza bruta sin throttle |
 | Paso 1 login | bcrypt costo 12 + anti-enumeración (mismo error para email desconocido y contraseña incorrecta) |
 | Paso 2 login | TOTP obligatorio (Google Authenticator, ±1 ventana de 30s) |
-| Sesión | Cookie `HttpOnly; Secure; SameSite=Strict; Path=/admin`, firmada HMAC-SHA256, 8h de duración |
+| Secretos TOTP | Cifrados en reposo con AES-256-GCM (`lib/admin-crypto.ts`); nunca en texto plano en la DB |
+| Creación de admins | Sin página web pública de setup: el primer admin se crea por CLI (`admin:create`), el resto desde el panel autenticado |
+| Sesión | Cookie `HttpOnly; Secure; SameSite=Strict; Path=/`, firmada HMAC-SHA256, 8h de duración |
 
 ### Nuevas cookies
 
 | Cookie | Uso | HttpOnly | SameSite | Path |
 |---|---|---|---|---|
-| `ow_admin_session` | Sesión de admin, firmada HMAC-SHA256 | ✓ | Strict | `/admin` |
+| `ow_admin_session` | Sesión de admin, firmada HMAC-SHA256 | ✓ | Strict | `/` (debe cubrir `/api/admin/*`) |
 
 ### Nuevas variables de entorno
 
 | Variable | Descripción |
 |---|---|
 | `ADMIN_SESSION_SECRET` | Secreto para firmar sesiones HMAC-SHA256. Generar con `openssl rand -hex 32`. **Nunca debe aparecer en el repositorio.** |
+| `ADMIN_TOTP_ENC_KEY` | Clave para cifrar secretos TOTP en reposo (AES-256-GCM). Generar con `openssl rand -hex 32`. Si se omite se deriva de `ADMIN_SESSION_SECRET`. **Nunca debe aparecer en el repositorio.** |
 
 ### Compartimentalización
 
 Los módulos con lógica de autenticación están marcados con `import "server-only"`:
 - `lib/admin-auth.ts` — bcryptjs + otpauth (no se pueden ejecutar en el browser)
 - `lib/admin-session.ts` — cookies y tokens HMAC
+- `lib/admin-guard.ts` — validación de sesión contra DB + rate limiting
 - `lib/db.ts` — cliente de base de datos
+
+`lib/admin-crypto.ts` se confina al servidor vía `node:crypto` (no bundleable para el browser), por lo que la clave y el cifrado nunca llegan al cliente.
 
 Si un Client Component importa cualquiera de estos módulos, Next.js lanza un error en build time antes de que el código llegue a producción.
 

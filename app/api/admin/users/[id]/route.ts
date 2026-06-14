@@ -1,5 +1,6 @@
 import { sql } from "@/lib/db";
 import { hashPassword, generateTotpSecret } from "@/lib/admin-auth";
+import { encryptSecret } from "@/lib/admin-crypto";
 import { requireAdmin } from "@/lib/admin-guard";
 import { NextRequest, NextResponse } from "next/server";
 
@@ -44,7 +45,7 @@ export async function PATCH(req: NextRequest, { params }: Params) {
 
     if (reset_totp === true) {
       const newSecret = generateTotpSecret();
-      await sql`UPDATE admin_users SET totp_secret = ${newSecret}, totp_enabled = false WHERE id = ${id}`;
+      await sql`UPDATE admin_users SET totp_secret = ${encryptSecret(newSecret)}, totp_enabled = false WHERE id = ${id}`;
     }
 
     return NextResponse.json({ status: "ok" }, { headers: NO_CACHE });

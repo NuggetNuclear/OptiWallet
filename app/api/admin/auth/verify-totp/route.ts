@@ -1,5 +1,6 @@
 import { sql } from "@/lib/db";
 import { verifyTotp } from "@/lib/admin-auth";
+import { decryptSecret } from "@/lib/admin-crypto";
 import { verifyPendingMfa, signSession, setSessionCookie } from "@/lib/admin-session";
 import { clientIp, isRateLimited, recordFailedAttempt } from "@/lib/admin-guard";
 import type { AdminUser } from "@/lib/admin-types";
@@ -41,7 +42,7 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "Token inválido o expirado" }, { status: 401 });
     }
 
-    if (!verifyTotp(user.totp_secret, code)) {
+    if (!verifyTotp(decryptSecret(user.totp_secret), code)) {
       await recordFailedAttempt(ip);
       return NextResponse.json({ error: "Código inválido" }, { status: 401 });
     }

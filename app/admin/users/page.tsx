@@ -26,7 +26,7 @@ export default function AdminUsersPage() {
     setLoading(false);
   }
 
-  useEffect(() => { load(); }, []);
+  useEffect(() => { (async () => { await load(); })(); }, []);
 
   async function doDelete() {
     if (!deleteTarget) return;

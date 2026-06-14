@@ -77,11 +77,19 @@ app/api/admin/                ← API Routes del panel (todas protegidas con ses
 lib/
 ├── admin-types.ts            ← Interfaces: AdminUser, AdminSessionPayload
 ├── admin-auth.ts             ← bcryptjs + otpauth (Node.js only, server-only)
+├── admin-crypto.ts           ← Cifrado AES-256-GCM de secretos TOTP en reposo (Node.js)
+├── admin-guard.ts            ← requireAdmin() (validación contra DB) + rate limiting compartido
 └── admin-session.ts          ← HMAC-SHA256 + cookie helpers (edge-compatible, server-only)
 
 scripts/
-└── create-admin.ts           ← CLI: crea el primer administrador
+├── create-admin.ts           ← CLI: crea el primer administrador (bootstrap)
+└── encrypt-totp.ts           ← CLI: migra secretos TOTP en texto plano a cifrado (idempotente)
 ```
+
+> **Creación de administradores.** Ya no existe una página web pública de
+> setup. El **primer** admin se crea con el CLI `npm run admin:create` (acceso
+> operador con la DB); **todos los demás** se crean desde dentro del panel
+> autenticado en `/admin/users/new`.
 
 ### Flujo de datos
 
@@ -186,7 +194,13 @@ Los módulos que contienen lógica sensible de servidor están marcados con `imp
 |---|---|
 | `lib/admin-auth.ts` | Usa `bcryptjs` y `otpauth` — no son seguros ni funcionales en el browser |
 | `lib/admin-session.ts` | Maneja cookies y tokens HMAC — nunca debe estar en el bundle del cliente |
+| `lib/admin-guard.ts` | `requireAdmin()` + rate limiting tocan la DB — solo servidor |
 | `lib/db.ts` | Cliente de base de datos — exponer la conexión en el cliente sería un desastre |
+
+`lib/admin-crypto.ts` no usa `import "server-only"` pero queda igualmente
+confinado al servidor: importa `node:crypto`, que **no se puede bundlear para el
+browser** — importarlo desde un Client Component es un error de build. Así, ni la
+lógica del cifrado ni la clave llegan jamás al bundle del cliente.
 
 Si un Client Component (`"use client"`) importa cualquiera de estos módulos, Next.js lanzará un error en build time:
 
@@ -283,10 +297,16 @@ En el dashboard de Vercel → tu proyecto → **Settings → Environment Variabl
 |---|---|---|
 | `DATABASE_URL` | Connection string de Neon | Production, Preview, Development |
 | `ADMIN_SESSION_SECRET` | El secreto del paso 1 | Production, Preview, Development |
+| `ADMIN_TOTP_ENC_KEY` | Clave dedicada para cifrar secretos TOTP (`openssl rand -hex 32`). Recomendada; si se omite se deriva de `ADMIN_SESSION_SECRET` | Production, Preview, Development |
 | `NEXT_PUBLIC_SENTRY_DSN` | (opcional) DSN de Sentry | Production |
 | `NEXT_PUBLIC_PLAUSIBLE_DOMAIN` | (opcional) Dominio en Plausible | Production |
 
-> **Seguridad:** `ADMIN_SESSION_SECRET` no lleva el prefijo `NEXT_PUBLIC_` — nunca se expone al browser.
+> **Seguridad:** ni `ADMIN_SESSION_SECRET` ni `ADMIN_TOTP_ENC_KEY` llevan el prefijo `NEXT_PUBLIC_` — nunca se exponen al browser.
+
+> **Migración de secretos existentes.** Si ya tenías admins creados antes de
+> activar el cifrado, sus `totp_secret` están en texto plano. Córrelos al
+> formato cifrado (idempotente) con `npm run admin:encrypt-totp`. El sistema
+> sigue funcionando con filas en texto plano mientras tanto.
 
 ### 5. Deploy
 
@@ -717,6 +737,7 @@ cards      ← nodo hoja en el schema (nada tiene FK hacia cards)
 | Medida | Implementación |
 |---|---|
 | **Hashing de contraseñas** | bcrypt costo 12 (≈300ms en hardware moderno) |
+| **Cifrado de secretos TOTP en reposo** | AES-256-GCM (`lib/admin-crypto.ts`): el `totp_secret` se guarda cifrado, no en texto plano. Un dump de la DB no basta para falsificar códigos 2FA — también se necesita la clave de la app. Compatible hacia atrás con filas legacy en texto plano (migrar con `npm run admin:encrypt-totp`) |
 | **Anti-enumeración de emails** | Login siempre corre bcrypt, incluso si el email no existe en la DB |
 | **Rate limiting** | 5 intentos fallidos por IP en 15 min en login, verify-totp, totp-setup y setup (tabla `admin_login_attempts`) |
 | **Validación de sesión contra DB** | `requireAdmin()` re-consulta `admin_users` en cada request del API: un admin eliminado, con TOTP reseteado o cuenta deshabilitada pierde acceso de inmediato, sin esperar a que expire la cookie (8h) |
@@ -761,7 +782,8 @@ Para entornos de alta criticidad, considera:
 |---|---|---|
 | `DATABASE_URL` | ✓ | Connection string de Neon PostgreSQL |
 | `ADMIN_SESSION_SECRET` | ✓ | Secreto HMAC-SHA256 para firmar sesiones (hex, 32 bytes mínimo). Genera con: `openssl rand -hex 32` |
+| `ADMIN_TOTP_ENC_KEY` | Recomendada | Clave para cifrar secretos TOTP en reposo (AES-256-GCM). Genera con: `openssl rand -hex 32`. Si se omite, se deriva de `ADMIN_SESSION_SECRET` (rotar la sesión inutilizaría los TOTP guardados) |
 | `NEXT_PUBLIC_SENTRY_DSN` | No | DSN de Sentry para error tracking |
 | `NEXT_PUBLIC_PLAUSIBLE_DOMAIN` | No | Dominio para analytics de Plausible |
 
-> **Nunca** commitees `ADMIN_SESSION_SECRET` al repositorio. Vive en `.env.local` localmente y en los secrets de Vercel en producción.
+> **Nunca** commitees `ADMIN_SESSION_SECRET` ni `ADMIN_TOTP_ENC_KEY` al repositorio. Viven en `.env.local` localmente y en los secrets de Vercel en producción.

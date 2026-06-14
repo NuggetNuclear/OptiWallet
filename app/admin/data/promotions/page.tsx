@@ -56,7 +56,7 @@ export default function PromotionsPage() {
     if (mr.ok) setMerchants(await mr.json());
     setLoading(false);
   }
-  useEffect(() => { load(); }, [filterBank, filterMerchant, showActive]); // eslint-disable-line react-hooks/exhaustive-deps
+  useEffect(() => { (async () => { await load(); })(); }, [filterBank, filterMerchant, showActive]); // eslint-disable-line react-hooks/exhaustive-deps
 
   function openNew()         { setForm({ ...EMPTY }); setIsNew(true);  setError(""); setSuccess(""); }
   function openEdit(p: Promo){ setForm({ ...p, card_types: [...p.card_types], days_of_week: [...p.days_of_week] }); setIsNew(false); setError(""); setSuccess(""); }
