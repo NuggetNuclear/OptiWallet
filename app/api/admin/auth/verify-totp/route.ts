@@ -1,11 +1,24 @@
 import { sql } from "@/lib/db";
 import { verifyTotp } from "@/lib/admin-auth";
 import { verifyPendingMfa, signSession, setSessionCookie } from "@/lib/admin-session";
+import { clientIp, isRateLimited, recordFailedAttempt } from "@/lib/admin-guard";
 import type { AdminUser } from "@/lib/admin-types";
 import { NextRequest, NextResponse } from "next/server";
 
 export async function POST(req: NextRequest) {
+  const ip = clientIp(req);
+
   try {
+    // A valid password gets you a mfa_token; without throttling here the 6-digit
+    // TOTP could be brute-forced within the token's lifetime. Same IP budget as
+    // the password step.
+    if (await isRateLimited(ip)) {
+      return NextResponse.json(
+        { error: "Demasiados intentos. Espera 15 minutos." },
+        { status: 429 },
+      );
+    }
+
     const body = await req.json().catch(() => null);
     const { mfa_token, code } = body ?? {};
 
@@ -15,6 +28,7 @@ export async function POST(req: NextRequest) {
 
     const adminId = await verifyPendingMfa(mfa_token);
     if (!adminId) {
+      await recordFailedAttempt(ip);
       return NextResponse.json({ error: "Token inválido o expirado" }, { status: 401 });
     }
 
@@ -23,10 +37,12 @@ export async function POST(req: NextRequest) {
     `;
     const user = rows[0] as Pick<AdminUser, "id" | "email" | "totp_secret"> | undefined;
     if (!user) {
+      await recordFailedAttempt(ip);
       return NextResponse.json({ error: "Token inválido o expirado" }, { status: 401 });
     }
 
     if (!verifyTotp(user.totp_secret, code)) {
+      await recordFailedAttempt(ip);
       return NextResponse.json({ error: "Código inválido" }, { status: 401 });
     }
 

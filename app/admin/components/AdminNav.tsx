@@ -22,6 +22,11 @@ export function AdminNav({ email }: { email: string }) {
   const pathname = usePathname();
   const router   = useRouter();
   const [loggingOut, setLoggingOut] = useState(false);
+  const [open, setOpen] = useState(false);
+
+  function isActive(href: string) {
+    return pathname === href || (href !== "/admin" && pathname.startsWith(href));
+  }
 
   async function logout() {
     setLoggingOut(true);
@@ -32,39 +37,50 @@ export function AdminNav({ email }: { email: string }) {
   return (
     <aside className="admin-sidebar">
       <div className="admin-logo">
-        <span>Admin</span>
-        <p>OptiWallet</p>
-      </div>
-
-      {NAV.map(({ section, items }) => (
-        <div key={section}>
-          <div className="admin-nav-section">{section}</div>
-          {items.map(({ href, label, icon }) => (
-            <Link
-              key={href}
-              href={href}
-              className={`admin-nav-link ${pathname === href || (href !== "/admin" && pathname.startsWith(href)) ? "active" : ""}`}
-            >
-              <span>{icon}</span>
-              {label}
-            </Link>
-          ))}
+        <div>
+          <span>Admin</span>
+          <p>OptiWallet</p>
         </div>
-      ))}
-
-      <div style={{ marginTop: "auto", padding: "16px 20px", borderTop: "1px solid var(--line)" }}>
-        <p style={{ fontSize: "11px", color: "var(--ink-dim)", marginBottom: "10px", wordBreak: "break-all" }}>
-          {email}
-        </p>
         <button
-          onClick={logout}
-          disabled={loggingOut}
-          className="admin-btn admin-btn-ghost"
-          style={{ width: "100%", justifyContent: "center" }}
+          type="button"
+          className="admin-nav-toggle"
+          aria-label={open ? "Cerrar menú" : "Abrir menú"}
+          aria-expanded={open}
+          onClick={() => setOpen((v) => !v)}
         >
-          {loggingOut ? "Saliendo…" : "Cerrar sesión"}
+          {open ? "✕" : "☰"}
         </button>
       </div>
+
+      <nav className={`admin-nav-groups ${open ? "open" : ""}`} onClick={() => setOpen(false)}>
+        {NAV.map(({ section, items }) => (
+          <div key={section}>
+            <div className="admin-nav-section">{section}</div>
+            {items.map(({ href, label, icon }) => (
+              <Link
+                key={href}
+                href={href}
+                aria-current={isActive(href) ? "page" : undefined}
+                className={`admin-nav-link ${isActive(href) ? "active" : ""}`}
+              >
+                <span className="admin-nav-icon" aria-hidden="true">{icon}</span>
+                {label}
+              </Link>
+            ))}
+          </div>
+        ))}
+
+        <div className="admin-nav-footer">
+          <p className="admin-nav-email">{email}</p>
+          <button
+            onClick={logout}
+            disabled={loggingOut}
+            className="admin-btn admin-btn-ghost admin-btn-block"
+          >
+            {loggingOut ? "Saliendo…" : "Cerrar sesión"}
+          </button>
+        </div>
+      </nav>
     </aside>
   );
 }

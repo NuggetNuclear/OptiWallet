@@ -1,7 +1,11 @@
 import { NextRequest, NextResponse } from "next/server";
 import { sql } from "@/lib/db";
 import { hashPassword, generateTotpSecret, generateTotpUri, verifyTotp } from "@/lib/admin-auth";
+import { clientIp, isRateLimited, recordFailedAttempt } from "@/lib/admin-guard";
 import QRCode from "qrcode";
+
+// Minimum password length — kept in sync with the admin-create API (12 chars).
+const MIN_PASSWORD = 12;
 
 // Step 1 — create first admin (only works when admin_users table is empty)
 async function handleCreate(body: Record<string, unknown>) {
@@ -11,8 +15,8 @@ async function handleCreate(body: Record<string, unknown>) {
   if (!email || !email.includes("@")) {
     return NextResponse.json({ error: "Email inválido" }, { status: 400 });
   }
-  if (password.length < 8) {
-    return NextResponse.json({ error: "La contraseña debe tener al menos 8 caracteres" }, { status: 400 });
+  if (password.length < MIN_PASSWORD) {
+    return NextResponse.json({ error: `La contraseña debe tener al menos ${MIN_PASSWORD} caracteres` }, { status: 400 });
   }
 
   const existing = await sql`SELECT id FROM admin_users LIMIT 1`;
@@ -38,7 +42,7 @@ async function handleCreate(body: Record<string, unknown>) {
 }
 
 // Step 2 — verify TOTP code and activate 2FA
-async function handleVerify(body: Record<string, unknown>) {
+async function handleVerify(body: Record<string, unknown>, ip: string) {
   const adminId = String(body.admin_id ?? "");
   const code = String(body.code ?? "");
 
@@ -50,6 +54,7 @@ async function handleVerify(body: Record<string, unknown>) {
     SELECT totp_secret, totp_enabled FROM admin_users WHERE id = ${adminId}
   `;
   if (rows.length === 0) {
+    await recordFailedAttempt(ip);
     return NextResponse.json({ error: "Admin no encontrado" }, { status: 404 });
   }
 
@@ -60,6 +65,7 @@ async function handleVerify(body: Record<string, unknown>) {
   }
 
   if (!verifyTotp(totp_secret, code)) {
+    await recordFailedAttempt(ip);
     return NextResponse.json({ error: "Código incorrecto. Revisa que el reloj de tu teléfono esté sincronizado." }, { status: 401 });
   }
 
@@ -69,6 +75,17 @@ async function handleVerify(body: Record<string, unknown>) {
 }
 
 export async function POST(req: NextRequest) {
+  const ip = clientIp(req);
+
+  // Throttle the public setup endpoint too — it both creates the first admin
+  // and verifies a TOTP code, so it must not be a free brute-force surface.
+  if (await isRateLimited(ip)) {
+    return NextResponse.json(
+      { error: "Demasiados intentos. Espera 15 minutos." },
+      { status: 429 },
+    );
+  }
+
   let body: Record<string, unknown>;
   try {
     body = await req.json();
@@ -76,6 +93,6 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "Invalid JSON" }, { status: 400 });
   }
 
-  if (body.action === "verify") return handleVerify(body);
+  if (body.action === "verify") return handleVerify(body, ip);
   return handleCreate(body);
 }

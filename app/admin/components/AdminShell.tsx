@@ -28,8 +28,9 @@ export function AdminShell({ children }: { children: React.ReactNode }) {
 
   if (loading) {
     return (
-      <div style={{ display: "flex", alignItems: "center", justifyContent: "center", minHeight: "100dvh" }}>
-        <span style={{ color: "var(--ink-dim)", fontSize: 13 }}>Verificando sesión…</span>
+      <div className="admin-loading">
+        <span className="admin-spinner" aria-hidden="true" />
+        Verificando sesión…
       </div>
     );
   }

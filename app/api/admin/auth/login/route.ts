@@ -1,28 +1,12 @@
 import { sql } from "@/lib/db";
 import { verifyPassword } from "@/lib/admin-auth";
 import { signSession, signPendingMfa, setSessionCookie } from "@/lib/admin-session";
+import { clientIp, isRateLimited, recordFailedAttempt } from "@/lib/admin-guard";
 import type { AdminUser } from "@/lib/admin-types";
 import { NextRequest, NextResponse } from "next/server";
 
-const MAX_ATTEMPTS = 5;
-const WINDOW_MS    = 15 * 60 * 1000; // 15 minutes
-
-async function isRateLimited(ip: string): Promise<boolean> {
-  const since = new Date(Date.now() - WINDOW_MS).toISOString();
-  const rows = await sql`
-    SELECT COUNT(*)::int AS n
-    FROM admin_login_attempts
-    WHERE ip_address = ${ip} AND attempted_at >= ${since}::timestamptz
-  `;
-  return (rows[0] as { n: number }).n >= MAX_ATTEMPTS;
-}
-
-async function recordAttempt(ip: string): Promise<void> {
-  await sql`INSERT INTO admin_login_attempts (ip_address) VALUES (${ip})`;
-}
-
 export async function POST(req: NextRequest) {
-  const ip = req.headers.get("x-forwarded-for")?.split(",")[0]?.trim() ?? "unknown";
+  const ip = clientIp(req);
 
   try {
     if (await isRateLimited(ip)) {
@@ -51,7 +35,7 @@ export async function POST(req: NextRequest) {
     const valid = await verifyPassword(password, user?.password_hash ?? fakeHash);
 
     if (!user || !valid) {
-      await recordAttempt(ip);
+      await recordFailedAttempt(ip);
       return NextResponse.json({ error: "Credenciales inválidas" }, { status: 401 });
     }
 

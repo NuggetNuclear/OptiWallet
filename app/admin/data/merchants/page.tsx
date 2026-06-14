@@ -18,6 +18,7 @@ export default function MerchantsPage() {
   const [isNew,    setIsNew]    = useState(false);
   const [saving,   setSaving]   = useState(false);
   const [error,    setError]    = useState("");
+  const [success,  setSuccess]  = useState("");
   const [delTarget, setDelTarget] = useState<Merchant | null>(null);
   const [deps,     setDeps]     = useState<{ promotions: {id:string;bank_name:string;discount:number}[] } | null>(null);
   const [deleting, setDeleting] = useState(false);
@@ -34,18 +35,18 @@ export default function MerchantsPage() {
   }
   useEffect(() => { load(); }, []);
 
-  function openNew()               { setForm({ ...EMPTY }); setAliasInput(""); setIsNew(true);  setError(""); }
+  function openNew()               { setForm({ ...EMPTY }); setAliasInput(""); setIsNew(true);  setError(""); setSuccess(""); }
   function openEdit(m: Merchant)   {
     setForm({ ...m, aliases: [...m.aliases] });
     setAliasInput(m.aliases.join(", "));
     setIsNew(false);
-    setError("");
+    setError(""); setSuccess("");
   }
 
   async function save() {
     if (!form) return;
     const aliases = aliasInput.split(",").map((s) => s.trim()).filter(Boolean);
-    setError(""); setSaving(true);
+    setError(""); setSuccess(""); setSaving(true);
     try {
       const method = isNew ? "POST" : "PATCH";
       const url    = isNew ? "/api/admin/data/merchants" : `/api/admin/data/merchants/${form.id}`;
@@ -56,6 +57,7 @@ export default function MerchantsPage() {
       });
       const data = await res.json();
       if (!res.ok) { setError(data.error ?? "Error"); return; }
+      setSuccess(isNew ? "Comercio creado" : "Cambios guardados");
       setForm(null); load();
     } catch { setError("Error de red"); } finally { setSaving(false); }
   }
@@ -70,7 +72,7 @@ export default function MerchantsPage() {
     if (!delTarget) return;
     setDeleting(true);
     const res = await fetch(`/api/admin/data/merchants/${delTarget.id}?confirmed=true`, { method: "DELETE" });
-    if (res.ok) { setDelTarget(null); setDeps(null); load(); }
+    if (res.ok) { setSuccess("Comercio eliminado"); setDelTarget(null); setDeps(null); load(); }
     else { const d = await res.json(); setError(d.error ?? "Error"); setDelTarget(null); setDeps(null); }
     setDeleting(false);
   }
@@ -97,13 +99,12 @@ export default function MerchantsPage() {
       </div>
 
       {error && <div className="admin-error">{error}</div>}
+      {success && <div className="admin-success">{success}</div>}
 
       {form && (
         <div className="admin-card" style={{ marginBottom: 24 }}>
-          <p style={{ fontFamily: "var(--font-serif)", fontSize: 16, marginBottom: 16 }}>
-            {isNew ? "Nuevo comercio" : `Editar: ${form.id}`}
-          </p>
-          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
+          <p className="admin-card-title">{isNew ? "Nuevo comercio" : `Editar: ${form.id}`}</p>
+          <div className="admin-form-grid">
             {isNew && (
               <div className="admin-form-row">
                 <label className="admin-label">ID (slug)</label>
@@ -124,14 +125,14 @@ export default function MerchantsPage() {
                 {categories.map((c) => <option key={c.id} value={c.id}>{c.emoji} {c.label}</option>)}
               </select>
             </div>
-            <div className="admin-form-row" style={{ gridColumn: "1 / -1" }}>
+            <div className="admin-form-row span-2">
               <label className="admin-label">Aliases (separados por coma)</label>
               <input className="admin-input" value={aliasInput}
                 onChange={(e) => setAliasInput(e.target.value)}
                 placeholder="papa jones, papajohns" />
             </div>
           </div>
-          <div style={{ display: "flex", gap: 10 }}>
+          <div className="admin-form-actions">
             <button className="admin-btn admin-btn-primary" onClick={save} disabled={saving}>
               {saving ? "Guardando…" : "Guardar"}
             </button>
@@ -140,31 +141,42 @@ export default function MerchantsPage() {
         </div>
       )}
 
-      <div style={{ marginBottom: 16 }}>
+      <div className="admin-toolbar">
         <input className="admin-input" value={search} onChange={(e) => setSearch(e.target.value)}
                placeholder="Buscar comercio…" style={{ maxWidth: 280 }} />
       </div>
 
-      {loading ? <p style={{ color: "var(--ink-dim)", fontSize: 13 }}>Cargando…</p> : (
-        <table className="admin-table">
-          <thead><tr><th>ID</th><th>Nombre</th><th>Categoría</th><th>Aliases</th><th></th></tr></thead>
-          <tbody>
-            {visible.map((m) => (
-              <tr key={m.id}>
-                <td><code style={{ fontSize: 11, color: "var(--ink-dim)" }}>{m.id}</code></td>
-                <td>{m.name}</td>
-                <td>{m.emoji} {m.category_label ?? m.category_id}</td>
-                <td style={{ fontSize: 11, color: "var(--ink-dim)" }}>{m.aliases.join(", ") || "—"}</td>
-                <td>
-                  <div style={{ display: "flex", gap: 6 }}>
-                    <button className="admin-btn admin-btn-ghost" style={{ padding: "4px 10px", fontSize: 11 }} onClick={() => openEdit(m)}>Editar</button>
-                    <button className="admin-btn admin-btn-danger" style={{ padding: "4px 10px", fontSize: 11 }} onClick={() => openDelete(m)}>Eliminar</button>
-                  </div>
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
+      {loading ? (
+        <div className="admin-loading"><span className="admin-spinner" aria-hidden="true" />Cargando…</div>
+      ) : visible.length === 0 ? (
+        <div className="admin-empty">
+          <div className="admin-empty-icon">🏪</div>
+          <div className="admin-empty-text">
+            {search ? "Ningún comercio coincide con la búsqueda." : "No hay comercios todavía. Crea el primero con “+ Nuevo comercio”."}
+          </div>
+        </div>
+      ) : (
+        <div className="admin-table-wrap">
+          <table className="admin-table">
+            <thead><tr><th>ID</th><th>Nombre</th><th>Categoría</th><th>Aliases</th><th></th></tr></thead>
+            <tbody>
+              {visible.map((m) => (
+                <tr key={m.id}>
+                  <td><code className="admin-code">{m.id}</code></td>
+                  <td>{m.name}</td>
+                  <td>{m.emoji} {m.category_label ?? m.category_id}</td>
+                  <td className="admin-cell-dim" style={{ fontSize: 11 }}>{m.aliases.join(", ") || "—"}</td>
+                  <td>
+                    <div className="admin-actions">
+                      <button className="admin-btn admin-btn-ghost admin-btn-sm" onClick={() => openEdit(m)}>Editar</button>
+                      <button className="admin-btn admin-btn-danger admin-btn-sm" onClick={() => openDelete(m)}>Eliminar</button>
+                    </div>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
       )}
     </AdminShell>
   );

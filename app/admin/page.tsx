@@ -29,36 +29,33 @@ export default function AdminDashboard() {
   return (
     <AdminShell>
       <div className="admin-header">
-        <h1 className="admin-title">Dashboard</h1>
+        <div>
+          <h1 className="admin-title">Dashboard</h1>
+          <p className="admin-subtitle">Resumen y accesos directos del panel</p>
+        </div>
       </div>
 
       {stats && (
-        <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 16, marginBottom: 32 }}>
+        <div className="admin-stats">
           {[
             { label: "Promos activas", value: stats.promotions },
             { label: "Comercios",      value: stats.merchants },
             { label: "Bancos",         value: stats.banks },
           ].map(({ label, value }) => (
-            <div key={label} className="admin-card" style={{ textAlign: "center" }}>
-              <div style={{ fontFamily: "var(--font-serif)", fontSize: 32, fontWeight: 700, color: "var(--lime)" }}>
-                {value}
-              </div>
-              <div style={{ fontSize: 11, color: "var(--ink-dim)", marginTop: 4 }}>{label}</div>
+            <div key={label} className="admin-card admin-stat">
+              <div className="admin-stat-value">{value}</div>
+              <div className="admin-stat-label">{label}</div>
             </div>
           ))}
         </div>
       )}
 
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(200px, 1fr))", gap: 12 }}>
+      <div className="admin-entity-grid">
         {ENTITIES.map(({ href, label, icon, desc }) => (
-          <Link key={href} href={href} style={{ textDecoration: "none" }}>
-            <div className="admin-card" style={{ cursor: "pointer", transition: "border-color 0.15s" }}
-                 onMouseEnter={(e) => (e.currentTarget.style.borderColor = "var(--lime)")}
-                 onMouseLeave={(e) => (e.currentTarget.style.borderColor = "var(--line)")}>
-              <div style={{ fontSize: 24, marginBottom: 8 }}>{icon}</div>
-              <div style={{ fontWeight: 600, fontSize: 14 }}>{label}</div>
-              <div style={{ fontSize: 11, color: "var(--ink-dim)", marginTop: 4 }}>{desc}</div>
-            </div>
+          <Link key={href} href={href} className="admin-entity-card">
+            <div className="admin-entity-icon" aria-hidden="true">{icon}</div>
+            <div className="admin-entity-label">{label}</div>
+            <div className="admin-entity-desc">{desc}</div>
           </Link>
         ))}
       </div>

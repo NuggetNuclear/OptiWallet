@@ -1,6 +1,6 @@
 import { sql } from "@/lib/db";
 import { hashPassword, generateTotpSecret } from "@/lib/admin-auth";
-import { getAdminFromRequest } from "@/lib/admin-session";
+import { requireAdmin } from "@/lib/admin-guard";
 import { NextRequest, NextResponse } from "next/server";
 
 const NO_CACHE = { "Cache-Control": "no-store" };
@@ -8,7 +8,7 @@ const NO_CACHE = { "Cache-Control": "no-store" };
 type Params = { params: Promise<{ id: string }> };
 
 export async function GET(req: NextRequest, { params }: Params) {
-  const session = await getAdminFromRequest(req);
+  const session = await requireAdmin(req);
   if (!session) return NextResponse.json({ error: "No autorizado" }, { status: 401, headers: NO_CACHE });
 
   const { id } = await params;
@@ -26,7 +26,7 @@ export async function GET(req: NextRequest, { params }: Params) {
 }
 
 export async function PATCH(req: NextRequest, { params }: Params) {
-  const session = await getAdminFromRequest(req);
+  const session = await requireAdmin(req);
   if (!session) return NextResponse.json({ error: "No autorizado" }, { status: 401, headers: NO_CACHE });
 
   const { id } = await params;
@@ -55,7 +55,7 @@ export async function PATCH(req: NextRequest, { params }: Params) {
 }
 
 export async function DELETE(req: NextRequest, { params }: Params) {
-  const session = await getAdminFromRequest(req);
+  const session = await requireAdmin(req);
   if (!session) return NextResponse.json({ error: "No autorizado" }, { status: 401, headers: NO_CACHE });
 
   const { id } = await params;

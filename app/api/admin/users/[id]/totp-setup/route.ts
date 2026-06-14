@@ -1,6 +1,7 @@
 import { sql } from "@/lib/db";
 import { verifyTotp, generateTotpUri } from "@/lib/admin-auth";
 import { getAdminFromRequest, signSession, setSessionCookie } from "@/lib/admin-session";
+import { clientIp, isRateLimited, recordFailedAttempt } from "@/lib/admin-guard";
 import QRCode from "qrcode";
 import { NextRequest, NextResponse } from "next/server";
 
@@ -41,6 +42,14 @@ export async function POST(req: NextRequest, { params }: Params) {
     return NextResponse.json({ error: "No autorizado" }, { status: 403, headers: NO_CACHE });
   }
 
+  const ip = clientIp(req);
+  if (await isRateLimited(ip)) {
+    return NextResponse.json(
+      { error: "Demasiados intentos. Espera 15 minutos." },
+      { status: 429, headers: NO_CACHE },
+    );
+  }
+
   try {
     const body = await req.json().catch(() => null);
     const { code } = body ?? {};
@@ -63,6 +72,7 @@ export async function POST(req: NextRequest, { params }: Params) {
     }
 
     if (!verifyTotp(totp_secret, code)) {
+      await recordFailedAttempt(ip);
       return NextResponse.json({ error: "Código inválido" }, { status: 401, headers: NO_CACHE });
     }
 

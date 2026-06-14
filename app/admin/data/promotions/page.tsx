@@ -34,14 +34,17 @@ export default function PromotionsPage() {
   const [isNew,     setIsNew]     = useState(false);
   const [saving,    setSaving]    = useState(false);
   const [error,     setError]     = useState("");
+  const [success,   setSuccess]   = useState("");
   const [delTarget, setDelTarget] = useState<Promo | null>(null);
   const [deleting,  setDeleting]  = useState(false);
   const [filterBank, setFilterBank]  = useState("");
+  const [filterMerchant, setFilterMerchant] = useState("");
   const [showActive, setShowActive]  = useState(false);
 
   async function load() {
     const params = new URLSearchParams();
     if (filterBank) params.set("bankId", filterBank);
+    if (filterMerchant) params.set("merchantId", filterMerchant);
     if (showActive) params.set("active", "true");
     const [pr, br, mr] = await Promise.all([
       fetch(`/api/admin/data/promotions?${params}`),
@@ -53,10 +56,10 @@ export default function PromotionsPage() {
     if (mr.ok) setMerchants(await mr.json());
     setLoading(false);
   }
-  useEffect(() => { load(); }, [filterBank, showActive]); // eslint-disable-line react-hooks/exhaustive-deps
+  useEffect(() => { load(); }, [filterBank, filterMerchant, showActive]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  function openNew()         { setForm({ ...EMPTY }); setIsNew(true);  setError(""); }
-  function openEdit(p: Promo){ setForm({ ...p, card_types: [...p.card_types], days_of_week: [...p.days_of_week] }); setIsNew(false); setError(""); }
+  function openNew()         { setForm({ ...EMPTY }); setIsNew(true);  setError(""); setSuccess(""); }
+  function openEdit(p: Promo){ setForm({ ...p, card_types: [...p.card_types], days_of_week: [...p.days_of_week] }); setIsNew(false); setError(""); setSuccess(""); }
 
   function toggleCardType(t: string) {
     if (!form) return;
@@ -71,7 +74,7 @@ export default function PromotionsPage() {
 
   async function save() {
     if (!form) return;
-    setError(""); setSaving(true);
+    setError(""); setSuccess(""); setSaving(true);
     try {
       const method = isNew ? "POST" : "PATCH";
       const url    = isNew ? "/api/admin/data/promotions" : `/api/admin/data/promotions/${form.id}`;
@@ -82,6 +85,7 @@ export default function PromotionsPage() {
       });
       const data = await res.json();
       if (!res.ok) { setError(data.error ?? "Error"); return; }
+      setSuccess(isNew ? "Promoción creada" : "Cambios guardados");
       setForm(null); load();
     } catch { setError("Error de red"); } finally { setSaving(false); }
   }
@@ -90,7 +94,7 @@ export default function PromotionsPage() {
     if (!delTarget) return;
     setDeleting(true);
     const res = await fetch(`/api/admin/data/promotions/${delTarget.id}`, { method: "DELETE" });
-    if (res.ok) { setDelTarget(null); load(); }
+    if (res.ok) { setSuccess("Promoción eliminada"); setDelTarget(null); load(); }
     else { const d = await res.json(); setError(d.error ?? "Error"); setDelTarget(null); }
     setDeleting(false);
   }
@@ -111,13 +115,12 @@ export default function PromotionsPage() {
       </div>
 
       {error && <div className="admin-error">{error}</div>}
+      {success && <div className="admin-success">{success}</div>}
 
       {form && (
         <div className="admin-card" style={{ marginBottom: 24 }}>
-          <p style={{ fontFamily: "var(--font-serif)", fontSize: 16, marginBottom: 20 }}>
-            {isNew ? "Nueva promoción" : `Editar: ${form.id}`}
-          </p>
-          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
+          <p className="admin-card-title">{isNew ? "Nueva promoción" : `Editar: ${form.id}`}</p>
+          <div className="admin-form-grid">
             {isNew && (
               <div className="admin-form-row">
                 <label className="admin-label">ID (slug)</label>
@@ -190,7 +193,7 @@ export default function PromotionsPage() {
               <input className="admin-input" type="date" value={form.verified_at}
                 onChange={(e) => setForm({ ...form, verified_at: e.target.value })} />
             </div>
-            <div className="admin-form-row" style={{ gridColumn: "1 / -1" }}>
+            <div className="admin-form-row span-2">
               <label className="admin-label">Condiciones (opcional)</label>
               <textarea className="admin-input" value={form.conditions ?? ""} rows={2}
                 onChange={(e) => setForm({ ...form, conditions: e.target.value || null })} />
@@ -199,9 +202,9 @@ export default function PromotionsPage() {
 
           <div style={{ marginBottom: 16 }}>
             <label className="admin-label">Tipos de tarjeta</label>
-            <div style={{ display: "flex", gap: 12, marginTop: 4 }}>
+            <div className="admin-check-group">
               {["credit", "debit"].map((t) => (
-                <label key={t} style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 13, cursor: "pointer" }}>
+                <label key={t} className="admin-check-row">
                   <input type="checkbox" checked={form.card_types.includes(t)} onChange={() => toggleCardType(t)} />
                   {t === "credit" ? "Crédito" : "Débito"}
                 </label>
@@ -211,9 +214,9 @@ export default function PromotionsPage() {
 
           <div style={{ marginBottom: 16 }}>
             <label className="admin-label">Días de la semana (vacío = todos)</label>
-            <div style={{ display: "flex", gap: 8, marginTop: 4, flexWrap: "wrap" }}>
+            <div className="admin-check-group">
               {DAYS.map((d, i) => (
-                <label key={i} style={{ display: "flex", alignItems: "center", gap: 4, fontSize: 12, cursor: "pointer" }}>
+                <label key={i} className="admin-check-row" style={{ fontSize: 12 }}>
                   <input type="checkbox" checked={form.days_of_week.includes(i)} onChange={() => toggleDay(i)} />
                   {d}
                 </label>
@@ -221,12 +224,12 @@ export default function PromotionsPage() {
             </div>
           </div>
 
-          <label style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 13, cursor: "pointer", marginBottom: 16 }}>
+          <label className="admin-check-row" style={{ marginBottom: 16 }}>
             <input type="checkbox" checked={form.active} onChange={(e) => setForm({ ...form, active: e.target.checked })} />
             Activa
           </label>
 
-          <div style={{ display: "flex", gap: 10 }}>
+          <div className="admin-form-actions">
             <button className="admin-btn admin-btn-primary" onClick={save} disabled={saving}>
               {saving ? "Guardando…" : "Guardar"}
             </button>
@@ -235,52 +238,70 @@ export default function PromotionsPage() {
         </div>
       )}
 
-      <div style={{ display: "flex", gap: 12, marginBottom: 16, flexWrap: "wrap" }}>
+      <div className="admin-toolbar">
         <select className="admin-input" style={{ maxWidth: 200 }} value={filterBank}
           onChange={(e) => setFilterBank(e.target.value)}>
           <option value="">Todos los bancos</option>
           {banks.map((b) => <option key={b.id} value={b.id}>{b.name}</option>)}
         </select>
-        <label style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 13, cursor: "pointer" }}>
+        <select className="admin-input" style={{ maxWidth: 200 }} value={filterMerchant}
+          onChange={(e) => setFilterMerchant(e.target.value)}>
+          <option value="">Todos los comercios</option>
+          {merchants.map((m) => <option key={m.id} value={m.id}>{m.name}</option>)}
+        </select>
+        <label className="admin-check-row">
           <input type="checkbox" checked={showActive} onChange={(e) => setShowActive(e.target.checked)} />
           Solo activas
         </label>
       </div>
 
-      {loading ? <p style={{ color: "var(--ink-dim)", fontSize: 13 }}>Cargando…</p> : (
-        <table className="admin-table">
-          <thead>
-            <tr><th>ID</th><th>Banco</th><th>Comercio</th><th>%</th><th>Tipos</th><th>Días</th><th>Vigencia</th><th>Estado</th><th></th></tr>
-          </thead>
-          <tbody>
-            {promos.map((p) => (
-              <tr key={p.id}>
-                <td><code style={{ fontSize: 10, color: "var(--ink-dim)" }}>{p.id}</code></td>
-                <td style={{ fontSize: 12 }}>{p.bank_name ?? bankName(p.bank_id)}</td>
-                <td style={{ fontSize: 12 }}>{p.merchant_name ?? merchantName(p.merchant_id)}</td>
-                <td style={{ fontWeight: 700, color: "var(--lime)" }}>{p.discount}%</td>
-                <td style={{ fontSize: 11 }}>{p.card_types.join(", ")}</td>
-                <td style={{ fontSize: 11, color: "var(--ink-dim)" }}>
-                  {p.days_of_week.length ? p.days_of_week.map((d) => DAYS[d]).join(", ") : "Todos"}
-                </td>
-                <td style={{ fontSize: 11, color: "var(--ink-dim)" }}>
-                  {p.end_date ? new Date(p.end_date).toLocaleDateString("es-CL") : "Sin límite"}
-                </td>
-                <td>
-                  <span className={`admin-badge ${p.active ? "admin-badge-green" : "admin-badge-dim"}`}>
-                    {p.active ? "Activa" : "Inactiva"}
-                  </span>
-                </td>
-                <td>
-                  <div style={{ display: "flex", gap: 6 }}>
-                    <button className="admin-btn admin-btn-ghost" style={{ padding: "4px 10px", fontSize: 11 }} onClick={() => openEdit(p)}>Editar</button>
-                    <button className="admin-btn admin-btn-danger" style={{ padding: "4px 10px", fontSize: 11 }} onClick={() => setDelTarget(p)}>Eliminar</button>
-                  </div>
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
+      {loading ? (
+        <div className="admin-loading"><span className="admin-spinner" aria-hidden="true" />Cargando…</div>
+      ) : promos.length === 0 ? (
+        <div className="admin-empty">
+          <div className="admin-empty-icon">🎁</div>
+          <div className="admin-empty-text">
+            {filterBank || filterMerchant || showActive
+              ? "Ninguna promoción coincide con los filtros."
+              : "No hay promociones todavía. Crea la primera con “+ Nueva promo”."}
+          </div>
+        </div>
+      ) : (
+        <div className="admin-table-wrap">
+          <table className="admin-table">
+            <thead>
+              <tr><th>ID</th><th>Banco</th><th>Comercio</th><th>%</th><th>Tipos</th><th>Días</th><th>Vigencia</th><th>Estado</th><th></th></tr>
+            </thead>
+            <tbody>
+              {promos.map((p) => (
+                <tr key={p.id}>
+                  <td><code className="admin-code" style={{ fontSize: 10 }}>{p.id}</code></td>
+                  <td style={{ fontSize: 12 }}>{p.bank_name ?? bankName(p.bank_id)}</td>
+                  <td style={{ fontSize: 12 }}>{p.merchant_name ?? merchantName(p.merchant_id)}</td>
+                  <td style={{ fontWeight: 700, color: "var(--lime)" }}>{p.discount}%</td>
+                  <td style={{ fontSize: 11 }}>{p.card_types.join(", ")}</td>
+                  <td className="admin-cell-dim" style={{ fontSize: 11 }}>
+                    {p.days_of_week.length ? p.days_of_week.map((d) => DAYS[d]).join(", ") : "Todos"}
+                  </td>
+                  <td className="admin-cell-dim" style={{ fontSize: 11 }}>
+                    {p.end_date ? new Date(p.end_date).toLocaleDateString("es-CL") : "Sin límite"}
+                  </td>
+                  <td>
+                    <span className={`admin-badge ${p.active ? "admin-badge-green" : "admin-badge-dim"}`}>
+                      {p.active ? "Activa" : "Inactiva"}
+                    </span>
+                  </td>
+                  <td>
+                    <div className="admin-actions">
+                      <button className="admin-btn admin-btn-ghost admin-btn-sm" onClick={() => openEdit(p)}>Editar</button>
+                      <button className="admin-btn admin-btn-danger admin-btn-sm" onClick={() => setDelTarget(p)}>Eliminar</button>
+                    </div>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
       )}
     </AdminShell>
   );

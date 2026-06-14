@@ -4,6 +4,9 @@ import { useState } from "react";
 
 type Step = "form" | "totp" | "done";
 
+// Kept in sync with the setup API (lib/admin-guard MIN_PASSWORD).
+const MIN_PASSWORD = 12;
+
 export default function SetupPage() {
   const [step, setStep] = useState<Step>("form");
   const [email, setEmail] = useState("");
@@ -16,10 +19,18 @@ export default function SetupPage() {
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
 
+  const mismatch = confirmPassword.length > 0 && confirmPassword !== password;
+  const tooShort = password.length > 0 && password.length < MIN_PASSWORD;
+  const canSubmit = password.length >= MIN_PASSWORD && password === confirmPassword;
+
   async function handleCreate(e: React.FormEvent) {
     e.preventDefault();
     setError("");
 
+    if (password.length < MIN_PASSWORD) {
+      setError(`La contraseña debe tener al menos ${MIN_PASSWORD} caracteres`);
+      return;
+    }
     if (password !== confirmPassword) {
       setError("Las contraseñas no coinciden");
       return;
@@ -73,198 +84,146 @@ export default function SetupPage() {
 
   if (step === "done") {
     return (
-      <div style={containerStyle}>
-        <div style={{ fontSize: 48, marginBottom: 16 }}>✅</div>
-        <h1 style={{ color: "#d4ff3a", marginBottom: 8 }}>Todo listo</h1>
-        <p style={{ color: "#aaa", marginBottom: 32 }}>
-          Tu cuenta de administrador está activa y Google Authenticator está configurado.
-        </p>
-        <a href="/admin/login" style={buttonStyle}>
-          Ir al login →
-        </a>
+      <div className="admin-auth">
+        <div className="admin-auth-inner" style={{ textAlign: "center" }}>
+          <div style={{ fontSize: 48, marginBottom: 16 }}>✅</div>
+          <h1 className="admin-auth-title">Todo listo</h1>
+          <p className="admin-auth-sub" style={{ marginBottom: 28 }}>
+            Tu cuenta de administrador está activa y Google Authenticator está configurado.
+          </p>
+          <a href="/admin/login" className="admin-btn admin-btn-primary admin-btn-block">
+            Ir al login →
+          </a>
+        </div>
       </div>
     );
   }
 
   if (step === "totp") {
     return (
-      <div style={containerStyle}>
-        <h1 style={{ color: "#d4ff3a", marginBottom: 4 }}>Configura Google Authenticator</h1>
-        <p style={{ color: "#aaa", fontSize: 14, marginBottom: 24 }}>
-          Escanea el código QR con Google Authenticator, luego ingresa el código de 6 dígitos para confirmar que está funcionando.
-        </p>
+      <div className="admin-auth">
+        <div className="admin-auth-inner">
+          <div className="admin-auth-head">
+            <span className="admin-auth-eyebrow">Paso 2 de 2</span>
+            <h1 className="admin-auth-title">Configura Google Authenticator</h1>
+            <p className="admin-auth-sub">
+              Escanea el QR, luego ingresa el código de 6 dígitos para confirmar.
+            </p>
+          </div>
 
-        {/* QR */}
-        <div style={{ textAlign: "center", marginBottom: 24 }}>
-          {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img
-            src={qrDataUrl}
-            alt="QR TOTP"
-            style={{ width: 220, height: 220, borderRadius: 8, background: "#fff", padding: 8 }}
-          />
+          <div className="admin-card">
+            {error && <div className="admin-error">{error}</div>}
+
+            <div style={{ textAlign: "center", marginBottom: 20 }}>
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img src={qrDataUrl} alt="QR TOTP" className="admin-qr" />
+            </div>
+
+            <details style={{ marginBottom: 20 }}>
+              <summary className="admin-summary">¿No puedes escanear? Usa el enlace manual</summary>
+              <a href={totpUri} className="admin-manual-uri">{totpUri}</a>
+            </details>
+
+            <form onSubmit={handleVerifyTotp}>
+              <div className="admin-form-row">
+                <label className="admin-label">Código de verificación (6 dígitos)</label>
+                <input
+                  className="admin-input admin-input-code"
+                  type="text"
+                  inputMode="numeric"
+                  autoComplete="one-time-code"
+                  pattern="\d{6}"
+                  maxLength={6}
+                  value={totpCode}
+                  onChange={(e) => setTotpCode(e.target.value.replace(/\D/g, ""))}
+                  required
+                  autoFocus
+                  placeholder="000000"
+                />
+              </div>
+              <button
+                type="submit"
+                disabled={loading || totpCode.length !== 6}
+                className="admin-btn admin-btn-primary admin-btn-block"
+              >
+                {loading ? "Verificando…" : "Confirmar y activar"}
+              </button>
+            </form>
+          </div>
         </div>
-
-        <details style={{ marginBottom: 24 }}>
-          <summary style={{ color: "#aaa", fontSize: 13, cursor: "pointer" }}>
-            ¿No puedes escanear? Usa el enlace manual
-          </summary>
-          <a
-            href={totpUri}
-            style={{ wordBreak: "break-all", color: "#d4ff3a", fontSize: 12, display: "block", marginTop: 8 }}
-          >
-            {totpUri}
-          </a>
-        </details>
-
-        <form onSubmit={handleVerifyTotp} style={{ display: "flex", flexDirection: "column", gap: 16 }}>
-          <label>
-            <span style={labelStyle}>Código de verificación (6 dígitos)</span>
-            <input
-              type="text"
-              inputMode="numeric"
-              pattern="[0-9]{6}"
-              maxLength={6}
-              value={totpCode}
-              onChange={(e) => setTotpCode(e.target.value.replace(/\D/g, ""))}
-              required
-              autoFocus
-              placeholder="000000"
-              style={{ ...inputStyle, fontSize: 24, letterSpacing: 8, textAlign: "center" }}
-            />
-          </label>
-
-          {error && <p style={errorStyle}>{error}</p>}
-
-          <button type="submit" disabled={loading || totpCode.length !== 6} style={buttonStyle}>
-            {loading ? "Verificando..." : "Confirmar y activar"}
-          </button>
-        </form>
       </div>
     );
   }
 
   return (
-    <div style={containerStyle}>
-      <h1 style={{ color: "#d4ff3a", marginBottom: 4 }}>Crear administrador</h1>
-      <p style={{ color: "#aaa", fontSize: 14, marginBottom: 28 }}>
-        Solo funciona si no hay admins registrados aún.
-      </p>
+    <div className="admin-auth">
+      <div className="admin-auth-inner">
+        <div className="admin-auth-head">
+          <span className="admin-auth-eyebrow">Paso 1 de 2</span>
+          <h1 className="admin-auth-title">Crear administrador</h1>
+          <p className="admin-auth-sub">Solo funciona si no hay admins registrados aún.</p>
+        </div>
 
-      <form onSubmit={handleCreate} style={{ display: "flex", flexDirection: "column", gap: 16 }}>
-        <label>
-          <span style={labelStyle}>Email</span>
-          <input
-            type="email"
-            value={email}
-            onChange={(e) => setEmail(e.target.value)}
-            required
-            style={inputStyle}
-            placeholder="admin@ejemplo.com"
-          />
-        </label>
+        <div className="admin-card">
+          {error && <div className="admin-error">{error}</div>}
 
-        <label>
-          <span style={labelStyle}>Contraseña (mín. 8 caracteres)</span>
-          <input
-            type="password"
-            value={password}
-            onChange={(e) => setPassword(e.target.value)}
-            required
-            minLength={8}
-            style={inputStyle}
-            placeholder="••••••••"
-          />
-        </label>
+          <form onSubmit={handleCreate}>
+            <div className="admin-form-row">
+              <label className="admin-label">Email</label>
+              <input
+                className="admin-input"
+                type="email"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                required
+                autoComplete="username"
+                placeholder="admin@ejemplo.com"
+              />
+            </div>
 
-        <label>
-          <span style={labelStyle}>Vuelve a introducir tu contraseña</span>
-          <input
-            type="password"
-            value={confirmPassword}
-            onChange={(e) => setConfirmPassword(e.target.value)}
-            required
-            minLength={8}
-            style={{
-              ...inputStyle,
-              borderColor: confirmPassword && confirmPassword !== password
-                ? "#ff6b6b"
-                : confirmPassword && confirmPassword === password
-                  ? "#d4ff3a"
-                  : "rgba(245,241,232,0.2)",
-            }}
-            placeholder="••••••••"
-          />
-          {confirmPassword && confirmPassword !== password && (
-            <span style={{ color: "#ff6b6b", fontSize: 12, marginTop: 4, display: "block" }}>
-              Las contraseñas no coinciden
-            </span>
-          )}
-        </label>
+            <div className="admin-form-row">
+              <label className="admin-label">Contraseña (mín. {MIN_PASSWORD} caracteres)</label>
+              <input
+                className={`admin-input ${tooShort ? "invalid" : ""}`}
+                type="password"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                required
+                minLength={MIN_PASSWORD}
+                autoComplete="new-password"
+                placeholder="••••••••••••"
+              />
+            </div>
 
-        {error && <p style={errorStyle}>{error}</p>}
+            <div className="admin-form-row">
+              <label className="admin-label">Vuelve a introducir tu contraseña</label>
+              <input
+                className={`admin-input ${mismatch ? "invalid" : confirmPassword && !mismatch ? "valid" : ""}`}
+                type="password"
+                value={confirmPassword}
+                onChange={(e) => setConfirmPassword(e.target.value)}
+                required
+                minLength={MIN_PASSWORD}
+                autoComplete="new-password"
+                placeholder="••••••••••••"
+              />
+              {mismatch && (
+                <span style={{ color: "var(--copper)", fontSize: 12, marginTop: 6, display: "block" }}>
+                  Las contraseñas no coinciden
+                </span>
+              )}
+            </div>
 
-        <button
-          type="submit"
-          disabled={loading || !password || password !== confirmPassword}
-          style={{
-            ...buttonStyle,
-            opacity: loading || !password || password !== confirmPassword ? 0.5 : 1,
-            cursor: loading || !password || password !== confirmPassword ? "not-allowed" : "pointer",
-          }}
-        >
-          {loading ? "Creando..." : "Crear y configurar 2FA →"}
-        </button>
-      </form>
+            <button
+              type="submit"
+              disabled={loading || !canSubmit}
+              className="admin-btn admin-btn-primary admin-btn-block"
+            >
+              {loading ? "Creando…" : "Crear y configurar 2FA →"}
+            </button>
+          </form>
+        </div>
+      </div>
     </div>
   );
 }
-
-const containerStyle: React.CSSProperties = {
-  fontFamily: "sans-serif",
-  maxWidth: 440,
-  margin: "60px auto",
-  padding: "0 20px",
-};
-
-const labelStyle: React.CSSProperties = {
-  display: "block",
-  marginBottom: 6,
-  fontSize: 13,
-  color: "#aaa",
-};
-
-const inputStyle: React.CSSProperties = {
-  width: "100%",
-  padding: "10px 12px",
-  background: "#13161a",
-  border: "1px solid rgba(245,241,232,0.2)",
-  borderRadius: 6,
-  color: "#f5f1e8",
-  fontSize: 15,
-  boxSizing: "border-box",
-};
-
-const errorStyle: React.CSSProperties = {
-  color: "#ff6b6b",
-  background: "#2a1a1a",
-  padding: "10px 14px",
-  borderRadius: 6,
-  margin: 0,
-  fontSize: 14,
-};
-
-const buttonStyle: React.CSSProperties = {
-  display: "block",
-  width: "100%",
-  padding: "13px",
-  background: "#d4ff3a",
-  color: "#0b0d0c",
-  border: "none",
-  borderRadius: 6,
-  fontWeight: 700,
-  fontSize: 15,
-  cursor: "pointer",
-  textAlign: "center",
-  textDecoration: "none",
-  marginTop: 8,
-};
