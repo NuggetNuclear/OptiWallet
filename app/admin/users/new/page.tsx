@@ -70,14 +70,10 @@ export default function NewAdminPage() {
               Muestra este QR al nuevo administrador para configurar Google Authenticator:
             </p>
             {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img src={created.qr_data_url} alt="QR TOTP" width={200} height={200}
-                 style={{ borderRadius: 8, background: "#fff", padding: 8 }} />
+            <img src={created.qr_data_url} alt="QR TOTP" width={200} height={200} className="admin-qr" />
             <details style={{ marginTop: 16, textAlign: "left" }}>
-              <summary style={{ fontSize: 11, color: "var(--ink-dim)", cursor: "pointer" }}>URI manual</summary>
-              <code style={{ display: "block", fontSize: 10, wordBreak: "break-all", color: "var(--ink-dim)",
-                             background: "var(--bg-3)", borderRadius: 6, padding: "8px 10px", marginTop: 6 }}>
-                {created.totp_uri}
-              </code>
+              <summary className="admin-summary">URI manual</summary>
+              <code className="admin-manual-uri">{created.totp_uri}</code>
             </details>
             <button className="admin-btn admin-btn-primary" style={{ marginTop: 20 }} onClick={() => router.push("/admin/users")}>
               Volver a admins

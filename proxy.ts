@@ -9,7 +9,7 @@ export async function proxy(req: NextRequest) {
 
   // ── 1. Admin auth guard ───────────────────────────────────────────────────
   // Rutas admin que NO requieren sesión válida
-  const adminPublic = ["/admin/login", "/admin/setup"];
+  const adminPublic = ["/admin/login"];
   // Rutas admin que requieren sesión pero NO exigen totp_enabled (setup inicial)
   const adminTotpSetup = ["/admin/totp-setup"];
 

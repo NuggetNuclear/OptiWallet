@@ -26,7 +26,7 @@ export default function AdminUsersPage() {
     setLoading(false);
   }
 
-  useEffect(() => { load(); }, []);
+  useEffect(() => { (async () => { await load(); })(); }, []);
 
   async function doDelete() {
     if (!deleteTarget) return;
@@ -55,7 +55,10 @@ export default function AdminUsersPage() {
       )}
 
       <div className="admin-header">
-        <h1 className="admin-title">Administradores</h1>
+        <div>
+          <h1 className="admin-title">Administradores</h1>
+          <p className="admin-subtitle">Cuentas con acceso al panel</p>
+        </div>
         <Link href="/admin/users/new">
           <button className="admin-btn admin-btn-primary">+ Nuevo admin</button>
         </Link>
@@ -64,53 +67,59 @@ export default function AdminUsersPage() {
       {error && <div className="admin-error">{error}</div>}
 
       {loading ? (
-        <p style={{ color: "var(--ink-dim)", fontSize: 13 }}>Cargando…</p>
+        <div className="admin-loading"><span className="admin-spinner" aria-hidden="true" />Cargando…</div>
+      ) : users.length === 0 ? (
+        <div className="admin-empty">
+          <div className="admin-empty-icon">👤</div>
+          <div className="admin-empty-text">No hay administradores. Crea el primero con “+ Nuevo admin”.</div>
+        </div>
       ) : (
-        <table className="admin-table">
-          <thead>
-            <tr>
-              <th>Email</th>
-              <th>ID</th>
-              <th>2FA</th>
-              <th>Último acceso</th>
-              <th>Creado</th>
-              <th></th>
-            </tr>
-          </thead>
-          <tbody>
-            {users.map((u) => (
-              <tr key={u.id}>
-                <td>{u.email}</td>
-                <td><code style={{ fontSize: 11, color: "var(--ink-dim)" }}>{u.id}</code></td>
-                <td>
-                  <span className={`admin-badge ${u.totp_enabled ? "admin-badge-green" : "admin-badge-copper"}`}>
-                    {u.totp_enabled ? "Activo" : "Pendiente"}
-                  </span>
-                </td>
-                <td style={{ color: "var(--ink-dim)", fontSize: 12 }}>
-                  {u.last_login_at ? new Date(u.last_login_at).toLocaleString("es-CL") : "—"}
-                </td>
-                <td style={{ color: "var(--ink-dim)", fontSize: 12 }}>
-                  {new Date(u.created_at).toLocaleDateString("es-CL")}
-                </td>
-                <td>
-                  <div style={{ display: "flex", gap: 6 }}>
-                    <Link href={`/admin/users/${u.id}`}>
-                      <button className="admin-btn admin-btn-ghost" style={{ padding: "4px 10px", fontSize: 11 }}>Editar</button>
-                    </Link>
-                    <button
-                      className="admin-btn admin-btn-danger"
-                      style={{ padding: "4px 10px", fontSize: 11 }}
-                      onClick={() => setDeleteTarget(u)}
-                    >
-                      Eliminar
-                    </button>
-                  </div>
-                </td>
+        <div className="admin-table-wrap">
+          <table className="admin-table">
+            <thead>
+              <tr>
+                <th>Email</th>
+                <th>ID</th>
+                <th>2FA</th>
+                <th>Último acceso</th>
+                <th>Creado</th>
+                <th></th>
               </tr>
-            ))}
-          </tbody>
-        </table>
+            </thead>
+            <tbody>
+              {users.map((u) => (
+                <tr key={u.id}>
+                  <td>{u.email}</td>
+                  <td><code className="admin-code">{u.id}</code></td>
+                  <td>
+                    <span className={`admin-badge ${u.totp_enabled ? "admin-badge-green" : "admin-badge-copper"}`}>
+                      {u.totp_enabled ? "Activo" : "Pendiente"}
+                    </span>
+                  </td>
+                  <td className="admin-cell-dim" style={{ fontSize: 12 }}>
+                    {u.last_login_at ? new Date(u.last_login_at).toLocaleString("es-CL") : "—"}
+                  </td>
+                  <td className="admin-cell-dim" style={{ fontSize: 12 }}>
+                    {new Date(u.created_at).toLocaleDateString("es-CL")}
+                  </td>
+                  <td>
+                    <div className="admin-actions">
+                      <Link href={`/admin/users/${u.id}`}>
+                        <button className="admin-btn admin-btn-ghost admin-btn-sm">Editar</button>
+                      </Link>
+                      <button
+                        className="admin-btn admin-btn-danger admin-btn-sm"
+                        onClick={() => setDeleteTarget(u)}
+                      >
+                        Eliminar
+                      </button>
+                    </div>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
       )}
     </AdminShell>
   );

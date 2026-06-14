@@ -17,6 +17,7 @@ export default function CardsPage() {
   const [isNew,   setIsNew]   = useState(false);
   const [saving,  setSaving]  = useState(false);
   const [error,   setError]   = useState("");
+  const [success, setSuccess] = useState("");
   const [delTarget, setDelTarget] = useState<Card | null>(null);
   const [deleting,  setDeleting]  = useState(false);
 
@@ -29,14 +30,14 @@ export default function CardsPage() {
     if (br.ok) setBanks(await br.json());
     setLoading(false);
   }
-  useEffect(() => { load(); }, []);
+  useEffect(() => { (async () => { await load(); })(); }, []);
 
-  function openNew()        { setForm({ ...EMPTY }); setIsNew(true);  setError(""); }
-  function openEdit(c: Card){ setForm({ ...c });     setIsNew(false); setError(""); }
+  function openNew()        { setForm({ ...EMPTY }); setIsNew(true);  setError(""); setSuccess(""); }
+  function openEdit(c: Card){ setForm({ ...c });     setIsNew(false); setError(""); setSuccess(""); }
 
   async function save() {
     if (!form) return;
-    setError(""); setSaving(true);
+    setError(""); setSuccess(""); setSaving(true);
     try {
       const method = isNew ? "POST" : "PATCH";
       const url    = isNew ? "/api/admin/data/cards" : `/api/admin/data/cards/${form.id}`;
@@ -47,6 +48,7 @@ export default function CardsPage() {
       });
       const data = await res.json();
       if (!res.ok) { setError(data.error ?? "Error"); return; }
+      setSuccess(isNew ? "Tarjeta creada" : "Cambios guardados");
       setForm(null); load();
     } catch { setError("Error de red"); } finally { setSaving(false); }
   }
@@ -55,7 +57,7 @@ export default function CardsPage() {
     if (!delTarget) return;
     setDeleting(true);
     const res = await fetch(`/api/admin/data/cards/${delTarget.id}`, { method: "DELETE" });
-    if (res.ok) { setDelTarget(null); load(); }
+    if (res.ok) { setSuccess("Tarjeta eliminada"); setDelTarget(null); load(); }
     else { const d = await res.json(); setError(d.error ?? "Error"); setDelTarget(null); }
     setDeleting(false);
   }
@@ -75,13 +77,12 @@ export default function CardsPage() {
       </div>
 
       {error && <div className="admin-error">{error}</div>}
+      {success && <div className="admin-success">{success}</div>}
 
       {form && (
         <div className="admin-card" style={{ marginBottom: 24 }}>
-          <p style={{ fontFamily: "var(--font-serif)", fontSize: 16, marginBottom: 16 }}>
-            {isNew ? "Nueva tarjeta" : `Editar: ${form.id}`}
-          </p>
-          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
+          <p className="admin-card-title">{isNew ? "Nueva tarjeta" : `Editar: ${form.id}`}</p>
+          <div className="admin-form-grid">
             {isNew && (
               <div className="admin-form-row">
                 <label className="admin-label">ID (slug)</label>
@@ -111,7 +112,7 @@ export default function CardsPage() {
               </select>
             </div>
           </div>
-          <div style={{ display: "flex", gap: 10 }}>
+          <div className="admin-form-actions">
             <button className="admin-btn admin-btn-primary" onClick={save} disabled={saving}>
               {saving ? "Guardando…" : "Guardar"}
             </button>
@@ -120,26 +121,35 @@ export default function CardsPage() {
         </div>
       )}
 
-      {loading ? <p style={{ color: "var(--ink-dim)", fontSize: 13 }}>Cargando…</p> : (
-        <table className="admin-table">
-          <thead><tr><th>ID</th><th>Nombre</th><th>Banco</th><th>Tipo</th><th></th></tr></thead>
-          <tbody>
-            {cards.map((c) => (
-              <tr key={c.id}>
-                <td><code style={{ fontSize: 11, color: "var(--ink-dim)" }}>{c.id}</code></td>
-                <td>{c.name}</td>
-                <td>{bankName(c.bank_id)}</td>
-                <td><span className={`admin-badge ${c.type === "credit" ? "admin-badge-green" : "admin-badge-dim"}`}>{c.type}</span></td>
-                <td>
-                  <div style={{ display: "flex", gap: 6 }}>
-                    <button className="admin-btn admin-btn-ghost" style={{ padding: "4px 10px", fontSize: 11 }} onClick={() => openEdit(c)}>Editar</button>
-                    <button className="admin-btn admin-btn-danger" style={{ padding: "4px 10px", fontSize: 11 }} onClick={() => setDelTarget(c)}>Eliminar</button>
-                  </div>
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
+      {loading ? (
+        <div className="admin-loading"><span className="admin-spinner" aria-hidden="true" />Cargando…</div>
+      ) : cards.length === 0 ? (
+        <div className="admin-empty">
+          <div className="admin-empty-icon">💳</div>
+          <div className="admin-empty-text">No hay tarjetas todavía. Crea la primera con “+ Nueva tarjeta”.</div>
+        </div>
+      ) : (
+        <div className="admin-table-wrap">
+          <table className="admin-table">
+            <thead><tr><th>ID</th><th>Nombre</th><th>Banco</th><th>Tipo</th><th></th></tr></thead>
+            <tbody>
+              {cards.map((c) => (
+                <tr key={c.id}>
+                  <td><code className="admin-code">{c.id}</code></td>
+                  <td>{c.name}</td>
+                  <td>{bankName(c.bank_id)}</td>
+                  <td><span className={`admin-badge ${c.type === "credit" ? "admin-badge-green" : "admin-badge-dim"}`}>{c.type}</span></td>
+                  <td>
+                    <div className="admin-actions">
+                      <button className="admin-btn admin-btn-ghost admin-btn-sm" onClick={() => openEdit(c)}>Editar</button>
+                      <button className="admin-btn admin-btn-danger admin-btn-sm" onClick={() => setDelTarget(c)}>Eliminar</button>
+                    </div>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
       )}
     </AdminShell>
   );

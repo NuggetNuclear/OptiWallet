@@ -1,5 +1,7 @@
 "use client";
 
+import { useEffect, useRef } from "react";
+
 interface Dep { id: string; name?: string }
 
 interface DeleteModalProps {
@@ -12,17 +14,50 @@ interface DeleteModalProps {
 
 export function DeleteModal({ title, deps, onConfirm, onCancel, loading }: DeleteModalProps) {
   const hasDeps = deps?.some((d) => d.items.length > 0);
+  const modalRef   = useRef<HTMLDivElement>(null);
+  const confirmRef = useRef<HTMLButtonElement>(null);
+
+  // Close on Escape and move focus into the dialog on open (basic a11y).
+  useEffect(() => {
+    confirmRef.current?.focus();
+    function onKey(e: KeyboardEvent) {
+      if (e.key === "Escape" && !loading) onCancel();
+      // Rudimentary focus trap: keep Tab cycling within the modal.
+      if (e.key === "Tab" && modalRef.current) {
+        const focusable = modalRef.current.querySelectorAll<HTMLElement>(
+          'button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])',
+        );
+        if (focusable.length === 0) return;
+        const first = focusable[0];
+        const last  = focusable[focusable.length - 1];
+        if (e.shiftKey && document.activeElement === first) {
+          e.preventDefault(); last.focus();
+        } else if (!e.shiftKey && document.activeElement === last) {
+          e.preventDefault(); first.focus();
+        }
+      }
+    }
+    document.addEventListener("keydown", onKey);
+    return () => document.removeEventListener("keydown", onKey);
+  }, [onCancel, loading]);
 
   return (
-    <div className="admin-modal-overlay" onClick={onCancel}>
-      <div className="admin-modal" onClick={(e) => e.stopPropagation()}>
-        <h2 style={{ fontFamily: "var(--font-serif)", fontSize: 18, marginBottom: 16 }}>
+    <div className="admin-modal-overlay" onClick={() => !loading && onCancel()}>
+      <div
+        ref={modalRef}
+        className="admin-modal"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="admin-modal-title"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <h2 id="admin-modal-title" className="admin-modal-title">
           Eliminar {title}
         </h2>
 
         {hasDeps ? (
           <>
-            <div className="admin-error" style={{ marginBottom: 16 }}>
+            <div className="admin-error">
               No puedes eliminar este registro mientras tenga dependencias. Elimina o reasigna los siguientes registros primero:
             </div>
             {deps!.filter((d) => d.items.length > 0).map((dep) => (
@@ -36,7 +71,7 @@ export function DeleteModal({ title, deps, onConfirm, onCancel, loading }: Delet
                 </ul>
               </div>
             ))}
-            <button className="admin-btn admin-btn-ghost" onClick={onCancel} style={{ marginTop: 8 }}>
+            <button ref={confirmRef} className="admin-btn admin-btn-ghost" onClick={onCancel} style={{ marginTop: 8 }}>
               Cerrar
             </button>
           </>
@@ -46,7 +81,7 @@ export function DeleteModal({ title, deps, onConfirm, onCancel, loading }: Delet
               Esta acción no se puede deshacer.
             </p>
             <div style={{ display: "flex", gap: 10 }}>
-              <button className="admin-btn admin-btn-danger" onClick={onConfirm} disabled={loading}>
+              <button ref={confirmRef} className="admin-btn admin-btn-danger" onClick={onConfirm} disabled={loading}>
                 {loading ? "Eliminando…" : "Sí, eliminar"}
               </button>
               <button className="admin-btn admin-btn-ghost" onClick={onCancel} disabled={loading}>

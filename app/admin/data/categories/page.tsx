@@ -15,6 +15,7 @@ export default function CategoriesPage() {
   const [isNew,   setIsNew]   = useState(false);
   const [saving,  setSaving]  = useState(false);
   const [error,   setError]   = useState("");
+  const [success, setSuccess] = useState("");
   const [delTarget, setDelTarget] = useState<Category | null>(null);
   const [deps,    setDeps]    = useState<{ merchants: {id:string;name:string}[] } | null>(null);
   const [deleting,  setDeleting]  = useState(false);
@@ -24,14 +25,14 @@ export default function CategoriesPage() {
     if (r.ok) setCats(await r.json());
     setLoading(false);
   }
-  useEffect(() => { load(); }, []);
+  useEffect(() => { (async () => { await load(); })(); }, []);
 
-  function openNew()             { setForm({ ...EMPTY }); setIsNew(true);  setError(""); }
-  function openEdit(c: Category) { setForm({ ...c });     setIsNew(false); setError(""); }
+  function openNew()             { setForm({ ...EMPTY }); setIsNew(true);  setError(""); setSuccess(""); }
+  function openEdit(c: Category) { setForm({ ...c });     setIsNew(false); setError(""); setSuccess(""); }
 
   async function save() {
     if (!form) return;
-    setError(""); setSaving(true);
+    setError(""); setSuccess(""); setSaving(true);
     try {
       const method = isNew ? "POST" : "PATCH";
       const url    = isNew ? "/api/admin/data/categories" : `/api/admin/data/categories/${form.id}`;
@@ -42,6 +43,7 @@ export default function CategoriesPage() {
       });
       const data = await res.json();
       if (!res.ok) { setError(data.error ?? "Error"); return; }
+      setSuccess(isNew ? "Categoría creada" : "Cambios guardados");
       setForm(null); load();
     } catch { setError("Error de red"); } finally { setSaving(false); }
   }
@@ -56,7 +58,7 @@ export default function CategoriesPage() {
     if (!delTarget) return;
     setDeleting(true);
     const res = await fetch(`/api/admin/data/categories/${delTarget.id}?confirmed=true`, { method: "DELETE" });
-    if (res.ok) { setDelTarget(null); setDeps(null); load(); }
+    if (res.ok) { setSuccess("Categoría eliminada"); setDelTarget(null); setDeps(null); load(); }
     else { const d = await res.json(); setError(d.error ?? "Error"); setDelTarget(null); setDeps(null); }
     setDeleting(false);
   }
@@ -79,13 +81,12 @@ export default function CategoriesPage() {
       </div>
 
       {error && <div className="admin-error">{error}</div>}
+      {success && <div className="admin-success">{success}</div>}
 
       {form && (
         <div className="admin-card" style={{ marginBottom: 24 }}>
-          <p style={{ fontFamily: "var(--font-serif)", fontSize: 16, marginBottom: 16 }}>
-            {isNew ? "Nueva categoría" : `Editar: ${form.id}`}
-          </p>
-          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 80px", gap: 12 }}>
+          <p className="admin-card-title">{isNew ? "Nueva categoría" : `Editar: ${form.id}`}</p>
+          <div className="admin-form-grid">
             {isNew && (
               <div className="admin-form-row">
                 <label className="admin-label">ID (slug)</label>
@@ -104,7 +105,7 @@ export default function CategoriesPage() {
                 onChange={(e) => setForm({ ...form, emoji: e.target.value })} placeholder="🍔" style={{ fontSize: 20 }} />
             </div>
           </div>
-          <div style={{ display: "flex", gap: 10 }}>
+          <div className="admin-form-actions">
             <button className="admin-btn admin-btn-primary" onClick={save} disabled={saving}>
               {saving ? "Guardando…" : "Guardar"}
             </button>
@@ -113,25 +114,34 @@ export default function CategoriesPage() {
         </div>
       )}
 
-      {loading ? <p style={{ color: "var(--ink-dim)", fontSize: 13 }}>Cargando…</p> : (
-        <table className="admin-table">
-          <thead><tr><th>ID</th><th>Categoría</th><th>Comercios</th><th></th></tr></thead>
-          <tbody>
-            {cats.map((c) => (
-              <tr key={c.id}>
-                <td><code style={{ fontSize: 11, color: "var(--ink-dim)" }}>{c.id}</code></td>
-                <td><span style={{ marginRight: 6 }}>{c.emoji}</span>{c.label}</td>
-                <td style={{ color: "var(--ink-dim)" }}>{c.merchant_count ?? "—"}</td>
-                <td>
-                  <div style={{ display: "flex", gap: 6 }}>
-                    <button className="admin-btn admin-btn-ghost" style={{ padding: "4px 10px", fontSize: 11 }} onClick={() => openEdit(c)}>Editar</button>
-                    <button className="admin-btn admin-btn-danger" style={{ padding: "4px 10px", fontSize: 11 }} onClick={() => openDelete(c)}>Eliminar</button>
-                  </div>
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
+      {loading ? (
+        <div className="admin-loading"><span className="admin-spinner" aria-hidden="true" />Cargando…</div>
+      ) : cats.length === 0 ? (
+        <div className="admin-empty">
+          <div className="admin-empty-icon">🏷️</div>
+          <div className="admin-empty-text">No hay categorías todavía. Crea la primera con “+ Nueva categoría”.</div>
+        </div>
+      ) : (
+        <div className="admin-table-wrap">
+          <table className="admin-table">
+            <thead><tr><th>ID</th><th>Categoría</th><th>Comercios</th><th></th></tr></thead>
+            <tbody>
+              {cats.map((c) => (
+                <tr key={c.id}>
+                  <td><code className="admin-code">{c.id}</code></td>
+                  <td><span style={{ marginRight: 6 }}>{c.emoji}</span>{c.label}</td>
+                  <td className="admin-cell-dim">{c.merchant_count ?? "—"}</td>
+                  <td>
+                    <div className="admin-actions">
+                      <button className="admin-btn admin-btn-ghost admin-btn-sm" onClick={() => openEdit(c)}>Editar</button>
+                      <button className="admin-btn admin-btn-danger admin-btn-sm" onClick={() => openDelete(c)}>Eliminar</button>
+                    </div>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
       )}
     </AdminShell>
   );

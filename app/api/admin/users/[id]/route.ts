@@ -1,6 +1,7 @@
 import { sql } from "@/lib/db";
 import { hashPassword, generateTotpSecret } from "@/lib/admin-auth";
-import { getAdminFromRequest } from "@/lib/admin-session";
+import { encryptSecret } from "@/lib/admin-crypto";
+import { requireAdmin } from "@/lib/admin-guard";
 import { NextRequest, NextResponse } from "next/server";
 
 const NO_CACHE = { "Cache-Control": "no-store" };
@@ -8,7 +9,7 @@ const NO_CACHE = { "Cache-Control": "no-store" };
 type Params = { params: Promise<{ id: string }> };
 
 export async function GET(req: NextRequest, { params }: Params) {
-  const session = await getAdminFromRequest(req);
+  const session = await requireAdmin(req);
   if (!session) return NextResponse.json({ error: "No autorizado" }, { status: 401, headers: NO_CACHE });
 
   const { id } = await params;
@@ -26,7 +27,7 @@ export async function GET(req: NextRequest, { params }: Params) {
 }
 
 export async function PATCH(req: NextRequest, { params }: Params) {
-  const session = await getAdminFromRequest(req);
+  const session = await requireAdmin(req);
   if (!session) return NextResponse.json({ error: "No autorizado" }, { status: 401, headers: NO_CACHE });
 
   const { id } = await params;
@@ -44,7 +45,7 @@ export async function PATCH(req: NextRequest, { params }: Params) {
 
     if (reset_totp === true) {
       const newSecret = generateTotpSecret();
-      await sql`UPDATE admin_users SET totp_secret = ${newSecret}, totp_enabled = false WHERE id = ${id}`;
+      await sql`UPDATE admin_users SET totp_secret = ${encryptSecret(newSecret)}, totp_enabled = false WHERE id = ${id}`;
     }
 
     return NextResponse.json({ status: "ok" }, { headers: NO_CACHE });
@@ -55,7 +56,7 @@ export async function PATCH(req: NextRequest, { params }: Params) {
 }
 
 export async function DELETE(req: NextRequest, { params }: Params) {
-  const session = await getAdminFromRequest(req);
+  const session = await requireAdmin(req);
   if (!session) return NextResponse.json({ error: "No autorizado" }, { status: 401, headers: NO_CACHE });
 
   const { id } = await params;

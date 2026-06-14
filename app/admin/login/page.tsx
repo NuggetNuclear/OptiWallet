@@ -71,26 +71,11 @@ export default function AdminLoginPage() {
   }
 
   return (
-    <div style={{
-      display: "flex",
-      alignItems: "center",
-      justifyContent: "center",
-      minHeight: "100dvh",
-      padding: "20px",
-    }}>
-      <div style={{ width: "100%", maxWidth: 380 }}>
-        <div style={{ marginBottom: 32, textAlign: "center" }}>
-          <span style={{
-            fontFamily: "var(--font-mono)",
-            fontSize: 10,
-            fontWeight: 700,
-            letterSpacing: "0.15em",
-            textTransform: "uppercase",
-            color: "var(--lime)",
-          }}>
-            OptiWallet Admin
-          </span>
-          <p style={{ fontSize: 13, color: "var(--ink-dim)", marginTop: 6 }}>
+    <div className="admin-auth">
+      <div className="admin-auth-inner">
+        <div className="admin-auth-head">
+          <span className="admin-auth-eyebrow">OptiWallet Admin</span>
+          <p className="admin-auth-sub">
             {step === "password" ? "Inicia sesión" : "Código de verificación"}
           </p>
         </div>
@@ -125,8 +110,8 @@ export default function AdminLoginPage() {
               <button
                 type="submit"
                 disabled={loading}
-                className="admin-btn admin-btn-primary"
-                style={{ width: "100%", justifyContent: "center", marginTop: 8 }}
+                className="admin-btn admin-btn-primary admin-btn-block"
+                style={{ marginTop: 8 }}
               >
                 {loading ? "Verificando…" : "Continuar"}
               </button>
@@ -140,15 +125,15 @@ export default function AdminLoginPage() {
                 <label className="admin-label">Código TOTP</label>
                 <input
                   ref={codeRef}
-                  className="admin-input"
+                  className="admin-input admin-input-code"
                   type="text"
                   inputMode="numeric"
+                  autoComplete="one-time-code"
                   maxLength={6}
                   pattern="\d{6}"
                   value={code}
                   onChange={(e) => setCode(e.target.value.replace(/\D/g, ""))}
                   required
-                  style={{ letterSpacing: "0.3em", fontSize: 18, textAlign: "center" }}
                 />
               </div>
               <div style={{ display: "flex", gap: 8, marginTop: 8 }}>

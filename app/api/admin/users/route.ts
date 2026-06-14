@@ -1,6 +1,7 @@
 import { sql } from "@/lib/db";
 import { hashPassword, generateTotpSecret, generateTotpUri } from "@/lib/admin-auth";
-import { getAdminFromRequest } from "@/lib/admin-session";
+import { encryptSecret } from "@/lib/admin-crypto";
+import { requireAdmin } from "@/lib/admin-guard";
 import QRCode from "qrcode";
 import { NextRequest, NextResponse } from "next/server";
 
@@ -13,7 +14,7 @@ function slugify(email: string): string {
 }
 
 export async function GET(req: NextRequest) {
-  if (!await getAdminFromRequest(req)) {
+  if (!await requireAdmin(req)) {
     return NextResponse.json({ error: "No autorizado" }, { status: 401, headers: NO_CACHE });
   }
   try {
@@ -30,7 +31,7 @@ export async function GET(req: NextRequest) {
 }
 
 export async function POST(req: NextRequest) {
-  if (!await getAdminFromRequest(req)) {
+  if (!await requireAdmin(req)) {
     return NextResponse.json({ error: "No autorizado" }, { status: 401, headers: NO_CACHE });
   }
   try {
@@ -57,7 +58,7 @@ export async function POST(req: NextRequest) {
 
     await sql`
       INSERT INTO admin_users (id, email, password_hash, totp_secret, totp_enabled)
-      VALUES (${id}, ${email}, ${passwordHash}, ${totpSecret}, false)
+      VALUES (${id}, ${email}, ${passwordHash}, ${encryptSecret(totpSecret)}, false)
     `;
 
     return NextResponse.json(
