@@ -125,8 +125,7 @@ export default function CardsPage() {
         <div className="admin-loading"><span className="admin-spinner" aria-hidden="true" />Cargando…</div>
       ) : cards.length === 0 ? (
         <div className="admin-empty">
-          <div className="admin-empty-icon">💳</div>
-          <div className="admin-empty-text">No hay tarjetas todavía. Crea la primera con “+ Nueva tarjeta”.</div>
+          <div className="admin-empty-text">No hay tarjetas todavía. Crea la primera con "+ Nueva tarjeta".</div>
         </div>
       ) : (
         <div className="admin-table-wrap">

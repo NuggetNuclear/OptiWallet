@@ -66,7 +66,7 @@ export default function TotpSetupPage() {
       <div className="admin-auth-inner">
         <div className="admin-auth-head">
           <span className="admin-auth-eyebrow">Configurar 2FA</span>
-          <p className="admin-auth-sub">Escanea el QR con Google Authenticator</p>
+          <p className="admin-auth-sub">Escanea el código QR con tu aplicación autenticadora</p>
         </div>
 
         <div className="admin-card">
@@ -77,7 +77,7 @@ export default function TotpSetupPage() {
               {/* eslint-disable-next-line @next/next/no-img-element */}
               <img
                 src={qrDataUrl}
-                alt="QR code para Google Authenticator"
+                alt="Código QR para aplicación autenticadora"
                 width={200}
                 height={200}
                 className="admin-qr"

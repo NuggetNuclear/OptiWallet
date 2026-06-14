@@ -1,5 +1,6 @@
 import { sql } from "@/lib/db";
-import { requireAdmin } from "@/lib/admin-guard";
+import { requireAdmin, clientIp } from "@/lib/admin-guard";
+import { logAdminAction } from "@/lib/admin-log";
 import { isValidId } from "@/lib/validate";
 import { NextRequest, NextResponse } from "next/server";
 
@@ -33,7 +34,8 @@ export async function GET(req: NextRequest, { params }: Params) {
 }
 
 export async function PATCH(req: NextRequest, { params }: Params) {
-  if (!await requireAdmin(req)) {
+  const session = await requireAdmin(req);
+  if (!session) {
     return NextResponse.json({ error: "No autorizado" }, { status: 401, headers: NO_CACHE });
   }
   const { id } = await params;
@@ -51,6 +53,7 @@ export async function PATCH(req: NextRequest, { params }: Params) {
       "source", "verified_at", "active",
     ] as const;
 
+    const changes: string[] = [];
     for (const field of allowed) {
       if (!(field in fields)) continue;
       const val = fields[field];
@@ -58,55 +61,73 @@ export async function PATCH(req: NextRequest, { params }: Params) {
         case "bank_id":
           if (!isValidId(val)) return NextResponse.json({ error: "bank_id inválido" }, { status: 400, headers: NO_CACHE });
           await sql`UPDATE promotions SET bank_id = ${val}, updated_at = now() WHERE id = ${id}`;
+          changes.push(`bank_id=${val}`);
           break;
         case "merchant_id":
           if (!isValidId(val)) return NextResponse.json({ error: "merchant_id inválido" }, { status: 400, headers: NO_CACHE });
           await sql`UPDATE promotions SET merchant_id = ${val}, updated_at = now() WHERE id = ${id}`;
+          changes.push(`merchant_id=${val}`);
           break;
         case "discount":
           if (typeof val !== "number" || val < 1 || val > 100) return NextResponse.json({ error: "discount inválido" }, { status: 400, headers: NO_CACHE });
           await sql`UPDATE promotions SET discount = ${val}, updated_at = now() WHERE id = ${id}`;
+          changes.push(`discount=${val}`);
           break;
         case "modality":
           if (!["presencial", "online", "both"].includes(val)) return NextResponse.json({ error: "modality inválido" }, { status: 400, headers: NO_CACHE });
           await sql`UPDATE promotions SET modality = ${val}, updated_at = now() WHERE id = ${id}`;
+          changes.push(`modality=${val}`);
           break;
         case "card_types":
           await sql`UPDATE promotions SET card_types = ${val}, updated_at = now() WHERE id = ${id}`;
+          changes.push(`card_types=[${val.join(",")}]`);
           break;
         case "days_of_week":
           await sql`UPDATE promotions SET days_of_week = ${val}, updated_at = now() WHERE id = ${id}`;
+          changes.push(`days_of_week=[${val.join(",")}]`);
           break;
         case "start_date":
           await sql`UPDATE promotions SET start_date = ${val ?? null}, updated_at = now() WHERE id = ${id}`;
+          changes.push(`start_date=${val ?? "null"}`);
           break;
         case "end_date":
           await sql`UPDATE promotions SET end_date = ${val ?? null}, updated_at = now() WHERE id = ${id}`;
+          changes.push(`end_date=${val ?? "null"}`);
           break;
         case "cap":
           await sql`UPDATE promotions SET cap = ${val ?? null}, updated_at = now() WHERE id = ${id}`;
+          changes.push(`cap=${val ?? "null"}`);
           break;
         case "min_purchase":
           await sql`UPDATE promotions SET min_purchase = ${val ?? null}, updated_at = now() WHERE id = ${id}`;
+          changes.push(`min_purchase=${val ?? "null"}`);
           break;
         case "code":
           await sql`UPDATE promotions SET code = ${val ?? null}, updated_at = now() WHERE id = ${id}`;
+          changes.push(`code=${val ?? "null"}`);
           break;
         case "conditions":
           await sql`UPDATE promotions SET conditions = ${val ?? null}, updated_at = now() WHERE id = ${id}`;
+          changes.push(`conditions updated`);
           break;
         case "source":
           await sql`UPDATE promotions SET source = ${val}, updated_at = now() WHERE id = ${id}`;
+          changes.push(`source="${val}"`);
           break;
         case "verified_at":
           await sql`UPDATE promotions SET verified_at = ${val}::date, updated_at = now() WHERE id = ${id}`;
+          changes.push(`verified_at=${val}`);
           break;
         case "active":
           await sql`UPDATE promotions SET active = ${val}, updated_at = now() WHERE id = ${id}`;
+          changes.push(`active=${val}`);
           break;
       }
     }
 
+    if (changes.length) {
+      await logAdminAction(session, "update", "promotion", id, changes.join(", "), clientIp(req));
+    }
     return NextResponse.json({ status: "ok" }, { headers: NO_CACHE });
   } catch (err) {
     console.error("PATCH /api/admin/data/promotions/[id] failed:", err);
@@ -115,13 +136,15 @@ export async function PATCH(req: NextRequest, { params }: Params) {
 }
 
 export async function DELETE(req: NextRequest, { params }: Params) {
-  if (!await requireAdmin(req)) {
+  const session = await requireAdmin(req);
+  if (!session) {
     return NextResponse.json({ error: "No autorizado" }, { status: 401, headers: NO_CACHE });
   }
   const { id } = await params;
   if (!isValidId(id)) return NextResponse.json({ error: "ID inválido" }, { status: 400, headers: NO_CACHE });
   try {
     await sql`DELETE FROM promotions WHERE id = ${id}`;
+    await logAdminAction(session, "delete", "promotion", id, `Promoción eliminada`, clientIp(req));
     return NextResponse.json({ status: "ok" }, { headers: NO_CACHE });
   } catch (err) {
     console.error("DELETE /api/admin/data/promotions/[id] failed:", err);

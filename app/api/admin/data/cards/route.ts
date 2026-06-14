@@ -1,5 +1,6 @@
 import { sql } from "@/lib/db";
-import { requireAdmin } from "@/lib/admin-guard";
+import { requireAdmin, clientIp } from "@/lib/admin-guard";
+import { logAdminAction } from "@/lib/admin-log";
 import { isValidId } from "@/lib/validate";
 import { NextRequest, NextResponse } from "next/server";
 
@@ -27,7 +28,8 @@ export async function GET(req: NextRequest) {
 }
 
 export async function POST(req: NextRequest) {
-  if (!await requireAdmin(req)) {
+  const session = await requireAdmin(req);
+  if (!session) {
     return NextResponse.json({ error: "No autorizado" }, { status: 401, headers: NO_CACHE });
   }
   try {
@@ -40,6 +42,7 @@ export async function POST(req: NextRequest) {
     if (type !== "credit" && type !== "debit") return NextResponse.json({ error: "type debe ser credit o debit" }, { status: 400, headers: NO_CACHE });
 
     await sql`INSERT INTO cards (id, bank_id, name, type) VALUES (${id}, ${bank_id}, ${name}, ${type})`;
+    await logAdminAction(session, "create", "card", id, `Tarjeta "${name}" (${type}) en banco ${bank_id}`, clientIp(req));
     return NextResponse.json({ id }, { status: 201, headers: NO_CACHE });
   } catch (err) {
     console.error("POST /api/admin/data/cards failed:", err);

@@ -1,7 +1,8 @@
 import { sql } from "@/lib/db";
 import { hashPassword, generateTotpSecret } from "@/lib/admin-auth";
 import { encryptSecret } from "@/lib/admin-crypto";
-import { requireAdmin } from "@/lib/admin-guard";
+import { requireAdmin, clientIp } from "@/lib/admin-guard";
+import { logAdminAction } from "@/lib/admin-log";
 import { NextRequest, NextResponse } from "next/server";
 
 const NO_CACHE = { "Cache-Control": "no-store" };
@@ -41,11 +42,13 @@ export async function PATCH(req: NextRequest, { params }: Params) {
       }
       const hash = await hashPassword(password);
       await sql`UPDATE admin_users SET password_hash = ${hash} WHERE id = ${id}`;
+      await logAdminAction(session, "password_change", "admin_user", id, `Contraseña cambiada para admin ${id}`, clientIp(req));
     }
 
     if (reset_totp === true) {
       const newSecret = generateTotpSecret();
       await sql`UPDATE admin_users SET totp_secret = ${encryptSecret(newSecret)}, totp_enabled = false WHERE id = ${id}`;
+      await logAdminAction(session, "totp_reset", "admin_user", id, `2FA restablecido para admin ${id}`, clientIp(req));
     }
 
     return NextResponse.json({ status: "ok" }, { headers: NO_CACHE });
@@ -71,7 +74,9 @@ export async function DELETE(req: NextRequest, { params }: Params) {
       return NextResponse.json({ error: "No puedes eliminar el último administrador" }, { status: 400, headers: NO_CACHE });
     }
 
+    const emailRow = await sql`SELECT email FROM admin_users WHERE id = ${id}`;
     await sql`DELETE FROM admin_users WHERE id = ${id}`;
+    await logAdminAction(session, "delete", "admin_user", id, `Admin "${emailRow[0]?.email ?? id}" eliminado`, clientIp(req));
     return NextResponse.json({ status: "ok" }, { headers: NO_CACHE });
   } catch (err) {
     console.error("DELETE /api/admin/users/[id] failed:", err);

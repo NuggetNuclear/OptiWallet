@@ -259,11 +259,10 @@ export default function PromotionsPage() {
         <div className="admin-loading"><span className="admin-spinner" aria-hidden="true" />Cargando…</div>
       ) : promos.length === 0 ? (
         <div className="admin-empty">
-          <div className="admin-empty-icon">🎁</div>
           <div className="admin-empty-text">
             {filterBank || filterMerchant || showActive
               ? "Ninguna promoción coincide con los filtros."
-              : "No hay promociones todavía. Crea la primera con “+ Nueva promo”."}
+              : 'No hay promociones todavía. Crea la primera con "+ Nueva promo".'}
           </div>
         </div>
       ) : (

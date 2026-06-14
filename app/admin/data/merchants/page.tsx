@@ -150,9 +150,8 @@ export default function MerchantsPage() {
         <div className="admin-loading"><span className="admin-spinner" aria-hidden="true" />Cargando…</div>
       ) : visible.length === 0 ? (
         <div className="admin-empty">
-          <div className="admin-empty-icon">🏪</div>
           <div className="admin-empty-text">
-            {search ? "Ningún comercio coincide con la búsqueda." : "No hay comercios todavía. Crea el primero con “+ Nuevo comercio”."}
+            {search ? "Ningún comercio coincide con la búsqueda." : 'No hay comercios todavía. Crea el primero con "+ Nuevo comercio".'}
           </div>
         </div>
       ) : (

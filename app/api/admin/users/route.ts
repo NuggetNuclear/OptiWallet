@@ -1,7 +1,8 @@
 import { sql } from "@/lib/db";
 import { hashPassword, generateTotpSecret, generateTotpUri } from "@/lib/admin-auth";
 import { encryptSecret } from "@/lib/admin-crypto";
-import { requireAdmin } from "@/lib/admin-guard";
+import { requireAdmin, clientIp } from "@/lib/admin-guard";
+import { logAdminAction } from "@/lib/admin-log";
 import QRCode from "qrcode";
 import { NextRequest, NextResponse } from "next/server";
 
@@ -31,7 +32,8 @@ export async function GET(req: NextRequest) {
 }
 
 export async function POST(req: NextRequest) {
-  if (!await requireAdmin(req)) {
+  const session = await requireAdmin(req);
+  if (!session) {
     return NextResponse.json({ error: "No autorizado" }, { status: 401, headers: NO_CACHE });
   }
   try {
@@ -60,6 +62,7 @@ export async function POST(req: NextRequest) {
       INSERT INTO admin_users (id, email, password_hash, totp_secret, totp_enabled)
       VALUES (${id}, ${email}, ${passwordHash}, ${encryptSecret(totpSecret)}, false)
     `;
+    await logAdminAction(session, "create", "admin_user", id, `Admin "${email}" creado`, clientIp(req));
 
     return NextResponse.json(
       { id, email, totp_uri: totpUri, qr_data_url: qrDataUrl },

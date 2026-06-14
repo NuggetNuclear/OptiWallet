@@ -119,7 +119,7 @@ export default function AdminLoginPage() {
           ) : (
             <form onSubmit={submitTotp}>
               <p style={{ fontSize: 13, color: "var(--ink-dim)", marginBottom: 20 }}>
-                Ingresa el código de 6 dígitos de Google Authenticator.
+                Ingresa el código de 6 dígitos de tu aplicación autenticadora.
               </p>
               <div className="admin-form-row">
                 <label className="admin-label">Código TOTP</label>

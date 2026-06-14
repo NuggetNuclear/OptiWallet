@@ -9,7 +9,7 @@ CREATE TABLE IF NOT EXISTS banks (
 -- cards
 CREATE TABLE IF NOT EXISTS cards (
   id      TEXT PRIMARY KEY,
-  bank_id TEXT NOT NULL REFERENCES banks(id),
+  bank_id TEXT NOT NULL REFERENCES banks(id) ON DELETE RESTRICT ON UPDATE RESTRICT,
   name    TEXT NOT NULL,
   type    TEXT NOT NULL CHECK (type IN ('credit', 'debit'))
 );
@@ -25,16 +25,16 @@ CREATE TABLE IF NOT EXISTS merchant_categories (
 CREATE TABLE IF NOT EXISTS merchants (
   id          TEXT PRIMARY KEY,
   name        TEXT NOT NULL,
-  category_id TEXT NOT NULL REFERENCES merchant_categories(id),
+  category_id TEXT NOT NULL REFERENCES merchant_categories(id) ON DELETE RESTRICT ON UPDATE RESTRICT,
   aliases     TEXT[] NOT NULL DEFAULT '{}'
 );
 
 -- promotions
 CREATE TABLE IF NOT EXISTS promotions (
   id           TEXT PRIMARY KEY,
-  bank_id      TEXT NOT NULL REFERENCES banks(id),
-  card_types   TEXT[] NOT NULL,
-  merchant_id  TEXT NOT NULL REFERENCES merchants(id),
+  bank_id      TEXT NOT NULL REFERENCES banks(id)     ON DELETE RESTRICT ON UPDATE RESTRICT,
+  card_types   TEXT[] NOT NULL CHECK (card_types <@ ARRAY['credit','debit']),
+  merchant_id  TEXT NOT NULL REFERENCES merchants(id) ON DELETE RESTRICT ON UPDATE RESTRICT,
   discount     INTEGER NOT NULL CHECK (discount > 0 AND discount <= 100),
   cap          INTEGER,
   min_purchase INTEGER,
@@ -75,3 +75,18 @@ CREATE TABLE IF NOT EXISTS admin_login_attempts (
 );
 
 CREATE INDEX IF NOT EXISTS idx_admin_login_ip_time ON admin_login_attempts(ip_address, attempted_at);
+
+-- admin_audit_log (activity log — queryable for the last 30 days)
+CREATE TABLE IF NOT EXISTS admin_audit_log (
+  id          BIGSERIAL PRIMARY KEY,
+  admin_id    TEXT        NOT NULL,
+  admin_email TEXT        NOT NULL,
+  action      TEXT        NOT NULL,
+  entity_type TEXT,
+  entity_id   TEXT,
+  detail      TEXT,
+  ip_address  TEXT,
+  created_at  TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+CREATE INDEX IF NOT EXISTS idx_admin_audit_created ON admin_audit_log(created_at DESC);

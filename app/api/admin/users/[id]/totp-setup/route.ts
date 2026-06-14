@@ -3,6 +3,7 @@ import { verifyTotp, generateTotpUri } from "@/lib/admin-auth";
 import { decryptSecret } from "@/lib/admin-crypto";
 import { getAdminFromRequest, signSession, setSessionCookie } from "@/lib/admin-session";
 import { clientIp, isRateLimited, recordFailedAttempt } from "@/lib/admin-guard";
+import { logAdminAction } from "@/lib/admin-log";
 import QRCode from "qrcode";
 import { NextRequest, NextResponse } from "next/server";
 
@@ -84,9 +85,11 @@ export async function POST(req: NextRequest, { params }: Params) {
     `;
 
     // Upgrade the session cookie to reflect totp_enabled=true
-    const newToken = await signSession({ adminId: id, email, totp_enabled: true });
+    const newSession = { adminId: id, email, totp_enabled: true };
+    const newToken = await signSession(newSession);
     const res = NextResponse.json({ status: "ok" }, { headers: NO_CACHE });
     setSessionCookie(res, newToken);
+    await logAdminAction(newSession, "totp_setup", "admin_user", id, `2FA configurado para ${email}`, ip);
     return res;
   } catch (err) {
     console.error("POST /api/admin/users/[id]/totp-setup failed:", err);

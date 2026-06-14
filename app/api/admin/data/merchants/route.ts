@@ -1,5 +1,6 @@
 import { sql } from "@/lib/db";
-import { requireAdmin } from "@/lib/admin-guard";
+import { requireAdmin, clientIp } from "@/lib/admin-guard";
+import { logAdminAction } from "@/lib/admin-log";
 import { isValidId } from "@/lib/validate";
 import { NextRequest, NextResponse } from "next/server";
 
@@ -29,7 +30,8 @@ export async function GET(req: NextRequest) {
 }
 
 export async function POST(req: NextRequest) {
-  if (!await requireAdmin(req)) {
+  const session = await requireAdmin(req);
+  if (!session) {
     return NextResponse.json({ error: "No autorizado" }, { status: 401, headers: NO_CACHE });
   }
   try {
@@ -46,6 +48,7 @@ export async function POST(req: NextRequest) {
       INSERT INTO merchants (id, name, category_id, aliases)
       VALUES (${id}, ${name}, ${category_id}, ${aliasArray})
     `;
+    await logAdminAction(session, "create", "merchant", id, `Comercio "${name}" creado en categoría ${category_id}`, clientIp(req));
     return NextResponse.json({ id }, { status: 201, headers: NO_CACHE });
   } catch (err) {
     console.error("POST /api/admin/data/merchants failed:", err);
