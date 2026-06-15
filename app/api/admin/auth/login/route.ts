@@ -31,7 +31,7 @@ export async function POST(req: NextRequest) {
     const user = rows[0] as AdminUser | undefined;
 
     // Always run bcrypt compare to prevent timing-based email enumeration
-    const fakeHash = "$2b$12$invalidhashtopreventtimingattacks.invalidhash";
+    const fakeHash = "$2b$12$q7ComDA2C/FlyGndOFLq0u8nXxcTkww33BLaYkQavVurANOIUc/Wy";
     const valid = await verifyPassword(password, user?.password_hash ?? fakeHash);
 
     if (!user || !valid) {
