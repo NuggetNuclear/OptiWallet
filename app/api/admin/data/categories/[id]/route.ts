@@ -32,24 +32,32 @@ export async function PATCH(req: NextRequest, { params }: Params) {
   if (!isValidId(id)) return NextResponse.json({ error: "ID inválido" }, { status: 400, headers: NO_CACHE });
   try {
     const body = await req.json().catch(() => null);
-    const { label, emoji } = body ?? {};
+    const fields: Record<string, unknown> = body ?? {};
+    const has = (k: string) => Object.prototype.hasOwnProperty.call(fields, k);
 
-    const rows = await sql`SELECT id FROM merchant_categories WHERE id = ${id}`;
+    if (has("label") && (typeof fields.label !== "string" || !fields.label.trim())) return NextResponse.json({ error: "label inválido" }, { status: 400, headers: NO_CACHE });
+    if (has("emoji") && (typeof fields.emoji !== "string" || !fields.emoji.trim())) return NextResponse.json({ error: "emoji inválido" }, { status: 400, headers: NO_CACHE });
+
+    const changed = ["label", "emoji"].filter(has);
+    const rows = await sql`SELECT id, label, emoji FROM merchant_categories WHERE id = ${id}`;
     if (!rows.length) return NextResponse.json(null, { status: 404, headers: NO_CACHE });
+    if (!changed.length) return NextResponse.json({ status: "ok" }, { headers: NO_CACHE });
 
-    const changes: string[] = [];
-    if (label !== undefined) {
-      await sql`UPDATE merchant_categories SET label = ${label} WHERE id = ${id}`;
-      changes.push(`label="${label}"`);
-    }
-    if (emoji !== undefined) {
-      await sql`UPDATE merchant_categories SET emoji = ${emoji} WHERE id = ${id}`;
-      changes.push(`emoji="${emoji}"`);
-    }
+    const cur = rows[0] as Record<string, unknown>;
+    const next = {
+      label: has("label") ? fields.label : cur.label,
+      emoji: has("emoji") ? fields.emoji : cur.emoji,
+    };
 
-    if (changes.length) {
-      await logAdminAction(session, "update", "category", id, changes.join(", "), clientIp(req));
-    }
+    // Single atomic UPDATE — no partial-write window. (audit L4)
+    await sql`
+      UPDATE merchant_categories SET
+        label = ${next.label as string},
+        emoji = ${next.emoji as string}
+      WHERE id = ${id}
+    `;
+
+    await logAdminAction(session, "update", "category", id, `Campos: ${changed.join(", ")}`, clientIp(req));
     return NextResponse.json({ status: "ok" }, { headers: NO_CACHE });
   } catch (err) {
     console.error("PATCH /api/admin/data/categories/[id] failed:", err);

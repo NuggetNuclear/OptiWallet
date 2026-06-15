@@ -67,6 +67,12 @@ CREATE TABLE IF NOT EXISTS admin_users (
   last_login_at TIMESTAMPTZ
 );
 
+-- Session revocation (audit L1): el token de sesión lleva el token_version del
+-- admin al firmarse; incrementarlo (cambio de contraseña, logout) invalida
+-- todas sus sesiones vigentes de inmediato. Idempotente: ADD COLUMN IF NOT
+-- EXISTS permite correr este schema sobre una DB ya existente sin perder datos.
+ALTER TABLE admin_users ADD COLUMN IF NOT EXISTS token_version INTEGER NOT NULL DEFAULT 0;
+
 -- admin_login_attempts (rate limiting — one row per failed attempt)
 CREATE TABLE IF NOT EXISTS admin_login_attempts (
   id           BIGSERIAL PRIMARY KEY,

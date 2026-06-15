@@ -1,7 +1,7 @@
 import { sql } from "@/lib/db";
 import { verifyPassword } from "@/lib/admin-auth";
 import { signSession, signPendingMfa, setSessionCookie } from "@/lib/admin-session";
-import { clientIp, isRateLimited, recordFailedAttempt } from "@/lib/admin-guard";
+import { clientIp, isRateLimited, recordFailedAttempt, readTokenVersion } from "@/lib/admin-guard";
 import type { AdminUser } from "@/lib/admin-types";
 import { NextRequest, NextResponse } from "next/server";
 
@@ -45,6 +45,7 @@ export async function POST(req: NextRequest) {
         adminId: user.id,
         email: user.email,
         totp_enabled: false,
+        tv: await readTokenVersion(user.id),
       });
       const res = NextResponse.json({ status: "ok", totp_enabled: false });
       setSessionCookie(res, token);

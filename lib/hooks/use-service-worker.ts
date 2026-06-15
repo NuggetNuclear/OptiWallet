@@ -52,14 +52,12 @@ export function useServiceWorker(): UseServiceWorkerReturn {
               // Nueva versión lista — mostrar banner.
               setWaitingWorker(newWorker);
               setUpdateAvailable(true);
-              console.info("[OptiWallet SW] Nueva versión disponible.");
             }
           });
         });
-
-        console.info("[OptiWallet SW] Registrado:", registration.scope);
-      } catch (error) {
-        console.error("[OptiWallet SW] Error al registrar:", error);
+      } catch {
+        // El registro del SW es best-effort: si falla, la app sigue funcionando
+        // online sin offline-cache. No ruidamos la consola del usuario final. (audit L6)
       }
     };
 

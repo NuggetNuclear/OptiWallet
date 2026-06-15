@@ -12,4 +12,10 @@ export interface AdminSessionPayload {
   adminId: string;
   email: string;
   totp_enabled: boolean;
+  /**
+   * token_version snapshot at sign time, for session revocation. Optional so
+   * legacy tokens (issued before the feature) decode cleanly; absence is
+   * treated as 0 by requireAdmin. See lib/admin-guard.ts:readTokenVersion.
+   */
+  tv?: number;
 }

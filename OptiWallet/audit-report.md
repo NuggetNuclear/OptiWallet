@@ -1,5 +1,9 @@
 # OptiWallet — Code Audit Report
 
+> ⚠️ **Histórico (2026-06-10).** Superado por [`audit-2026-06-15.md`](audit-2026-06-15.md).
+> La mayoría de estos hallazgos ya están corregidos y este reporte es **anterior
+> al panel de administración**. Consérvalo solo como referencia de trazabilidad.
+
 **Date:** 2026-06-10  
 **Scope:** Full codebase (`app/`, `components/`, `lib/`, `public/sw.js`, `scripts/`, config files)  
 **Mode:** Audit only — findings, no fixes

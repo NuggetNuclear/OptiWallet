@@ -1,5 +1,10 @@
 # OptiWallet — Security Audit Report
 
+> ⚠️ **Histórico (2026-06-11).** Anterior al panel de administración — este
+> reporte describe OptiWallet como *"API pública sin autenticación"*, lo cual
+> ya no es cierto. Para la auditoría del sistema admin (auth, TOTP, sesiones)
+> y el estado actual, ver [`audit-2026-06-15.md`](audit-2026-06-15.md).
+
 **Fecha:** 2026-06-11
 **Alcance:** Codebase completo (`app/`, `components/`, `lib/`, `scripts/`, `public/sw.js`, `proxy.ts`, configs, dependencias, historial git)
 **Modo:** Audit + remediación — los fixes ya están aplicados en este commit

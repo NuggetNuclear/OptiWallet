@@ -270,8 +270,8 @@ export const openApiSpec = {
     schemas: {
       Id: {
         type: "string",
-        description: "Identificador slug (letras, números, guiones)",
-        pattern: "^[a-zA-Z0-9_-]{1,64}$",
+        description: "Identificador slug (letras, números, guión, guión bajo y punto)",
+        pattern: "^[A-Za-z0-9_.-]{1,64}$",
         example: "jumbo",
       },
       Error: {

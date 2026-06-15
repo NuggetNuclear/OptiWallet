@@ -2,7 +2,7 @@ import { sql } from "@/lib/db";
 import { verifyTotp, generateTotpUri } from "@/lib/admin-auth";
 import { decryptSecret } from "@/lib/admin-crypto";
 import { getAdminFromRequest, signSession, setSessionCookie } from "@/lib/admin-session";
-import { clientIp, isRateLimited, recordFailedAttempt } from "@/lib/admin-guard";
+import { clientIp, isRateLimited, recordFailedAttempt, readTokenVersion } from "@/lib/admin-guard";
 import { logAdminAction } from "@/lib/admin-log";
 import QRCode from "qrcode";
 import { NextRequest, NextResponse } from "next/server";
@@ -21,10 +21,22 @@ export async function GET(req: NextRequest, { params }: Params) {
   }
 
   try {
-    const rows = await sql`SELECT email, totp_secret FROM admin_users WHERE id = ${id}`;
+    const rows = await sql`SELECT email, totp_secret, totp_enabled FROM admin_users WHERE id = ${id}`;
     if (!rows.length) return NextResponse.json({ error: "No encontrado" }, { status: 404, headers: NO_CACHE });
 
-    const { email, totp_secret } = rows[0] as { email: string; totp_secret: string };
+    const { email, totp_secret, totp_enabled } = rows[0] as {
+      email: string;
+      totp_secret: string;
+      totp_enabled: boolean;
+    };
+
+    // Once 2FA is active, don't re-expose the shared secret/QR: it's a bearer
+    // credential and re-display only widens the leak surface. Re-enrollment goes
+    // through an explicit reset (totp_enabled=false) by an admin. (audit L2)
+    if (totp_enabled) {
+      return NextResponse.json({ error: "TOTP ya está activo" }, { status: 400, headers: NO_CACHE });
+    }
+
     const uri       = generateTotpUri(email, decryptSecret(totp_secret));
     const qrDataUrl = await QRCode.toDataURL(uri);
 
@@ -85,7 +97,7 @@ export async function POST(req: NextRequest, { params }: Params) {
     `;
 
     // Upgrade the session cookie to reflect totp_enabled=true
-    const newSession = { adminId: id, email, totp_enabled: true };
+    const newSession = { adminId: id, email, totp_enabled: true, tv: await readTokenVersion(id) };
     const newToken = await signSession(newSession);
     const res = NextResponse.json({ status: "ok" }, { headers: NO_CACHE });
     setSessionCookie(res, newToken);

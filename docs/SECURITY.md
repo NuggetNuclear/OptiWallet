@@ -1,6 +1,6 @@
 # Seguridad — OptiWallet
 
-> Última actualización: 2026-06-13 · v0.1.0-beta
+> Última actualización: 2026-06-15 · v0.1.0-beta
 
 Este documento describe la postura de seguridad de OptiWallet, las defensas implementadas, y las recomendaciones operativas pendientes. Para los hallazgos de auditorías específicas, ver los reportes en [`OptiWallet/`](../OptiWallet/). Para la seguridad específica del panel de administración, ver [`docs/ADMIN.md`](ADMIN.md#seguridad-del-panel).
 
@@ -263,9 +263,7 @@ Solo tres archivos leen `DATABASE_URL`:
 
 ## Cookies
 
-### `ow_standalone`
-
-Única cookie de la aplicación.
+### `ow_standalone` (app pública)
 
 | Atributo | Valor |
 |---|---|
@@ -278,7 +276,21 @@ Solo tres archivos leen `DATABASE_URL`:
 | HttpOnly | No (necesita ser leída por JS) |
 | Contenido sensible | No — solo indica si la app se ejecuta en modo standalone |
 
-**No se usan cookies de sesión, autenticación, tracking ni analytics.**
+### `ow_admin_session` (panel de administración)
+
+| Atributo | Valor |
+|---|---|
+| Nombre | `ow_admin_session` |
+| Valor | Token de sesión firmado HMAC-SHA256 (incluye `token_version` para revocación) |
+| Path | `/` (debe cubrir `/admin` y `/api/admin`) |
+| Max-Age | 28800 (8 horas) |
+| SameSite | `Strict` (defensa CSRF para las mutaciones del panel) |
+| Secure | ✓ en producción |
+| HttpOnly | ✓ (no accesible desde JS) |
+
+> La app **pública** no usa cookies de sesión, autenticación ni tracking. La
+> única cookie con sesión es `ow_admin_session`, exclusiva del panel admin
+> (`/admin`). Ver [`docs/ADMIN.md`](ADMIN.md).
 
 ---
 
@@ -288,8 +300,11 @@ Solo tres archivos leen `DATABASE_URL`:
 
 - Se registra solo en **producción** (`NODE_ENV === "production"`).
 - Solo intercepta requests **GET** del **mismo origen**.
+- **No intercepta `/admin` ni `/api/admin`**: las respuestas del panel (lista de
+  admins, audit log) nunca entran a CacheStorage del browser, aunque viajan con
+  `Cache-Control: no-store`. (audit M1)
 - No cachea responses con error (solo `response.ok`).
-- El cache se limpia en cada activación (versionado por nombre de cache).
+- El cache se limpia en cada activación (versionado por nombre de cache, hoy `v3`).
 
 ### Offline responses
 
@@ -330,7 +345,7 @@ Mejoras de seguridad recomendadas para post-beta:
 
 | Mejora | Estado | Detalle |
 |---|---|---|
-| **Rate limiting** | ❌ Pendiente | La API no tiene rate limiting. Mitigado parcialmente por el cache de edge de Vercel. Recomendación: activar **Vercel WAF** o implementar rate limiting por IP en el middleware. |
+| **Rate limiting (API pública)** | ❌ Pendiente | La API **pública** (solo lectura) no tiene rate limiting de app. Mitigado parcialmente por el cache de edge de Vercel. Recomendación: activar **Vercel WAF** o rate limiting por IP en el proxy. (El API **admin** sí tiene rate limiting por IP — ver `docs/ADMIN.md`.) |
 | **CSP con nonces** | ❌ Pendiente | Reemplazar `'unsafe-inline'` por nonces dinámicos en `script-src`. Requiere evaluar el impacto en static optimization. |
 | **Error boundaries** | ✅ Implementado | `app/error.tsx` (boundary global, reporta a Sentry) y `app/global-error.tsx` (boundary de último recurso con estilos inline). Ver [`ARCHITECTURE.md`](ARCHITECTURE.md). |
 
@@ -350,4 +365,5 @@ Mejoras de seguridad recomendadas para post-beta:
 |---|---|---|
 | **Logging estructurado** | ✅ Parcial | **Sentry** está activo en producción (DSN configurado en Vercel, 2026-06-13). Los `console.error` de Route Handlers van a Vercel Logs, y los errores de render/request se reportan a Sentry automáticamente vía `captureException` / `captureRequestError`. |
 | **CORS headers** | ✅ No necesario | La API es solo para consumo propio (`connect-src 'self'`). No se necesitan CORS headers. |
-| **CSRF** | ✅ No necesario | Solo endpoints GET (no hay mutaciones). Sin cookies de sesión. |
+| **CSRF (API pública)** | ✅ No aplica | La API pública es solo `GET` sin cookies de sesión. |
+| **CSRF (panel admin)** | ✅ Mitigado | El panel sí tiene mutaciones (`POST`/`PATCH`/`DELETE`) y cookie de sesión, pero la cookie es `SameSite=Strict`, así que un sitio de terceros no puede dispararlas. Además, las operaciones sensibles exigen re-auth con la contraseña actual. |

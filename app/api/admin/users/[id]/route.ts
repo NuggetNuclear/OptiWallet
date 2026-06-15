@@ -1,11 +1,14 @@
 import { sql } from "@/lib/db";
-import { hashPassword, generateTotpSecret } from "@/lib/admin-auth";
+import { hashPassword, verifyPassword, generateTotpSecret } from "@/lib/admin-auth";
 import { encryptSecret } from "@/lib/admin-crypto";
-import { requireAdmin, clientIp } from "@/lib/admin-guard";
+import { requireAdmin, clientIp, isRateLimited, recordFailedAttempt, bumpTokenVersion } from "@/lib/admin-guard";
 import { logAdminAction } from "@/lib/admin-log";
 import { NextRequest, NextResponse } from "next/server";
 
 const NO_CACHE = { "Cache-Control": "no-store" };
+// Constant-time decoy so a wrong/empty current password costs the same as a
+// missing acting admin — no timing signal. (audit M3)
+const FAKE_HASH = "$2b$12$invalidhashtopreventtimingattacks.invalidhash";
 
 type Params = { params: Promise<{ id: string }> };
 
@@ -32,23 +35,49 @@ export async function PATCH(req: NextRequest, { params }: Params) {
   if (!session) return NextResponse.json({ error: "No autorizado" }, { status: 401, headers: NO_CACHE });
 
   const { id } = await params;
+  const ip = clientIp(req);
   try {
     const body = await req.json().catch(() => null);
-    const { password, reset_totp } = body ?? {};
+    const { current_password, password, reset_totp } = body ?? {};
 
-    if (password !== undefined) {
+    const changesPassword = password !== undefined;
+    const resetsTotp = reset_totp === true;
+
+    // Step-up re-authentication: changing a password or resetting 2FA — for
+    // yourself OR another admin — requires the ACTING admin to re-enter their own
+    // current password. A hijacked session (stolen cookie) alone can no longer
+    // silently take over an account. Throttled on the shared IP budget. (audit M3)
+    if (changesPassword || resetsTotp) {
+      if (await isRateLimited(ip)) {
+        return NextResponse.json({ error: "Demasiados intentos. Espera 15 minutos." }, { status: 429, headers: NO_CACHE });
+      }
+      if (typeof current_password !== "string" || current_password.length === 0) {
+        return NextResponse.json({ error: "Debes confirmar tu contraseña actual" }, { status: 400, headers: NO_CACHE });
+      }
+      const meRows = await sql`SELECT password_hash FROM admin_users WHERE id = ${session.adminId}`;
+      const me = meRows[0] as { password_hash: string } | undefined;
+      const ok = await verifyPassword(current_password, me?.password_hash ?? FAKE_HASH);
+      if (!me || !ok) {
+        await recordFailedAttempt(ip);
+        return NextResponse.json({ error: "Contraseña actual incorrecta" }, { status: 401, headers: NO_CACHE });
+      }
+    }
+
+    if (changesPassword) {
       if (typeof password !== "string" || password.length < 12) {
         return NextResponse.json({ error: "La contraseña debe tener al menos 12 caracteres" }, { status: 400, headers: NO_CACHE });
       }
       const hash = await hashPassword(password);
       await sql`UPDATE admin_users SET password_hash = ${hash} WHERE id = ${id}`;
-      await logAdminAction(session, "password_change", "admin_user", id, `Contraseña cambiada para admin ${id}`, clientIp(req));
+      // Invalidate the target's outstanding sessions after a password change. (audit L1)
+      await bumpTokenVersion(id);
+      await logAdminAction(session, "password_change", "admin_user", id, `Contraseña cambiada para admin ${id}`, ip);
     }
 
-    if (reset_totp === true) {
+    if (resetsTotp) {
       const newSecret = generateTotpSecret();
       await sql`UPDATE admin_users SET totp_secret = ${encryptSecret(newSecret)}, totp_enabled = false WHERE id = ${id}`;
-      await logAdminAction(session, "totp_reset", "admin_user", id, `2FA restablecido para admin ${id}`, clientIp(req));
+      await logAdminAction(session, "totp_reset", "admin_user", id, `2FA restablecido para admin ${id}`, ip);
     }
 
     return NextResponse.json({ status: "ok" }, { headers: NO_CACHE });

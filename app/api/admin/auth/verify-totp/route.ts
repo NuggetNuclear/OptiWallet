@@ -2,7 +2,7 @@ import { sql } from "@/lib/db";
 import { verifyTotp } from "@/lib/admin-auth";
 import { decryptSecret } from "@/lib/admin-crypto";
 import { verifyPendingMfa, signSession, setSessionCookie } from "@/lib/admin-session";
-import { clientIp, isRateLimited, recordFailedAttempt } from "@/lib/admin-guard";
+import { clientIp, isRateLimited, recordFailedAttempt, readTokenVersion } from "@/lib/admin-guard";
 import { logAdminAction } from "@/lib/admin-log";
 import type { AdminUser } from "@/lib/admin-types";
 import { NextRequest, NextResponse } from "next/server";
@@ -50,7 +50,12 @@ export async function POST(req: NextRequest) {
 
     await sql`UPDATE admin_users SET last_login_at = now() WHERE id = ${adminId}`;
 
-    const session = { adminId: user.id, email: user.email, totp_enabled: true };
+    const session = {
+      adminId: user.id,
+      email: user.email,
+      totp_enabled: true,
+      tv: await readTokenVersion(user.id),
+    };
     const token = await signSession(session);
     const res = NextResponse.json({ status: "ok" });
     setSessionCookie(res, token);

@@ -32,30 +32,35 @@ export async function PATCH(req: NextRequest, { params }: Params) {
   if (!isValidId(id)) return NextResponse.json({ error: "ID inválido" }, { status: 400, headers: NO_CACHE });
   try {
     const body = await req.json().catch(() => null);
-    const { name, bank_id, type } = body ?? {};
+    const fields: Record<string, unknown> = body ?? {};
+    const has = (k: string) => Object.prototype.hasOwnProperty.call(fields, k);
 
-    const rows = await sql`SELECT id FROM cards WHERE id = ${id}`;
+    if (has("name") && (typeof fields.name !== "string" || !fields.name.trim())) return NextResponse.json({ error: "name inválido" }, { status: 400, headers: NO_CACHE });
+    if (has("bank_id") && !isValidId(fields.bank_id as string)) return NextResponse.json({ error: "bank_id inválido" }, { status: 400, headers: NO_CACHE });
+    if (has("type") && fields.type !== "credit" && fields.type !== "debit") return NextResponse.json({ error: "type inválido" }, { status: 400, headers: NO_CACHE });
+
+    const changed = ["name", "bank_id", "type"].filter(has);
+    const rows = await sql`SELECT id, bank_id, name, type FROM cards WHERE id = ${id}`;
     if (!rows.length) return NextResponse.json(null, { status: 404, headers: NO_CACHE });
+    if (!changed.length) return NextResponse.json({ status: "ok" }, { headers: NO_CACHE });
 
-    const changes: string[] = [];
-    if (name !== undefined) {
-      await sql`UPDATE cards SET name = ${name} WHERE id = ${id}`;
-      changes.push(`name="${name}"`);
-    }
-    if (bank_id !== undefined) {
-      if (!isValidId(bank_id)) return NextResponse.json({ error: "bank_id inválido" }, { status: 400, headers: NO_CACHE });
-      await sql`UPDATE cards SET bank_id = ${bank_id} WHERE id = ${id}`;
-      changes.push(`bank_id=${bank_id}`);
-    }
-    if (type !== undefined) {
-      if (type !== "credit" && type !== "debit") return NextResponse.json({ error: "type inválido" }, { status: 400, headers: NO_CACHE });
-      await sql`UPDATE cards SET type = ${type} WHERE id = ${id}`;
-      changes.push(`type=${type}`);
-    }
+    const cur = rows[0] as Record<string, unknown>;
+    const next = {
+      name:    has("name") ? fields.name : cur.name,
+      bank_id: has("bank_id") ? fields.bank_id : cur.bank_id,
+      type:    has("type") ? fields.type : cur.type,
+    };
 
-    if (changes.length) {
-      await logAdminAction(session, "update", "card", id, changes.join(", "), clientIp(req));
-    }
+    // Single atomic UPDATE — no partial-write window. (audit L4)
+    await sql`
+      UPDATE cards SET
+        name = ${next.name as string},
+        bank_id = ${next.bank_id as string},
+        type = ${next.type as string}
+      WHERE id = ${id}
+    `;
+
+    await logAdminAction(session, "update", "card", id, `Campos: ${changed.join(", ")}`, clientIp(req));
     return NextResponse.json({ status: "ok" }, { headers: NO_CACHE });
   } catch (err) {
     console.error("PATCH /api/admin/data/cards/[id] failed:", err);

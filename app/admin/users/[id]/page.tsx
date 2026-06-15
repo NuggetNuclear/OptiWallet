@@ -11,6 +11,10 @@ export default function EditAdminPage() {
   const router  = useRouter();
   const [user,     setUser]     = useState<AdminUser | null>(null);
   const [password, setPassword] = useState("");
+  // Step-up re-auth: the acting admin re-enters their OWN current password to
+  // authorize a password change or a TOTP reset. (audit M3)
+  const [currentPwForPassword, setCurrentPwForPassword] = useState("");
+  const [currentPwForTotp,     setCurrentPwForTotp]     = useState("");
   const [msg,      setMsg]      = useState("");
   const [error,    setError]    = useState("");
   const [loading,  setLoading]  = useState(false);
@@ -28,11 +32,11 @@ export default function EditAdminPage() {
       const res  = await fetch(`/api/admin/users/${id}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ password }),
+        body: JSON.stringify({ current_password: currentPwForPassword, password }),
       });
       const data = await res.json();
       if (!res.ok) { setError(data.error ?? "Error"); return; }
-      setMsg("Contraseña actualizada"); setPassword("");
+      setMsg("Contraseña actualizada"); setPassword(""); setCurrentPwForPassword("");
     } catch { setError("Error de red"); } finally { setLoading(false); }
   }
 
@@ -43,11 +47,12 @@ export default function EditAdminPage() {
       const res  = await fetch(`/api/admin/users/${id}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ reset_totp: true }),
+        body: JSON.stringify({ current_password: currentPwForTotp, reset_totp: true }),
       });
       const data = await res.json();
       if (!res.ok) { setError(data.error ?? "Error"); return; }
       setMsg("TOTP reseteado — el usuario deberá re-escanear el QR al próximo login");
+      setCurrentPwForTotp("");
       setUser((u) => u ? { ...u, totp_enabled: false } : u);
     } catch { setError("Error de red"); } finally { setLoading(false); }
   }
@@ -79,8 +84,15 @@ export default function EditAdminPage() {
           <p className="admin-label" style={{ marginBottom: 12 }}>Cambiar contraseña</p>
           <form onSubmit={resetPassword}>
             <div className="admin-form-row">
+              <label className="admin-label">Tu contraseña actual</label>
+              <input className="admin-input" type="password" autoComplete="current-password"
+                     value={currentPwForPassword}
+                     onChange={(e) => setCurrentPwForPassword(e.target.value)} required />
+            </div>
+            <div className="admin-form-row">
               <label className="admin-label">Nueva contraseña (mín. 12 caracteres)</label>
-              <input className="admin-input" type="password" value={password}
+              <input className="admin-input" type="password" autoComplete="new-password"
+                     value={password}
                      onChange={(e) => setPassword(e.target.value)} minLength={12} required />
             </div>
             <button type="submit" disabled={loading} className="admin-btn admin-btn-primary">
@@ -94,7 +106,14 @@ export default function EditAdminPage() {
           <p style={{ fontSize: 12, color: "var(--ink-dim)", marginBottom: 12 }}>
             Resetea el secreto TOTP. El usuario deberá re-escanear el QR la próxima vez que inicie sesión.
           </p>
-          <button className="admin-btn admin-btn-danger" onClick={resetTotp} disabled={loading}>
+          <div className="admin-form-row">
+            <label className="admin-label">Tu contraseña actual</label>
+            <input className="admin-input" type="password" autoComplete="current-password"
+                   value={currentPwForTotp}
+                   onChange={(e) => setCurrentPwForTotp(e.target.value)} />
+          </div>
+          <button className="admin-btn admin-btn-danger" onClick={resetTotp}
+                  disabled={loading || currentPwForTotp.length === 0}>
             Resetear TOTP
           </button>
         </div>

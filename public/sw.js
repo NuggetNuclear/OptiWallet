@@ -5,9 +5,14 @@
 // v2 (Sprint 2): deep-linking — /app/wallet y /app/comercio/[id] son rutas
 // reales. Se precachea también /app/wallet y el fallback offline de rutas
 // /app/* ahora es el shell de /app (no la landing).
-const CACHE_NAME = "optiwallet-v2";
-const STATIC_CACHE_NAME = "optiwallet-static-v2";
-const API_CACHE_NAME = "optiwallet-api-v2";
+//
+// v3 (2026-06-15, audit M1): el SW ya NO intercepta /admin ni /api/admin, así
+// que datos sensibles (lista de admins, audit log) nunca se cachean en
+// CacheStorage. El bump de versión purga cualquier respuesta admin que el SW
+// v2 hubiera cacheado ignorando `Cache-Control: no-store`.
+const CACHE_NAME = "optiwallet-v3";
+const STATIC_CACHE_NAME = "optiwallet-static-v3";
+const API_CACHE_NAME = "optiwallet-api-v3";
 
 // Assets que cacheamos inmediatamente al instalar
 const PRECACHE_URLS = [
@@ -69,6 +74,13 @@ self.addEventListener("fetch", (event) => {
 
   // Ignoramos requests que no son GET
   if (request.method !== "GET") return;
+
+  // Nunca tocamos el panel admin ni su API: sus respuestas son sensibles y
+  // viajan con `Cache-Control: no-store`. Las dejamos pasar directo a la red
+  // (sin respondWith) para que NO entren a CacheStorage. (audit M1)
+  if (url.pathname.startsWith("/admin") || url.pathname.startsWith("/api/admin")) {
+    return;
+  }
 
   // Estrategia según el tipo de recurso
   if (isAPIRoute(url.pathname)) {

@@ -1,6 +1,6 @@
 # Panel de Administración — OptiWallet
 
-> Última actualización: 2026-06-13 · v0.1.0-beta
+> Última actualización: 2026-06-15 · v0.1.0-beta
 
 Este documento cubre todo lo necesario para operar, desplegar y extender el panel de administración de OptiWallet: arquitectura, seguridad, referencia de API, walkthrough de despliegue y guía de uso.
 
@@ -103,8 +103,10 @@ Browser → proxy.ts (Edge) → /admin/* pages
 
 Browser → /api/admin/* → Route Handler (Node.js)
                         ↓
-              getAdminFromRequest()
-              401 si no hay sesión válida
+              requireAdmin()
+              [valida cookie HMAC + re-consulta la DB:
+               existe, totp_enabled, token_version]
+              401 si no hay sesión válida (fail closed)
                         ↓
               sql`...` → Neon PostgreSQL
 ```
@@ -396,12 +398,12 @@ Panel → Bancos
 
 **Cambiar contraseña:**
 1. Panel → Usuarios → clic en el admin → "Cambiar contraseña"
-2. Ingresa la nueva contraseña + confirmar
-3. La sesión activa del admin NO se invalida (solo cambia la contraseña para futuros logins)
+2. Ingresa **tu** contraseña actual (step-up re-auth) + la nueva contraseña
+3. Al guardar, las sesiones vigentes del admin objetivo se invalidan (token_version++); deberá iniciar sesión de nuevo
 
 **Resetear TOTP:**
 1. Panel → Usuarios → clic en el admin → "Resetear TOTP"
-2. Confirma → se genera un nuevo secreto TOTP y `totp_enabled` vuelve a `false`
+2. Ingresa **tu** contraseña actual (step-up re-auth) y confirma → se genera un nuevo secreto TOTP y `totp_enabled` vuelve a `false`
 3. La sesión activa del admin queda invalidada a nivel de API de inmediato: `requireAdmin()` exige `totp_enabled = true` en la DB, así que cualquier request a `/api/admin/*` devuelve 401 hasta re-enrollar. En el frontend, `/api/admin/auth/me` refleja el estado y redirige a setup.
 4. El admin debe hacer login nuevamente y enrollar el nuevo TOTP
 
@@ -499,11 +501,10 @@ Error de credenciales (mismo mensaje para email inválido Y contraseña incorrec
 // Request
 { "email": "nuevo@example.com", "password": "contraseña-segura" }
 
-// Response
+// Response: 201
 {
   "id": "admin-xyz789",
   "email": "nuevo@example.com",
-  "totp_enabled": false,
   "qr_data_url": "data:image/png;base64,...",
   "totp_uri": "otpauth://totp/OptiWallet:nuevo@example.com?..."
 }
@@ -523,30 +524,49 @@ Error de credenciales (mismo mensaje para email inválido Y contraseña incorrec
 
 #### `PATCH /api/admin/users/[id]`
 
+Ambas operaciones (cambiar contraseña, resetear TOTP) exigen `current_password`:
+la contraseña **actual del admin que ejecuta la acción** (step-up re-auth). Una
+cookie robada por sí sola ya no basta. Throttled con el presupuesto de rate limit.
+
 Cambiar contraseña:
 ```json
-{ "password": "nueva-contraseña" }
+// Request
+{ "current_password": "tu-contraseña-actual", "password": "nueva-min-12-chars" }
+// Response — invalida las sesiones vigentes del admin objetivo (token_version++)
+{ "status": "ok" }
 ```
 
 Resetear TOTP:
 ```json
-{ "reset_totp": true }
-// Response
-{ "qr_data_url": "data:image/png;base64,...", "totp_uri": "otpauth://..." }
+// Request
+{ "current_password": "tu-contraseña-actual", "reset_totp": true }
+// Response — el secreto nuevo se entrega en el próximo login vía /totp-setup
+{ "status": "ok" }
+```
+
+Errores de re-auth:
+```json
+{ "error": "Debes confirmar tu contraseña actual" }     // 400
+{ "error": "Contraseña actual incorrecta" }             // 401
+{ "error": "Demasiados intentos. Espera 15 minutos." }  // 429
 ```
 
 #### `DELETE /api/admin/users/[id]`
 
 Guards:
-- 403 si `id` coincide con la sesión activa (self-delete)
-- 403 si solo queda 1 admin en la tabla (last-admin guard)
+- 400 si `id` coincide con la sesión activa (self-delete)
+- 400 si solo queda 1 admin en la tabla (last-admin guard)
 
 ```json
 // Éxito
-{ "ok": true }
+{ "status": "ok" }
 ```
 
 #### `GET /api/admin/users/[id]/totp-setup`
+
+Solo el propio admin (`session.adminId === id`). Devuelve `400 { "error": "TOTP ya
+está activo" }` si el 2FA ya está habilitado: el secreto es un bearer credential y
+no se re-expone una vez enrolado (para re-enrolar, un admin debe resetear el TOTP).
 
 ```json
 {
@@ -562,7 +582,7 @@ Guards:
 { "code": "123456" }
 
 // Éxito: emite nueva cookie con totp_enabled: true
-{ "ok": true }
+{ "status": "ok" }
 
 // Error
 { "error": "Código inválido" }  // 401
@@ -748,13 +768,16 @@ cards      ← nodo hoja en el schema (nada tiene FK hacia cards)
 | **TOTP window ±1** | Tolerancia de ±30s para desfase de reloj |
 | **Cookie HttpOnly** | No accesible desde JavaScript del browser |
 | **Cookie SameSite=Strict** | Previene CSRF cross-origin |
-| **Cookie Path=/admin** | No se envía en requests a rutas no-admin |
+| **Cookie Path=/** | Debe cubrir tanto `/admin` (páginas) como `/api/admin` (handlers); por eso NO se restringe a `/admin` |
 | **Sesión 8h** | Límite de tiempo para reducir riesgo de robo de sesión |
 | **Guard self-delete** | Un admin no puede eliminarse a sí mismo |
 | **Guard last-admin** | No se puede eliminar el último admin |
 | **Auth en proxy.ts** | La verificación de sesión ocurre en el Edge antes de renderizar cualquier página admin |
-| **Auth en Route Handlers** | `getAdminFromRequest()` al inicio de cada handler de datos |
+| **Auth en Route Handlers** | `requireAdmin()` al inicio de cada handler de datos (valida cookie **y** re-consulta la DB) |
+| **Step-up re-auth** | Cambiar contraseña o resetear TOTP (propio o de otro admin) exige la contraseña actual del admin que ejecuta la acción (`current_password`) — una cookie robada por sí sola ya no permite tomar control de una cuenta |
+| **Revocación de sesión** | Cada token lleva el `token_version` del admin al firmarse; cambiarlo (cambio de contraseña, logout) invalida todas sus sesiones vigentes de inmediato |
 | **Cache-Control: no-store** | Las respuestas del panel no se cachean en CDN |
+| **Service Worker excluye admin** | El SW no intercepta `/admin` ni `/api/admin`: sus respuestas nunca entran a CacheStorage del browser |
 | **server-only** | `lib/admin-auth.ts`, `lib/admin-session.ts`, `lib/db.ts` no pueden ser importados en Client Components |
 
 ### Rotación del secreto de sesión

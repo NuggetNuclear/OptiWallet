@@ -32,28 +32,35 @@ export async function PATCH(req: NextRequest, { params }: Params) {
   if (!isValidId(id)) return NextResponse.json({ error: "ID inválido" }, { status: 400, headers: NO_CACHE });
   try {
     const body = await req.json().catch(() => null);
-    const { name, short_name, available } = body ?? {};
+    const fields: Record<string, unknown> = body ?? {};
+    const has = (k: string) => Object.prototype.hasOwnProperty.call(fields, k);
 
-    const rows = await sql`SELECT id, name FROM banks WHERE id = ${id}`;
+    if (has("name") && (typeof fields.name !== "string" || !fields.name.trim())) return NextResponse.json({ error: "name inválido" }, { status: 400, headers: NO_CACHE });
+    if (has("short_name") && fields.short_name !== null && typeof fields.short_name !== "string") return NextResponse.json({ error: "short_name inválido" }, { status: 400, headers: NO_CACHE });
+    if (has("available") && typeof fields.available !== "boolean") return NextResponse.json({ error: "available inválido" }, { status: 400, headers: NO_CACHE });
+
+    const changed = ["name", "short_name", "available"].filter(has);
+    const rows = await sql`SELECT id, name, short_name, available FROM banks WHERE id = ${id}`;
     if (!rows.length) return NextResponse.json(null, { status: 404, headers: NO_CACHE });
+    if (!changed.length) return NextResponse.json({ status: "ok" }, { headers: NO_CACHE });
 
-    const changes: string[] = [];
-    if (name !== undefined) {
-      await sql`UPDATE banks SET name = ${name} WHERE id = ${id}`;
-      changes.push(`name="${name}"`);
-    }
-    if (short_name !== undefined) {
-      await sql`UPDATE banks SET short_name = ${short_name ?? null} WHERE id = ${id}`;
-      changes.push(`short_name="${short_name ?? ""}"`);
-    }
-    if (available !== undefined) {
-      await sql`UPDATE banks SET available = ${available} WHERE id = ${id}`;
-      changes.push(`available=${available}`);
-    }
+    const cur = rows[0] as Record<string, unknown>;
+    const next = {
+      name:       has("name") ? fields.name : cur.name,
+      short_name: has("short_name") ? (fields.short_name ?? null) : cur.short_name,
+      available:  has("available") ? fields.available : cur.available,
+    };
 
-    if (changes.length) {
-      await logAdminAction(session, "update", "bank", id, changes.join(", "), clientIp(req));
-    }
+    // Single atomic UPDATE — no partial-write window. (audit L4)
+    await sql`
+      UPDATE banks SET
+        name = ${next.name as string},
+        short_name = ${next.short_name as string | null},
+        available = ${next.available as boolean}
+      WHERE id = ${id}
+    `;
+
+    await logAdminAction(session, "update", "bank", id, `Campos: ${changed.join(", ")}`, clientIp(req));
     return NextResponse.json({ status: "ok" }, { headers: NO_CACHE });
   } catch (err) {
     console.error("PATCH /api/admin/data/banks/[id] failed:", err);

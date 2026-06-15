@@ -37,30 +37,38 @@ export async function PATCH(req: NextRequest, { params }: Params) {
   if (!isValidId(id)) return NextResponse.json({ error: "ID inválido" }, { status: 400, headers: NO_CACHE });
   try {
     const body = await req.json().catch(() => null);
-    const { name, category_id, aliases } = body ?? {};
+    const fields: Record<string, unknown> = body ?? {};
+    const has = (k: string) => Object.prototype.hasOwnProperty.call(fields, k);
 
-    const rows = await sql`SELECT id FROM merchants WHERE id = ${id}`;
+    if (has("name") && (typeof fields.name !== "string" || !fields.name.trim())) return NextResponse.json({ error: "name inválido" }, { status: 400, headers: NO_CACHE });
+    if (has("category_id") && !isValidId(fields.category_id as string)) return NextResponse.json({ error: "category_id inválido" }, { status: 400, headers: NO_CACHE });
+    if (has("aliases") && !Array.isArray(fields.aliases)) return NextResponse.json({ error: "aliases debe ser un array" }, { status: 400, headers: NO_CACHE });
+
+    const changed = ["name", "category_id", "aliases"].filter(has);
+    const rows = await sql`SELECT id, name, category_id, aliases FROM merchants WHERE id = ${id}`;
     if (!rows.length) return NextResponse.json(null, { status: 404, headers: NO_CACHE });
+    if (!changed.length) return NextResponse.json({ status: "ok" }, { headers: NO_CACHE });
 
-    const changes: string[] = [];
-    if (name !== undefined) {
-      await sql`UPDATE merchants SET name = ${name} WHERE id = ${id}`;
-      changes.push(`name="${name}"`);
-    }
-    if (category_id !== undefined) {
-      if (!isValidId(category_id)) return NextResponse.json({ error: "category_id inválido" }, { status: 400, headers: NO_CACHE });
-      await sql`UPDATE merchants SET category_id = ${category_id} WHERE id = ${id}`;
-      changes.push(`category_id=${category_id}`);
-    }
-    if (aliases !== undefined) {
-      const aliasArray = Array.isArray(aliases) ? aliases.filter((a: unknown) => typeof a === "string") : [];
-      await sql`UPDATE merchants SET aliases = ${aliasArray} WHERE id = ${id}`;
-      changes.push(`aliases=[${aliasArray.join(", ")}]`);
-    }
+    const cur = rows[0] as Record<string, unknown>;
+    const aliasArray = has("aliases")
+      ? (fields.aliases as unknown[]).filter((a): a is string => typeof a === "string")
+      : (cur.aliases as string[]);
+    const next = {
+      name:        has("name") ? fields.name : cur.name,
+      category_id: has("category_id") ? fields.category_id : cur.category_id,
+      aliases:     aliasArray,
+    };
 
-    if (changes.length) {
-      await logAdminAction(session, "update", "merchant", id, changes.join(", "), clientIp(req));
-    }
+    // Single atomic UPDATE — no partial-write window. (audit L4)
+    await sql`
+      UPDATE merchants SET
+        name = ${next.name as string},
+        category_id = ${next.category_id as string},
+        aliases = ${next.aliases as string[]}
+      WHERE id = ${id}
+    `;
+
+    await logAdminAction(session, "update", "merchant", id, `Campos: ${changed.join(", ")}`, clientIp(req));
     return NextResponse.json({ status: "ok" }, { headers: NO_CACHE });
   } catch (err) {
     console.error("PATCH /api/admin/data/merchants/[id] failed:", err);
