@@ -101,7 +101,7 @@ Las vistas de la app son **rutas reales del App Router** — URLs compartibles y
 - **`app/error.tsx`**: error boundary global — captura excepciones de render bajo el root layout, las reporta a Sentry y muestra UI branded con retry.
 - **`app/global-error.tsx`**: último recurso si el propio root layout falla — renderiza `<html>/<body>` propios con estilos inline.
 - **Sentry** (`@sentry/nextjs`): init por runtime vía `instrumentation.ts` (Node/Edge) + `instrumentation-client.ts` (browser); opciones compartidas en `lib/sentry.ts`. **Deshabilitado sin `NEXT_PUBLIC_SENTRY_DSN`**. `sendDefaultPii: false` — coherente con la política de privacidad.
-- **Plausible** (`lib/analytics.ts` + `<Script>` en root layout): analytics cookieless, activado solo con `NEXT_PUBLIC_PLAUSIBLE_DOMAIN`. Eventos de onboarding: `Onboarding Started/Completed`, `Wallet Updated`, `CTA Click`, `Install Modal Opened`, `Install Instructions Viewed`, `Merchant Viewed`.
+- **Plausible** (`lib/analytics.ts` + `<Script>` en root layout): analytics cookieless. Usa el **script v2** (`<script async src=...>` + stub inline que llama `plausible.init()`), activado solo con `NEXT_PUBLIC_PLAUSIBLE_SRC`. Los eventos custom siguen yendo por `window.plausible(...)` (cola del stub). Eventos de onboarding: `Onboarding Started/Completed`, `Wallet Updated`, `CTA Click`, `Install Modal Opened`, `Install Instructions Viewed`, `Merchant Viewed`.
 
 ### Middleware (`proxy.ts`)
 

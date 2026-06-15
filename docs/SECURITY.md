@@ -259,6 +259,14 @@ Solo tres archivos leen `DATABASE_URL`:
 
 **Protección en build:** el cliente lazy no inicializa `neon()` si `DATABASE_URL` no está definida. Esto previene crashes durante `next build`, donde Vercel evalúa los route modules sin secrets disponibles.
 
+### Claves del panel admin y analytics
+
+- **`ADMIN_SESSION_SECRET`** (firma HMAC de sesiones) y **`ADMIN_TOTP_ENC_KEY`** (cifra los `totp_secret` en reposo) son **server-only**: nunca llevan prefijo `NEXT_PUBLIC_` y viven solo en `.env.local` y en los secrets de Vercel.
+- **`NEXT_PUBLIC_SENTRY_DSN`** y **`NEXT_PUBLIC_PLAUSIBLE_SRC`** sí son públicas (viajan al browser por diseño): no son secretos, solo activan Sentry y el script v2 de Plausible.
+- **No existe** ningún "admin setup token" (la página web de setup fue eliminada) ni `NEXT_PUBLIC_PLAUSIBLE_DOMAIN` (reemplazada por `NEXT_PUBLIC_PLAUSIBLE_SRC`).
+
+Inventario completo, gotchas y procedimiento de rotación: [`docs/ADMIN.md` → Inventario y rotación de claves](ADMIN.md#inventario-y-rotación-de-claves).
+
 ---
 
 ## Cookies

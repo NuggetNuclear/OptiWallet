@@ -5,7 +5,7 @@
 // agrega los datos y no permite identificar usuarios individuales. Por eso
 // no requiere banner de consentimiento bajo la ley 19.628 ni GDPR.
 //
-// Si el script no está cargado (env sin NEXT_PUBLIC_PLAUSIBLE_DOMAIN,
+// Si el script no está cargado (env sin NEXT_PUBLIC_PLAUSIBLE_SRC,
 // adblocker, offline), trackEvent es un no-op silencioso.
 
 type EventProps = Record<string, string | number | boolean>;

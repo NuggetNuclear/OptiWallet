@@ -27,7 +27,7 @@
 
 - [x] **Sentry**: proyecto creado en sentry.io y `NEXT_PUBLIC_SENTRY_DSN` seteado en Vercel. SDK activo en producción desde 2026-06-13.
 - [ ] **Sentry sourcemaps** (opcional): agregar `withSentryConfig` en `next.config.mjs` + `SENTRY_AUTH_TOKEN` para stack traces legibles en producción.
-- [ ] **Plausible**: agregar el sitio `optiwallet.vercel.app` en plausible.io y setear `NEXT_PUBLIC_PLAUSIBLE_DOMAIN` en Vercel.
+- [ ] **Plausible**: agregar el sitio en plausible.io y setear `NEXT_PUBLIC_PLAUSIBLE_SRC` (el `src` del snippet v2) en Vercel. Walkthrough de claves: [`docs/ADMIN.md`](docs/ADMIN.md#inventario-y-rotación-de-claves).
 - [ ] **Plausible goals**: registrar los eventos custom como Goals para verlos en el dashboard: `Onboarding Started`, `Onboarding Completed`, `Wallet Updated`, `CTA Click`, `Install Modal Opened`, `Install Instructions Viewed`, `Merchant Viewed`.
 - [x] **Dependencias limpiadas**: `vitest` y `tsx` eliminados — los tests corren con `node:test` (nativo) y los scripts de DB con `node` directo (TypeScript strip-types de Node ≥ 22). `npm install` ya no trae dependencias vulnerables (`esbuild`).
 

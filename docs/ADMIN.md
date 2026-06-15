@@ -298,17 +298,25 @@ En el dashboard de Vercel → tu proyecto → **Settings → Environment Variabl
 | Variable | Valor | Entornos |
 |---|---|---|
 | `DATABASE_URL` | Connection string de Neon | Production, Preview, Development |
-| `ADMIN_SESSION_SECRET` | El secreto del paso 1 | Production, Preview, Development |
+| `ADMIN_SESSION_SECRET` | El secreto del paso 1 (`openssl rand -hex 32`) | Production, Preview, Development |
 | `ADMIN_TOTP_ENC_KEY` | Clave dedicada para cifrar secretos TOTP (`openssl rand -hex 32`). Recomendada; si se omite se deriva de `ADMIN_SESSION_SECRET` | Production, Preview, Development |
 | `NEXT_PUBLIC_SENTRY_DSN` | (opcional) DSN de Sentry | Production |
-| `NEXT_PUBLIC_PLAUSIBLE_DOMAIN` | (opcional) Dominio en Plausible | Production |
+| `NEXT_PUBLIC_PLAUSIBLE_SRC` | (opcional) `src` del snippet **v2** de Plausible (Install → Script) | Production |
 
-> **Seguridad:** ni `ADMIN_SESSION_SECRET` ni `ADMIN_TOTP_ENC_KEY` llevan el prefijo `NEXT_PUBLIC_` — nunca se exponen al browser.
+> **Seguridad:** ni `ADMIN_SESSION_SECRET` ni `ADMIN_TOTP_ENC_KEY` llevan el prefijo `NEXT_PUBLIC_` — nunca se exponen al browser. Las `NEXT_PUBLIC_*` se inyectan en **build**, así que cualquier cambio exige redeploy.
+
+> **El `ADMIN_TOTP_ENC_KEY` debe ser idéntico** entre la máquina donde corres `admin:create` y Vercel: el `totp_secret` se cifra con esa clave al crear el admin, y si en prod difiere el login no podrá descifrarlo. Ver [Inventario y rotación de claves](#inventario-y-rotación-de-claves).
 
 > **Migración de secretos existentes.** Si ya tenías admins creados antes de
 > activar el cifrado, sus `totp_secret` están en texto plano. Córrelos al
 > formato cifrado (idempotente) con `npm run admin:encrypt-totp`. El sistema
 > sigue funcionando con filas en texto plano mientras tanto.
+
+> **Columna `token_version` (revocación de sesión).** `npm run db:schema` (paso 2)
+> la agrega con `ADD COLUMN IF NOT EXISTS` — idempotente, no destruye datos. Si
+> actualizas un deploy existente, vuelve a correr `db:schema` antes de desplegar
+> el código nuevo (el código es self-healing: funciona aunque la columna aún no
+> exista, solo que la revocación queda inactiva hasta migrar).
 
 ### 5. Deploy
 
@@ -780,15 +788,71 @@ cards      ← nodo hoja en el schema (nada tiene FK hacia cards)
 | **Service Worker excluye admin** | El SW no intercepta `/admin` ni `/api/admin`: sus respuestas nunca entran a CacheStorage del browser |
 | **server-only** | `lib/admin-auth.ts`, `lib/admin-session.ts`, `lib/db.ts` no pueden ser importados en Client Components |
 
-### Rotación del secreto de sesión
+### Inventario y rotación de claves
 
-Si sospechas que `ADMIN_SESSION_SECRET` fue comprometido:
+Estas son **todas** las claves que usa OptiWallet. Genera cada secreto con
+`openssl rand -hex 32`. Recuerda: las `NEXT_PUBLIC_*` se hornean en build → cada
+cambio exige **redeploy**.
 
-1. Genera un nuevo secreto: `openssl rand -hex 32`
-2. Actualiza la variable en Vercel → Settings → Environment Variables
-3. Haz un re-deploy (o espera el siguiente deploy)
+| Clave | Dónde se lee | Qué pasa si se rota |
+|---|---|---|
+| `DATABASE_URL` | `lib/db.ts`, `scripts/*` | Apunta a otra DB. Rotarla = cambiar de base; los admins viven en la DB, no en la clave. |
+| `ADMIN_SESSION_SECRET` | `lib/admin-session.ts` (firma HMAC de sesiones) | **Invalida todas las sesiones activas** al instante — todos vuelven a loguear. No afecta contraseñas ni TOTP. |
+| `ADMIN_TOTP_ENC_KEY` | `lib/admin-crypto.ts` (cifra `totp_secret`) | **Deja ilegibles los TOTP ya guardados** → esos admins no podrán verificar su código y deberán re-enrolar (resetear TOTP). Si se omite, se deriva de `ADMIN_SESSION_SECRET`. |
+| `NEXT_PUBLIC_SENTRY_DSN` | `lib/sentry.ts` | Sin ella, Sentry queda deshabilitado (cero overhead). No es secreto. |
+| `NEXT_PUBLIC_PLAUSIBLE_SRC` | `app/layout.tsx` | `src` del script v2 de Plausible. Sin ella, no se inyecta analytics. No es secreto (viaja al browser). |
 
-**Efecto inmediato:** todas las sesiones activas quedan invalidadas. Todos los admins deberán hacer login nuevamente.
+**Claves eliminadas / stale** (no las uses, bórralas si las tienes):
+
+| Clave | Estado |
+|---|---|
+| `ADMIN_SETUP_TOKEN` (o "admin setup token") | **No existe.** Era de la página web de setup de un solo uso, eliminada (`feat(admin): remove web setup`). Nada en el código la lee. |
+| `NEXT_PUBLIC_PLAUSIBLE_DOMAIN` | **Reemplazada** por `NEXT_PUBLIC_PLAUSIBLE_SRC` al migrar al script v2 de Plausible (sin `data-domain`). |
+
+#### Gotchas
+
+- **`ADMIN_TOTP_ENC_KEY` debe coincidir** entre la máquina donde corres
+  `admin:create` y Vercel. El secreto TOTP se cifra con esa clave al crear el
+  admin; si en prod es distinta, el login fallará al descifrarlo. Por eso, en
+  producción, **usa una clave dedicada** (no la derivada de la sesión): así rotar
+  `ADMIN_SESSION_SECRET` no inutiliza los TOTP guardados.
+- `ADMIN_SESSION_SECRET` y `ADMIN_TOTP_ENC_KEY` **nunca** llevan prefijo
+  `NEXT_PUBLIC_` y viven solo en `.env.local` (local) y en los secrets de Vercel.
+
+#### Rotación de una sola clave (sospecha de compromiso)
+
+1. Genera el nuevo valor: `openssl rand -hex 32`.
+2. Actualízalo en Vercel → Settings → Environment Variables.
+3. Redeploy.
+4. Efecto: ver la tabla de arriba (sesiones invalidadas para `ADMIN_SESSION_SECRET`; re-enrolamiento de TOTP para `ADMIN_TOTP_ENC_KEY`).
+
+#### Rotación completa + recrear admin desde cero (clean slate)
+
+Es el flujo ideal si borraste todos los admins (no quedan `totp_secret` viejos que se orphanen):
+
+```bash
+# 1. Genera los dos secretos nuevos
+openssl rand -hex 32   # → ADMIN_SESSION_SECRET
+openssl rand -hex 32   # → ADMIN_TOTP_ENC_KEY
+
+# 2. .env.local (apuntando a la DB destino, normalmente la de prod)
+#    DATABASE_URL="postgresql://...neon.tech/...?sslmode=require"
+#    ADMIN_SESSION_SECRET="<hex-1>"
+#    ADMIN_TOTP_ENC_KEY="<hex-2>"
+
+# 3. Aplica/actualiza el schema (idempotente; agrega token_version si falta)
+npm run db:schema
+
+# 4. Crea el primer admin (pide email + contraseña, imprime el QR en la terminal)
+npm install
+npm run admin:create
+```
+
+5. Pon los **mismos** `ADMIN_SESSION_SECRET` y `ADMIN_TOTP_ENC_KEY` en Vercel y redeploy.
+6. Entra a `/admin/login` → te redirige a `/admin/totp-setup` → escanea el QR → ingresa el código → listo.
+
+> El alta de admins es **solo por CLI** (`admin:create`) o desde el panel ya
+> autenticado (`/admin/users/new`). No hay página web pública de setup.
 
 ### Agregar un segundo factor de seguridad (futuro)
 
@@ -807,6 +871,8 @@ Para entornos de alta criticidad, considera:
 | `ADMIN_SESSION_SECRET` | ✓ | Secreto HMAC-SHA256 para firmar sesiones (hex, 32 bytes mínimo). Genera con: `openssl rand -hex 32` |
 | `ADMIN_TOTP_ENC_KEY` | Recomendada | Clave para cifrar secretos TOTP en reposo (AES-256-GCM). Genera con: `openssl rand -hex 32`. Si se omite, se deriva de `ADMIN_SESSION_SECRET` (rotar la sesión inutilizaría los TOTP guardados) |
 | `NEXT_PUBLIC_SENTRY_DSN` | No | DSN de Sentry para error tracking |
-| `NEXT_PUBLIC_PLAUSIBLE_DOMAIN` | No | Dominio para analytics de Plausible |
+| `NEXT_PUBLIC_PLAUSIBLE_SRC` | No | `src` del snippet v2 de Plausible. Si el host NO es `plausible.io`, agrégalo a `script-src` y `connect-src` en `next.config.mjs` |
 
 > **Nunca** commitees `ADMIN_SESSION_SECRET` ni `ADMIN_TOTP_ENC_KEY` al repositorio. Viven en `.env.local` localmente y en los secrets de Vercel en producción.
+
+> No existe ningún "admin setup token" ni `NEXT_PUBLIC_PLAUSIBLE_DOMAIN` — ver [Inventario y rotación de claves](#inventario-y-rotación-de-claves) para el detalle de claves vigentes y eliminadas.

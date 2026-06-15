@@ -9,8 +9,10 @@ import { ServiceWorkerRegistrar } from "@/components/ServiceWorkerRegistrar";
 import { StandaloneCookieSync } from "@/components/StandaloneCookieSync";
 
 // Plausible (US-ANA): analytics cookieless y agregado — sin banner de consentimiento.
-// Sin la env var el script no se inyecta (dev y forks quedan limpios).
-const PLAUSIBLE_DOMAIN = process.env.NEXT_PUBLIC_PLAUSIBLE_DOMAIN;
+// Script v2: <script async src=...> + un stub inline que llama plausible.init().
+// El `src` (propio de tu cuenta, lo da Plausible en Install → Script) vive en una
+// env var para no commitearlo. Sin la var, no se inyecta nada (dev y forks limpios).
+const PLAUSIBLE_SRC = process.env.NEXT_PUBLIC_PLAUSIBLE_SRC;
 
 const sora = Sora({
   subsets: ["latin"],
@@ -74,13 +76,13 @@ export default function RootLayout({
         <ServiceWorkerRegistrar />
         {/* Cookie ow_standalone en sync con el modo real (ver lib/standalone.ts) */}
         <StandaloneCookieSync />
-        {PLAUSIBLE_DOMAIN && (
-          <Script
-            defer
-            data-domain={PLAUSIBLE_DOMAIN}
-            src="https://plausible.io/js/script.js"
-            strategy="afterInteractive"
-          />
+        {PLAUSIBLE_SRC && (
+          <>
+            <Script src={PLAUSIBLE_SRC} strategy="afterInteractive" />
+            <Script id="plausible-init" strategy="afterInteractive">
+              {`window.plausible=window.plausible||function(){(plausible.q=plausible.q||[]).push(arguments)},plausible.init=plausible.init||function(i){plausible.o=i||{}};plausible.init()`}
+            </Script>
+          </>
         )}
         {children}
       </body>

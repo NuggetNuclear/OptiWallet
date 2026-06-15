@@ -64,7 +64,7 @@ Abre [localhost:3000](http://localhost:3000). La landing está en `/`, la app en
 |---|---|---|
 | `DATABASE_URL` | Sí | Connection string de Neon PostgreSQL. En producción vive en los **secrets de Vercel** — nunca en el repo. Solo la leen `lib/db.ts` (server) y `scripts/apply-schema.ts` (tooling local). |
 | `NEXT_PUBLIC_SENTRY_DSN` | No | DSN de Sentry (US-ERR, Sprint 2). **Sin definir, el SDK queda deshabilitado** — cero requests, cero overhead. Config compartida en `lib/sentry.ts`. |
-| `NEXT_PUBLIC_PLAUSIBLE_DOMAIN` | No | Dominio del sitio en Plausible (US-ANA, Sprint 2), ej. `optiwallet.vercel.app`. **Sin definir, el script no se inyecta** y `trackEvent` (`lib/analytics.ts`) es no-op. |
+| `NEXT_PUBLIC_PLAUSIBLE_SRC` | No | `src` del snippet **v2** de Plausible (Install → Script), ej. `https://plausible.io/js/script.js`. **Sin definir, el script no se inyecta** y `trackEvent` (`lib/analytics.ts`) es no-op. Si el host no es `plausible.io`, agrégalo al CSP en `next.config.mjs`. |
 
 Notas:
 
@@ -349,7 +349,7 @@ Tokens definidos en `globals.css` bajo `@theme {}` (Tailwind 4 CSS-first):
 - Sin cuentas ni sync — la wallet es `localStorage` only.
 - Soporte offline básico: el SW sirve cache cuando no hay red, pero no hay UI de "estás offline" ni banner de actualización de versión (planificado).
 - Varias páginas internas son placeholders (`ComingSoon`) — inventario completo en [`TODO.md`](TODO.md).
-- **Sentry** está integrado y **activo** en producción (`NEXT_PUBLIC_SENTRY_DSN` configurado en Vercel). **Plausible** está integrado pero **desactivado hasta setear `NEXT_PUBLIC_PLAUSIBLE_DOMAIN`** en Vercel (ver Variables de entorno y `TODO.md`).
+- **Sentry** y **Plausible** están integrados y se activan por env var: `NEXT_PUBLIC_SENTRY_DSN` (DSN del proyecto) y `NEXT_PUBLIC_PLAUSIBLE_SRC` (el `src` del snippet v2 de Plausible). Sin la var respectiva, cada uno queda inerte. Walkthrough de claves en [`docs/ADMIN.md`](docs/ADMIN.md#inventario-y-rotación-de-claves).
 - Sin rate limiting en la API (mitigado por cache de edge; recomendación: Vercel WAF — ver `docs/SECURITY.md`).
 - La fecha en `/app` se auto-actualiza al cambiar el día (focus/visibilitychange + interval 60s), pero una PWA que quede dormida muchos días puede mostrar datos stale hasta recibir foco.
 
