@@ -40,6 +40,10 @@ export default function PromotionsPage() {
   const [filterBank, setFilterBank]  = useState("");
   const [filterMerchant, setFilterMerchant] = useState("");
   const [showActive, setShowActive]  = useState(false);
+  const [selectedIds, setSelectedIds] = useState<string[]>([]);
+  const [showBulkDel, setShowBulkDel] = useState(false);
+  const [totpCode, setTotpCode] = useState("");
+  const [bulkDeleting, setBulkDeleting] = useState(false);
 
   async function load() {
     const params = new URLSearchParams();
@@ -55,6 +59,7 @@ export default function PromotionsPage() {
     if (br.ok) setBanks(await br.json());
     if (mr.ok) setMerchants(await mr.json());
     setLoading(false);
+    setSelectedIds([]);
   }
   useEffect(() => { (async () => { await load(); })(); }, [filterBank, filterMerchant, showActive]); // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -99,6 +104,33 @@ export default function PromotionsPage() {
     setDeleting(false);
   }
 
+  async function doBulkDelete() {
+    if (selectedIds.length === 0 || totpCode.length !== 6) return;
+    setError(""); setSuccess(""); setBulkDeleting(true);
+    try {
+      const res = await fetch("/api/admin/data/promotions/bulk-delete", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ ids: selectedIds, code: totpCode }),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        setError(data.error ?? "Error al eliminar");
+        setShowBulkDel(false);
+        return;
+      }
+      setSuccess(`${selectedIds.length} promociones eliminadas correctamente`);
+      setSelectedIds([]);
+      setShowBulkDel(false);
+      load();
+    } catch {
+      setError("Error de red");
+      setShowBulkDel(false);
+    } finally {
+      setBulkDeleting(false);
+    }
+  }
+
   const bankName     = (id: string) => banks.find((b) => b.id === id)?.name ?? id;
   const merchantName = (id: string) => merchants.find((m) => m.id === id)?.name ?? id;
 
@@ -107,6 +139,52 @@ export default function PromotionsPage() {
       {delTarget && (
         <DeleteModal title={`${delTarget.bank_name ?? bankName(delTarget.bank_id)} ${delTarget.discount}%`}
                      onConfirm={doDelete} onCancel={() => setDelTarget(null)} loading={deleting} />
+      )}
+
+      {showBulkDel && (
+        <div className="admin-modal-overlay">
+          <div className="admin-modal" role="dialog" aria-modal="true" style={{ maxWidth: 480 }}>
+            <p className="admin-modal-title">Confirmar eliminación masiva</p>
+            <p style={{ fontSize: 13, color: "var(--ink-dim)", marginBottom: 16 }}>
+              Estás a punto de eliminar <strong>{selectedIds.length}</strong> promociones. Esta acción no se puede deshacer.
+            </p>
+            <div style={{ maxHeight: 120, overflowY: "auto", background: "var(--bg-2)", padding: 10, borderRadius: 8, marginBottom: 20, border: "1px solid var(--line)" }}>
+              <ul style={{ margin: 0, paddingLeft: 20, fontSize: 11, fontFamily: "var(--font-jetbrains)", color: "var(--ink-dim)" }}>
+                {selectedIds.map((id) => (
+                  <li key={id}>{id}</li>
+                ))}
+              </ul>
+            </div>
+            <div className="admin-form-row" style={{ marginBottom: 20 }}>
+              <label className="admin-label">Código TOTP (2FA)</label>
+              <input
+                className="admin-input"
+                type="text"
+                maxLength={6}
+                placeholder="000000"
+                style={{ textAlign: "center", fontSize: 20, letterSpacing: 4, fontFamily: "var(--font-jetbrains)" }}
+                value={totpCode}
+                onChange={(e) => setTotpCode(e.target.value.replace(/\D/g, ""))}
+              />
+            </div>
+            <div style={{ display: "flex", gap: 10 }}>
+              <button
+                className="admin-btn admin-btn-danger"
+                onClick={doBulkDelete}
+                disabled={bulkDeleting || totpCode.length !== 6}
+              >
+                {bulkDeleting ? "Eliminando…" : "Confirmar eliminación"}
+              </button>
+              <button
+                className="admin-btn admin-btn-ghost"
+                onClick={() => setShowBulkDel(false)}
+                disabled={bulkDeleting}
+              >
+                Cancelar
+              </button>
+            </div>
+          </div>
+        </div>
       )}
 
       <div className="admin-header">
@@ -238,21 +316,36 @@ export default function PromotionsPage() {
         </div>
       )}
 
-      <div className="admin-toolbar">
-        <select className="admin-input" style={{ maxWidth: 200 }} value={filterBank}
-          onChange={(e) => setFilterBank(e.target.value)}>
-          <option value="">Todos los bancos</option>
-          {banks.map((b) => <option key={b.id} value={b.id}>{b.name}</option>)}
-        </select>
-        <select className="admin-input" style={{ maxWidth: 200 }} value={filterMerchant}
-          onChange={(e) => setFilterMerchant(e.target.value)}>
-          <option value="">Todos los comercios</option>
-          {merchants.map((m) => <option key={m.id} value={m.id}>{m.name}</option>)}
-        </select>
-        <label className="admin-check-row">
-          <input type="checkbox" checked={showActive} onChange={(e) => setShowActive(e.target.checked)} />
-          Solo activas
-        </label>
+      <div className="admin-toolbar" style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 16, flexWrap: "wrap" }}>
+        <div style={{ display: "flex", gap: 16, alignItems: "center", flexWrap: "wrap" }}>
+          <select className="admin-input" style={{ maxWidth: 200 }} value={filterBank}
+            onChange={(e) => setFilterBank(e.target.value)}>
+            <option value="">Todos los bancos</option>
+            {banks.map((b) => <option key={b.id} value={b.id}>{b.name}</option>)}
+          </select>
+          <select className="admin-input" style={{ maxWidth: 200 }} value={filterMerchant}
+            onChange={(e) => setFilterMerchant(e.target.value)}>
+            <option value="">Todos los comercios</option>
+            {merchants.map((m) => <option key={m.id} value={m.id}>{m.name}</option>)}
+          </select>
+          <label className="admin-check-row">
+            <input type="checkbox" checked={showActive} onChange={(e) => setShowActive(e.target.checked)} />
+            Solo activas
+          </label>
+        </div>
+        {selectedIds.length > 0 && (
+          <button
+            className="admin-btn admin-btn-danger"
+            onClick={() => {
+              setTotpCode("");
+              setError("");
+              setSuccess("");
+              setShowBulkDel(true);
+            }}
+          >
+            Eliminar seleccionadas ({selectedIds.length})
+          </button>
+        )}
       </div>
 
       {loading ? (
@@ -269,11 +362,39 @@ export default function PromotionsPage() {
         <div className="admin-table-wrap">
           <table className="admin-table">
             <thead>
-              <tr><th>ID</th><th>Banco</th><th>Comercio</th><th>%</th><th>Tipos</th><th>Días</th><th>Vigencia</th><th>Estado</th><th></th></tr>
+              <tr>
+                <th style={{ width: 40, textAlign: "center" }}>
+                  <input
+                    type="checkbox"
+                    checked={promos.length > 0 && selectedIds.length === promos.length}
+                    onChange={(e) => {
+                      if (e.target.checked) {
+                        setSelectedIds(promos.map((p) => p.id));
+                      } else {
+                        setSelectedIds([]);
+                      }
+                    }}
+                  />
+                </th>
+                <th>ID</th><th>Banco</th><th>Comercio</th><th>%</th><th>Tipos</th><th>Días</th><th>Vigencia</th><th>Estado</th><th></th>
+              </tr>
             </thead>
             <tbody>
               {promos.map((p) => (
                 <tr key={p.id}>
+                  <td style={{ textAlign: "center" }}>
+                    <input
+                      type="checkbox"
+                      checked={selectedIds.includes(p.id)}
+                      onChange={(e) => {
+                        if (e.target.checked) {
+                          setSelectedIds([...selectedIds, p.id]);
+                        } else {
+                          setSelectedIds(selectedIds.filter((id) => id !== p.id));
+                        }
+                      }}
+                    />
+                  </td>
                   <td><code className="admin-code" style={{ fontSize: 10 }}>{p.id}</code></td>
                   <td style={{ fontSize: 12 }}>{p.bank_name ?? bankName(p.bank_id)}</td>
                   <td style={{ fontSize: 12 }}>{p.merchant_name ?? merchantName(p.merchant_id)}</td>

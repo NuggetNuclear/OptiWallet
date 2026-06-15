@@ -12,7 +12,7 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ error: "No autorizado" }, { status: 401, headers: NO_CACHE });
   }
   try {
-    const rows = await sql`SELECT id, name, short_name, available FROM banks ORDER BY name ASC`;
+    const rows = await sql`SELECT id, name, short_name, available, color FROM banks ORDER BY name ASC`;
     return NextResponse.json(rows, { headers: NO_CACHE });
   } catch (err) {
     console.error("GET /api/admin/data/banks failed:", err);
@@ -27,14 +27,17 @@ export async function POST(req: NextRequest) {
   }
   try {
     const body = await req.json().catch(() => null);
-    const { id, name, short_name, available } = body ?? {};
+    const { id, name, short_name, available, color } = body ?? {};
 
     if (!id || !isValidId(id)) return NextResponse.json({ error: "ID inválido" }, { status: 400, headers: NO_CACHE });
     if (!name || typeof name !== "string") return NextResponse.json({ error: "name requerido" }, { status: 400, headers: NO_CACHE });
+    if (color !== undefined && color !== null && (typeof color !== "string" || !/^#[0-9A-Fa-f]{6}$/.test(color))) {
+      return NextResponse.json({ error: "Color inválido (debe ser hex de 6 dígitos, ej: #FF0000)" }, { status: 400, headers: NO_CACHE });
+    }
 
     await sql`
-      INSERT INTO banks (id, name, short_name, available)
-      VALUES (${id}, ${name}, ${short_name ?? null}, ${available ?? false})
+      INSERT INTO banks (id, name, short_name, available, color)
+      VALUES (${id}, ${name}, ${short_name ?? null}, ${available ?? false}, ${color ?? null})
     `;
     await logAdminAction(session, "create", "bank", id, `Banco "${name}" creado`, clientIp(req));
     return NextResponse.json({ id }, { status: 201, headers: NO_CACHE });

@@ -4,9 +4,9 @@ import { useEffect, useState } from "react";
 import { AdminShell } from "../../components/AdminShell";
 import { DeleteModal } from "../../components/DeleteModal";
 
-interface Bank { id: string; name: string; short_name: string | null; available: boolean }
+interface Bank { id: string; name: string; short_name: string | null; available: boolean; color: string | null }
 
-const EMPTY: Bank = { id: "", name: "", short_name: "", available: false };
+const EMPTY: Bank = { id: "", name: "", short_name: "", available: false, color: null };
 
 export default function BanksPage() {
   const [banks,      setBanks]      = useState<Bank[]>([]);
@@ -164,6 +164,38 @@ export default function BanksPage() {
               <input className="admin-input" value={form.short_name ?? ""}
                 onChange={(e) => setForm({ ...form, short_name: e.target.value || null })} placeholder="Opcional" />
             </div>
+            <div className="admin-form-row">
+              <label className="admin-label">Color de marca</label>
+              <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                <input
+                  type="color"
+                  className="admin-input"
+                  style={{ width: 44, height: 38, padding: 2, cursor: "pointer", border: "1px solid var(--line)" }}
+                  value={form.color ?? "#0b0d0c"}
+                  onChange={(e) => setForm({ ...form, color: e.target.value })}
+                />
+                <input
+                  type="text"
+                  className="admin-input"
+                  style={{ flex: 1, textTransform: "uppercase" }}
+                  placeholder="#HEX (ej: #FF0000)"
+                  value={form.color ?? ""}
+                  onChange={(e) => {
+                    const val = e.target.value;
+                    setForm({ ...form, color: val || null });
+                  }}
+                />
+                {form.color && (
+                  <button
+                    type="button"
+                    className="admin-btn admin-btn-ghost admin-btn-sm"
+                    onClick={() => setForm({ ...form, color: null })}
+                  >
+                    Limpiar
+                  </button>
+                )}
+              </div>
+            </div>
           </div>
           <label className="admin-check-row" style={{ marginBottom: 16 }}>
             <input type="checkbox" checked={form.available}
@@ -189,12 +221,31 @@ export default function BanksPage() {
         <div className="admin-table-wrap">
           <table className="admin-table">
             <thead>
-              <tr><th>ID</th><th>Nombre</th><th>Short name</th><th>Disponible</th><th></th></tr>
+              <tr><th>ID</th><th>Color</th><th>Nombre</th><th>Short name</th><th>Disponible</th><th></th></tr>
             </thead>
             <tbody>
               {banks.map((b) => (
                 <tr key={b.id}>
                   <td><code className="admin-code">{b.id}</code></td>
+                  <td>
+                    {b.color ? (
+                      <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                        <span
+                          style={{
+                            display: "inline-block",
+                            width: 16,
+                            height: 16,
+                            borderRadius: 4,
+                            backgroundColor: b.color,
+                            border: "1px solid var(--line-strong)",
+                          }}
+                        />
+                        <code style={{ fontSize: 10, fontFamily: "var(--font-jetbrains)" }}>{b.color}</code>
+                      </div>
+                    ) : (
+                      <span className="admin-cell-dim">—</span>
+                    )}
+                  </td>
                   <td>{b.name}</td>
                   <td className="admin-cell-dim">{b.short_name ?? "—"}</td>
                   <td>

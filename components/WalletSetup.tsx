@@ -195,7 +195,7 @@ function BankRow({
 
   const display = BANK_DISPLAY[bank.id];
   const iconLetter = display?.letter ?? bank.name.slice(0, 2).toUpperCase();
-  const iconBg = hasSelected ? undefined : display?.bg;
+  const iconBg = hasSelected ? undefined : (bank.color ?? display?.bg);
 
   return (
     <div

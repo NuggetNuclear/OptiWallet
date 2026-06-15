@@ -22,9 +22,9 @@ const sql = neon(process.env.DATABASE_URL);
 // ─── Datos mock ──────────────────────────────────────────────────────────────
 
 const BANKS = [
-  { id: "santander", name: "Banco Santander Chile", short_name: "Santander", available: true },
-  { id: "banco-chile", name: "Banco de Chile", short_name: "Banco de Chile", available: true },
-  { id: "falabella", name: "Banco Falabella", short_name: "Falabella", available: true },
+  { id: "santander", name: "Banco Santander Chile", short_name: "Santander", available: true, color: "#EC0000" },
+  { id: "banco-chile", name: "Banco de Chile", short_name: "Banco de Chile", available: true, color: "#003A70" },
+  { id: "falabella", name: "Banco Falabella", short_name: "Falabella", available: true, color: "#8CC63F" },
 ];
 
 const CARDS = [
@@ -113,7 +113,8 @@ async function reset() {
 
   console.log("📋 Reaplicando schema.sql…");
   const schema = fs.readFileSync(path.join(import.meta.dirname, "schema.sql"), "utf-8");
-  const statements = schema.split(";").map((s) => s.trim()).filter((s) => s.length > 0);
+  const stripped = schema.replace(/--[^\n]*/g, "");
+  const statements = stripped.split(";").map((s) => s.trim()).filter((s) => s.length > 0);
   for (const stmt of statements) {
     await sql.query(stmt);
   }
@@ -124,8 +125,8 @@ async function seed() {
 
   for (const b of BANKS) {
     await sql.query(
-      `INSERT INTO banks (id, name, short_name, available) VALUES ($1, $2, $3, $4)`,
-      [b.id, b.name, b.short_name, b.available]
+      `INSERT INTO banks (id, name, short_name, available, color) VALUES ($1, $2, $3, $4, $5)`,
+      [b.id, b.name, b.short_name, b.available, b.color]
     );
   }
 

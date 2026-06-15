@@ -3,7 +3,8 @@ CREATE TABLE IF NOT EXISTS banks (
   id         TEXT PRIMARY KEY,
   name       TEXT NOT NULL,
   short_name TEXT,
-  available  BOOLEAN NOT NULL DEFAULT false
+  available  BOOLEAN NOT NULL DEFAULT false,
+  color      TEXT
 );
 
 -- cards
@@ -72,6 +73,9 @@ CREATE TABLE IF NOT EXISTS admin_users (
 -- todas sus sesiones vigentes de inmediato. Idempotente: ADD COLUMN IF NOT
 -- EXISTS permite correr este schema sobre una DB ya existente sin perder datos.
 ALTER TABLE admin_users ADD COLUMN IF NOT EXISTS token_version INTEGER NOT NULL DEFAULT 0;
+
+-- Color de marca para bancos. Idempotente.
+ALTER TABLE banks ADD COLUMN IF NOT EXISTS color TEXT;
 
 -- admin_login_attempts (rate limiting — one row per failed attempt)
 CREATE TABLE IF NOT EXISTS admin_login_attempts (

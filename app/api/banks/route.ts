@@ -8,7 +8,7 @@ export async function GET() {
     // Columnas explícitas: si la tabla gana campos internos a futuro,
     // no se filtran solos por la API.
     const banks = await sql`
-      SELECT id, name, short_name, available
+      SELECT id, name, short_name, available, color
       FROM banks
       ORDER BY available DESC, name ASC
     `;

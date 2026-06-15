@@ -28,4 +28,8 @@ describe("schema.sql — integridad del esquema de base de datos", () => {
   it("define la tabla admin_audit_log para logs de actividad", () => {
     ok(schemaContent.includes("CREATE TABLE IF NOT EXISTS admin_audit_log"), "Debe definir la tabla admin_audit_log");
   });
+
+  it("define el campo color en banks para el diseño dinámico", () => {
+    ok(schemaContent.includes("color"), "Debe definir la columna color en banks");
+  });
 });

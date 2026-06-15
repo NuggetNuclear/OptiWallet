@@ -9,6 +9,7 @@ export type ApiBank = {
   name:       string;
   short_name: string | null;
   available:  boolean;
+  color:      string | null;
 };
 
 export type ApiCard = {
