@@ -12,7 +12,7 @@ CREATE TABLE IF NOT EXISTS cards (
   id      TEXT PRIMARY KEY,
   bank_id TEXT NOT NULL REFERENCES banks(id) ON DELETE RESTRICT ON UPDATE RESTRICT,
   name    TEXT NOT NULL,
-  type    TEXT NOT NULL CHECK (type IN ('credit', 'debit'))
+  type    TEXT NOT NULL CHECK (type IN ('credit', 'debit', 'prepaid'))
 );
 
 -- merchant_categories
@@ -34,7 +34,7 @@ CREATE TABLE IF NOT EXISTS merchants (
 CREATE TABLE IF NOT EXISTS promotions (
   id           TEXT PRIMARY KEY,
   bank_id      TEXT NOT NULL REFERENCES banks(id)     ON DELETE RESTRICT ON UPDATE RESTRICT,
-  card_types   TEXT[] NOT NULL CHECK (card_types <@ ARRAY['credit','debit']),
+  card_types   TEXT[] NOT NULL CHECK (card_types <@ ARRAY['credit','debit','prepaid']),
   merchant_id  TEXT NOT NULL REFERENCES merchants(id) ON DELETE RESTRICT ON UPDATE RESTRICT,
   discount     INTEGER NOT NULL CHECK (discount > 0 AND discount <= 100),
   cap          INTEGER,
@@ -100,3 +100,10 @@ CREATE TABLE IF NOT EXISTS admin_audit_log (
 );
 
 CREATE INDEX IF NOT EXISTS idx_admin_audit_created ON admin_audit_log(created_at DESC);
+
+-- Soporte de tarjetas prepago (M4)
+ALTER TABLE cards DROP CONSTRAINT IF EXISTS cards_type_check;
+ALTER TABLE cards ADD CONSTRAINT cards_type_check CHECK (type IN ('credit', 'debit', 'prepaid'));
+
+ALTER TABLE promotions DROP CONSTRAINT IF EXISTS promotions_card_types_check;
+ALTER TABLE promotions ADD CONSTRAINT promotions_card_types_check CHECK (card_types <@ ARRAY['credit','debit','prepaid']);

@@ -25,15 +25,15 @@ export function areValidIds(values: string[]): boolean {
 // Las columnas tienen CHECK constraints en Postgres, pero validar en la capa app
 // devuelve 400 (input claro) en vez de 500 (error de DB filtrado). (audit L4)
 
-export const CARD_TYPES = ["credit", "debit"] as const;
+export const CARD_TYPES = ["credit", "debit", "prepaid"] as const;
 export type CardType = (typeof CARD_TYPES)[number];
 
-/** Array no vacío cuyos elementos son todos "credit" o "debit". */
+/** Array no vacío cuyos elementos son todos "credit", "debit" o "prepaid". */
 export function isValidCardTypes(v: unknown): v is CardType[] {
   return (
     Array.isArray(v) &&
     v.length > 0 &&
-    v.every((t) => t === "credit" || t === "debit")
+    v.every((t) => t === "credit" || t === "debit" || t === "prepaid")
   );
 }
 

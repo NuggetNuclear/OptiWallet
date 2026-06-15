@@ -301,11 +301,13 @@ function PromoRow({
           <div className="flex items-center gap-2">
             <span className="font-medium text-ink">{promo.bank_name}</span>
             <span className="font-mono text-[9px] uppercase tracking-widest text-ink-dim">
-              {promo.card_types.includes("credit") && promo.card_types.includes("debit")
-                ? "Crédito/Débito"
-                : promo.card_types.includes("credit")
-                  ? "Crédito"
-                  : "Débito"}
+              {(() => {
+                const parts: string[] = [];
+                if (promo.card_types.includes("credit")) parts.push("Crédito");
+                if (promo.card_types.includes("debit")) parts.push("Débito");
+                if (promo.card_types.includes("prepaid")) parts.push("Prepago");
+                return parts.join("/");
+              })()}
             </span>
           </div>
           <div className="mt-1 text-xs text-ink-dim">

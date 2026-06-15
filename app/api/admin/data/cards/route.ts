@@ -39,7 +39,7 @@ export async function POST(req: NextRequest) {
     if (!id || !isValidId(id)) return NextResponse.json({ error: "ID inválido" }, { status: 400, headers: NO_CACHE });
     if (!bank_id || !isValidId(bank_id)) return NextResponse.json({ error: "bank_id inválido" }, { status: 400, headers: NO_CACHE });
     if (!name || typeof name !== "string") return NextResponse.json({ error: "name requerido" }, { status: 400, headers: NO_CACHE });
-    if (type !== "credit" && type !== "debit") return NextResponse.json({ error: "type debe ser credit o debit" }, { status: 400, headers: NO_CACHE });
+    if (type !== "credit" && type !== "debit" && type !== "prepaid") return NextResponse.json({ error: "type debe ser credit, debit o prepaid" }, { status: 400, headers: NO_CACHE });
 
     await sql`INSERT INTO cards (id, bank_id, name, type) VALUES (${id}, ${bank_id}, ${name}, ${type})`;
     await logAdminAction(session, "create", "card", id, `Tarjeta "${name}" (${type}) en banco ${bank_id}`, clientIp(req));

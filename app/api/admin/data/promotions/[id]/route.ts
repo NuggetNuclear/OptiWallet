@@ -57,7 +57,7 @@ export async function PATCH(req: NextRequest, { params }: Params) {
     if (has("merchant_id") && !isValidId(fields.merchant_id as string)) return NextResponse.json({ error: "merchant_id inválido" }, { status: 400, headers: NO_CACHE });
     if (has("discount") && (typeof fields.discount !== "number" || fields.discount < 1 || fields.discount > 100)) return NextResponse.json({ error: "discount debe ser 1-100" }, { status: 400, headers: NO_CACHE });
     if (has("modality") && !["presencial", "online", "both"].includes(fields.modality as string)) return NextResponse.json({ error: "modality inválido" }, { status: 400, headers: NO_CACHE });
-    if (has("card_types") && !isValidCardTypes(fields.card_types)) return NextResponse.json({ error: "card_types debe ser un array no vacío de 'credit'/'debit'" }, { status: 400, headers: NO_CACHE });
+    if (has("card_types") && !isValidCardTypes(fields.card_types)) return NextResponse.json({ error: "card_types debe ser un array no vacío de 'credit'/'debit'/'prepaid'" }, { status: 400, headers: NO_CACHE });
     if (has("days_of_week") && !isValidDaysOfWeek(fields.days_of_week)) return NextResponse.json({ error: "days_of_week debe ser enteros 0-6" }, { status: 400, headers: NO_CACHE });
     if (has("cap") && !isNonNegativeIntOrNull(fields.cap)) return NextResponse.json({ error: "cap debe ser un entero ≥ 0 o null" }, { status: 400, headers: NO_CACHE });
     if (has("min_purchase") && !isNonNegativeIntOrNull(fields.min_purchase)) return NextResponse.json({ error: "min_purchase debe ser un entero ≥ 0 o null" }, { status: 400, headers: NO_CACHE });

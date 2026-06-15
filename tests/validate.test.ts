@@ -58,8 +58,10 @@ describe("areValidIds — validacion grupal", () => {
 describe("isValidCardTypes — writes de promociones", () => {
   it("['credit'] -> true", () => strictEqual(isValidCardTypes(["credit"]), true));
   it("['credit','debit'] -> true", () => strictEqual(isValidCardTypes(["credit", "debit"]), true));
+  it("['prepaid'] -> true", () => strictEqual(isValidCardTypes(["prepaid"]), true));
+  it("['credit','debit','prepaid'] -> true", () => strictEqual(isValidCardTypes(["credit", "debit", "prepaid"]), true));
   it("array vacio -> false", () => strictEqual(isValidCardTypes([]), false));
-  it("valor desconocido -> false", () => strictEqual(isValidCardTypes(["prepaid"]), false));
+  it("valor desconocido -> false", () => strictEqual(isValidCardTypes(["giftcard"]), false));
   it("no-array -> false", () => strictEqual(isValidCardTypes("credit"), false));
   it("null -> false", () => strictEqual(isValidCardTypes(null), false));
 });

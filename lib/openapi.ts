@@ -295,7 +295,7 @@ export const openApiSpec = {
           id: { $ref: "#/components/schemas/Id" },
           bank_id: { $ref: "#/components/schemas/Id" },
           name: { type: "string", example: "Mastercard Black" },
-          type: { type: "string", enum: ["credit", "debit"] },
+          type: { type: "string", enum: ["credit", "debit", "prepaid"] },
         },
         required: ["id", "bank_id", "name", "type"],
       },
@@ -328,7 +328,7 @@ export const openApiSpec = {
           bank_id: { $ref: "#/components/schemas/Id" },
           card_types: {
             type: "array",
-            items: { type: "string", enum: ["credit", "debit"] },
+            items: { type: "string", enum: ["credit", "debit", "prepaid"] },
           },
           merchant_id: { $ref: "#/components/schemas/Id" },
           discount: { type: "number", description: "Porcentaje de descuento", example: 25 },
@@ -378,7 +378,7 @@ export const openApiSpec = {
           emoji: { type: "string", example: "🛒" },
           card_id: { $ref: "#/components/schemas/Id" },
           card_name: { type: "string", example: "Mastercard Black" },
-          card_type: { type: "string", enum: ["credit", "debit"] },
+          card_type: { type: "string", enum: ["credit", "debit", "prepaid"] },
           bank_id: { $ref: "#/components/schemas/Id" },
         },
         required: [

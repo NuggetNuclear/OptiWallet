@@ -70,7 +70,7 @@ export function RecommendationCard({ recommendation, amount, compact, onClick }:
             {compact ? "Mejor opción" : "Paga con"}
           </span>
           <span className="rounded-full bg-bg/10 px-2 py-0.5 font-mono text-[9px] uppercase tracking-widest text-bg">
-            {card.type === "credit" ? "Crédito" : "Débito"}
+            {card.type === "credit" ? "Crédito" : card.type === "debit" ? "Débito" : "Prepago"}
           </span>
         </div>
 

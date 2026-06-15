@@ -30,7 +30,12 @@ export default function BanksPage() {
   useEffect(() => { (async () => { await load(); })(); }, []);
 
   function openNew() { setForm({ ...EMPTY }); setIsNew(true); setError(""); setSuccess(""); }
-  function openEdit(b: Bank) { setForm({ ...b }); setIsNew(false); setError(""); setSuccess(""); }
+  function openEdit(b: Bank) {
+    setForm({ ...b, color: b.color ? b.color.replace("#", "") : null });
+    setIsNew(false);
+    setError("");
+    setSuccess("");
+  }
   function cancelForm() { setForm(null); }
 
   async function save() {
@@ -39,10 +44,11 @@ export default function BanksPage() {
     try {
       const method = isNew ? "POST" : "PATCH";
       const url    = isNew ? "/api/admin/data/banks" : `/api/admin/data/banks/${form.id}`;
+      const colorFormatted = form.color ? `#${form.color.replace("#", "")}` : null;
       const res    = await fetch(url, {
         method,
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(form),
+        body: JSON.stringify({ ...form, color: colorFormatted }),
       });
       const data = await res.json();
       if (!res.ok) { setError(data.error ?? "Error"); return; }
@@ -165,23 +171,23 @@ export default function BanksPage() {
                 onChange={(e) => setForm({ ...form, short_name: e.target.value || null })} placeholder="Opcional" />
             </div>
             <div className="admin-form-row">
-              <label className="admin-label">Color de marca</label>
+              <label className="admin-label">Color de marca (código HEX)</label>
               <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
                 <input
                   type="color"
                   className="admin-input"
                   style={{ width: 44, height: 38, padding: 2, cursor: "pointer", border: "1px solid var(--line)" }}
-                  value={form.color ?? "#0b0d0c"}
-                  onChange={(e) => setForm({ ...form, color: e.target.value })}
+                  value={form.color ? `#${form.color.replace("#", "")}` : "#0b0d0c"}
+                  onChange={(e) => setForm({ ...form, color: e.target.value.replace("#", "") })}
                 />
                 <input
                   type="text"
                   className="admin-input"
                   style={{ flex: 1, textTransform: "uppercase" }}
-                  placeholder="#HEX (ej: #FF0000)"
+                  placeholder="HEX (ej: FF0000 o #FF0000)"
                   value={form.color ?? ""}
                   onChange={(e) => {
-                    const val = e.target.value;
+                    const val = e.target.value.replace(/#/g, "");
                     setForm({ ...form, color: val || null });
                   }}
                 />

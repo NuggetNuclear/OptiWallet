@@ -7,6 +7,7 @@ export type AuditAction =
   | "update"
   | "delete"
   | "login"
+  | "login_failed"
   | "logout"
   | "totp_setup"
   | "totp_reset"

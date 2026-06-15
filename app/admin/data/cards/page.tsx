@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import { AdminShell } from "../../components/AdminShell";
 import { DeleteModal } from "../../components/DeleteModal";
 
-interface Card  { id: string; bank_id: string; name: string; type: "credit" | "debit" }
+interface Card  { id: string; bank_id: string; name: string; type: "credit" | "debit" | "prepaid" }
 interface Bank  { id: string; name: string }
 
 const EMPTY: Card = { id: "", bank_id: "", name: "", type: "credit" };
@@ -106,9 +106,10 @@ export default function CardsPage() {
             <div className="admin-form-row">
               <label className="admin-label">Tipo</label>
               <select className="admin-input" value={form.type}
-                onChange={(e) => setForm({ ...form, type: e.target.value as "credit" | "debit" })}>
+                onChange={(e) => setForm({ ...form, type: e.target.value as "credit" | "debit" | "prepaid" })}>
                 <option value="credit">Crédito</option>
                 <option value="debit">Débito</option>
+                <option value="prepaid">Prepago</option>
               </select>
             </div>
           </div>
@@ -137,7 +138,11 @@ export default function CardsPage() {
                   <td><code className="admin-code">{c.id}</code></td>
                   <td>{c.name}</td>
                   <td>{bankName(c.bank_id)}</td>
-                  <td><span className={`admin-badge ${c.type === "credit" ? "admin-badge-green" : "admin-badge-dim"}`}>{c.type}</span></td>
+                  <td>
+                    <span className={`admin-badge ${c.type === "credit" ? "admin-badge-green" : c.type === "prepaid" ? "admin-badge-copper" : "admin-badge-dim"}`}>
+                      {c.type === "credit" ? "Crédito" : c.type === "debit" ? "Débito" : "Prepago"}
+                    </span>
+                  </td>
                   <td>
                     <div className="admin-actions">
                       <button className="admin-btn admin-btn-ghost admin-btn-sm" onClick={() => openEdit(c)}>Editar</button>

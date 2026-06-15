@@ -20,6 +20,7 @@ const ACTION_LABELS: Record<string, string> = {
   update:          "Actualizar",
   delete:          "Eliminar",
   login:           "Inicio de sesión",
+  login_failed:    "Intento fallido",
   logout:          "Cierre de sesión",
   totp_setup:      "Configurar 2FA",
   totp_reset:      "Restablecer 2FA",
@@ -41,6 +42,7 @@ const ACTION_BADGE: Record<string, string> = {
   update:          "admin-badge-dim",
   delete:          "admin-badge-copper",
   login:           "admin-badge-green",
+  login_failed:    "admin-badge-copper",
   logout:          "admin-badge-dim",
   totp_setup:      "admin-badge-green",
   totp_reset:      "admin-badge-copper",
@@ -50,14 +52,44 @@ const ACTION_BADGE: Record<string, string> = {
 export default function AuditPage() {
   const [entries, setEntries] = useState<AuditEntry[]>([]);
   const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
+  const [refreshInterval, setRefreshInterval] = useState<number>(0);
   const [filter,  setFilter]  = useState("");
 
+  async function loadLogs(silent = false) {
+    if (!silent) {
+      if (!loading) {
+        setRefreshing(true);
+      }
+    }
+    try {
+      const res = await fetch("/api/admin/audit");
+      if (res.ok) {
+        setEntries(await res.json());
+      }
+    } catch (err) {
+      console.error("Failed to load audit logs:", err);
+    } finally {
+      setLoading(false);
+      setRefreshing(false);
+    }
+  }
+
   useEffect(() => {
-    fetch("/api/admin/audit")
-      .then((r) => (r.ok ? r.json() : []))
-      .then(setEntries)
-      .finally(() => setLoading(false));
+    loadLogs();
   }, []);
+
+  useEffect(() => {
+    if (refreshInterval <= 0) return;
+    const timer = setInterval(() => {
+      loadLogs(true);
+    }, refreshInterval * 1000);
+    return () => clearInterval(timer);
+  }, [refreshInterval]);
+
+  function handleManualRefresh() {
+    loadLogs(false);
+  }
 
   const visible = filter
     ? entries.filter(
@@ -78,14 +110,50 @@ export default function AuditPage() {
         </div>
       </div>
 
-      <div className="admin-toolbar">
+      <div className="admin-toolbar" style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 12, flexWrap: "wrap", marginBottom: 24 }}>
         <input
           className="admin-input"
           value={filter}
           onChange={(e) => setFilter(e.target.value)}
           placeholder="Filtrar por admin, acción, entidad…"
-          style={{ maxWidth: 320 }}
+          style={{ maxWidth: 320, flex: "1 1 auto" }}
         />
+        <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+          {refreshing && <span className="admin-cell-dim" style={{ fontSize: 12 }}>Actualizando...</span>}
+          <select
+            className="admin-input"
+            value={refreshInterval}
+            onChange={(e) => setRefreshInterval(Number(e.target.value))}
+            style={{ width: "auto", fontSize: 13, height: 36, padding: "0 10px" }}
+          >
+            <option value={0}>Auto-actualizar: Desactivado</option>
+            <option value={10}>Auto-actualizar: 10 seg</option>
+            <option value={30}>Auto-actualizar: 30 seg</option>
+            <option value={60}>Auto-actualizar: 1 min</option>
+            <option value={300}>Auto-actualizar: 5 min</option>
+            <option value={600}>Auto-actualizar: 10 min</option>
+          </select>
+          <button
+            className="admin-btn admin-btn-ghost"
+            onClick={handleManualRefresh}
+            disabled={loading || refreshing}
+            style={{ height: 36, display: "inline-flex", alignItems: "center", gap: 6 }}
+          >
+            <svg
+              width="14"
+              height="14"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="2"
+              strokeLinecap="round"
+              style={refreshing ? { animation: "adminSpin 0.7s linear infinite" } : undefined}
+            >
+              <path d="M21.5 2v6h-6M21.34 15.57a10 10 0 1 1-.57-8.38l5.67-5.67" />
+            </svg>
+            Actualizar
+          </button>
+        </div>
       </div>
 
       {loading ? (

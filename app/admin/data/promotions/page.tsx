@@ -281,10 +281,10 @@ export default function PromotionsPage() {
           <div style={{ marginBottom: 16 }}>
             <label className="admin-label">Tipos de tarjeta</label>
             <div className="admin-check-group">
-              {["credit", "debit"].map((t) => (
+              {["credit", "debit", "prepaid"].map((t) => (
                 <label key={t} className="admin-check-row">
                   <input type="checkbox" checked={form.card_types.includes(t)} onChange={() => toggleCardType(t)} />
-                  {t === "credit" ? "Crédito" : "Débito"}
+                  {t === "credit" ? "Crédito" : t === "debit" ? "Débito" : "Prepago"}
                 </label>
               ))}
             </div>
@@ -399,7 +399,11 @@ export default function PromotionsPage() {
                   <td style={{ fontSize: 12 }}>{p.bank_name ?? bankName(p.bank_id)}</td>
                   <td style={{ fontSize: 12 }}>{p.merchant_name ?? merchantName(p.merchant_id)}</td>
                   <td style={{ fontWeight: 700, color: "var(--lime)" }}>{p.discount}%</td>
-                  <td style={{ fontSize: 11 }}>{p.card_types.join(", ")}</td>
+                  <td style={{ fontSize: 11 }}>
+                    {p.card_types
+                      .map((t) => (t === "credit" ? "Crédito" : t === "debit" ? "Débito" : "Prepago"))
+                      .join(", ")}
+                  </td>
                   <td className="admin-cell-dim" style={{ fontSize: 11 }}>
                     {p.days_of_week.length ? p.days_of_week.map((d) => DAYS[d]).join(", ") : "Todos"}
                   </td>

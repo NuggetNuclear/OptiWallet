@@ -276,7 +276,7 @@ function BankRow({
                     <div>
                       <div className="text-sm font-medium text-ink">{card.name}</div>
                       <div className="font-mono text-[10px] uppercase tracking-widest text-ink-dim">
-                        {card.type === "credit" ? "Crédito" : "Débito"}
+                        {card.type === "credit" ? "Crédito" : card.type === "debit" ? "Débito" : "Prepago"}
                       </div>
                     </div>
                   </div>

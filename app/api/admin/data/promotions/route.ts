@@ -61,7 +61,7 @@ export async function POST(req: NextRequest) {
     if (!id || !isValidId(id)) return NextResponse.json({ error: "ID inválido" }, { status: 400, headers: NO_CACHE });
     if (!bank_id || !isValidId(bank_id)) return NextResponse.json({ error: "bank_id inválido" }, { status: 400, headers: NO_CACHE });
     if (!merchant_id || !isValidId(merchant_id)) return NextResponse.json({ error: "merchant_id inválido" }, { status: 400, headers: NO_CACHE });
-    if (!isValidCardTypes(card_types)) return NextResponse.json({ error: "card_types debe ser un array no vacío de 'credit'/'debit'" }, { status: 400, headers: NO_CACHE });
+    if (!isValidCardTypes(card_types)) return NextResponse.json({ error: "card_types debe ser un array no vacío de 'credit'/'debit'/'prepaid'" }, { status: 400, headers: NO_CACHE });
     if (typeof discount !== "number" || discount < 1 || discount > 100) return NextResponse.json({ error: "discount debe ser 1-100" }, { status: 400, headers: NO_CACHE });
     if (!["presencial", "online", "both"].includes(modality)) return NextResponse.json({ error: "modality inválido" }, { status: 400, headers: NO_CACHE });
     if (days_of_week !== undefined && !isValidDaysOfWeek(days_of_week)) return NextResponse.json({ error: "days_of_week debe ser enteros 0-6" }, { status: 400, headers: NO_CACHE });

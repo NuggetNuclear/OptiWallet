@@ -37,7 +37,7 @@ export async function PATCH(req: NextRequest, { params }: Params) {
 
     if (has("name") && (typeof fields.name !== "string" || !fields.name.trim())) return NextResponse.json({ error: "name inválido" }, { status: 400, headers: NO_CACHE });
     if (has("bank_id") && !isValidId(fields.bank_id as string)) return NextResponse.json({ error: "bank_id inválido" }, { status: 400, headers: NO_CACHE });
-    if (has("type") && fields.type !== "credit" && fields.type !== "debit") return NextResponse.json({ error: "type inválido" }, { status: 400, headers: NO_CACHE });
+    if (has("type") && fields.type !== "credit" && fields.type !== "debit" && fields.type !== "prepaid") return NextResponse.json({ error: "type inválido" }, { status: 400, headers: NO_CACHE });
 
     const changed = ["name", "bank_id", "type"].filter(has);
     const rows = await sql`SELECT id, bank_id, name, type FROM cards WHERE id = ${id}`;
