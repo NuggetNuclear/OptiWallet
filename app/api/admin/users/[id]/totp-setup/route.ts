@@ -21,14 +21,19 @@ export async function GET(req: NextRequest, { params }: Params) {
   }
 
   try {
-    const rows = await sql`SELECT email, totp_secret, totp_enabled FROM admin_users WHERE id = ${id}`;
+    const rows = await sql`SELECT email, totp_secret, totp_enabled, token_version FROM admin_users WHERE id = ${id}`;
     if (!rows.length) return NextResponse.json({ error: "No encontrado" }, { status: 404, headers: NO_CACHE });
 
-    const { email, totp_secret, totp_enabled } = rows[0] as {
+    const { email, totp_secret, totp_enabled, token_version } = rows[0] as {
       email: string;
       totp_secret: string;
       totp_enabled: boolean;
+      token_version?: number;
     };
+
+    if ((session.tv ?? 0) !== Number(token_version ?? 0)) {
+      return NextResponse.json({ error: "No autorizado" }, { status: 401, headers: NO_CACHE });
+    }
 
     // Once 2FA is active, don't re-expose the shared secret/QR: it's a bearer
     // credential and re-display only widens the leak surface. Re-enrollment goes
@@ -72,14 +77,19 @@ export async function POST(req: NextRequest, { params }: Params) {
       return NextResponse.json({ error: "Código requerido" }, { status: 400, headers: NO_CACHE });
     }
 
-    const rows = await sql`SELECT email, totp_secret, totp_enabled FROM admin_users WHERE id = ${id}`;
+    const rows = await sql`SELECT email, totp_secret, totp_enabled, token_version FROM admin_users WHERE id = ${id}`;
     if (!rows.length) return NextResponse.json({ error: "No encontrado" }, { status: 404, headers: NO_CACHE });
 
-    const { email, totp_secret, totp_enabled } = rows[0] as {
+    const { email, totp_secret, totp_enabled, token_version } = rows[0] as {
       email: string;
       totp_secret: string;
       totp_enabled: boolean;
+      token_version?: number;
     };
+
+    if ((session.tv ?? 0) !== Number(token_version ?? 0)) {
+      return NextResponse.json({ error: "No autorizado" }, { status: 401, headers: NO_CACHE });
+    }
 
     if (totp_enabled) {
       return NextResponse.json({ error: "TOTP ya está activo" }, { status: 400, headers: NO_CACHE });

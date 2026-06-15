@@ -183,7 +183,7 @@ export default function BanksPage() {
         <div className="admin-loading"><span className="admin-spinner" aria-hidden="true" />Cargando…</div>
       ) : banks.length === 0 ? (
         <div className="admin-empty">
-          <div className="admin-empty-text">No hay bancos todavía. Crea el primero con "+ Nuevo banco".</div>
+          <div className="admin-empty-text">No hay bancos todavía. Crea el primero con &quot;+ Nuevo banco&quot;.</div>
         </div>
       ) : (
         <div className="admin-table-wrap">

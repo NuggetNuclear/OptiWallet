@@ -143,11 +143,11 @@ describe("formatCLP — moneda chilena", () => {
 // ─────────────────────────── daysOfWeekLabel ─────────────────────────────────
 
 describe("daysOfWeekLabel — etiqueta legible de dias", () => {
-  it("array vacio -> Todos los dias", () => {
-    strictEqual(daysOfWeekLabel([]), "Todos los dias");
+  it("array vacio -> Todos los días", () => {
+    strictEqual(daysOfWeekLabel([]), "Todos los días");
   });
-  it("los 7 dias -> Todos los dias", () => {
-    strictEqual(daysOfWeekLabel([0,1,2,3,4,5,6]), "Todos los dias");
+  it("los 7 dias -> Todos los días", () => {
+    strictEqual(daysOfWeekLabel([0,1,2,3,4,5,6]), "Todos los días");
   });
   it("1 dia -> nombre completo", () => {
     strictEqual(daysOfWeekLabel([0]), "Domingo");

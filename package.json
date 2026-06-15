@@ -2,6 +2,7 @@
   "name": "optiwallet",
   "version": "0.1.0-beta",
   "private": true,
+  "type": "module",
   "scripts": {
     "dev": "next dev",
     "build": "next build",

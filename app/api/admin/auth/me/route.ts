@@ -15,10 +15,16 @@ export async function GET(req: NextRequest) {
     // account 401s, and a reset TOTP reports totp_enabled=false so the client
     // redirects to enrollment — mirroring the requireAdmin() guard on the API.
     const rows = await sql`
-      SELECT email, totp_enabled FROM admin_users WHERE id = ${session.adminId}
+      SELECT email, totp_enabled, token_version FROM admin_users WHERE id = ${session.adminId}
     `;
-    const user = rows[0] as { email: string; totp_enabled: boolean } | undefined;
+    const user = rows[0] as { email: string; totp_enabled: boolean; token_version?: number } | undefined;
     if (!user) {
+      return NextResponse.json({ error: "No autorizado" }, { status: 401, headers: NO_CACHE });
+    }
+
+    // Session revocation check for GET /me (audit L1 / M3).
+    // Bumping token_version immediately invalidates sessions at UI level.
+    if ((session.tv ?? 0) !== Number(user.token_version ?? 0)) {
       return NextResponse.json({ error: "No autorizado" }, { status: 401, headers: NO_CACHE });
     }
 
