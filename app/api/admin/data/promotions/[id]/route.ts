@@ -7,6 +7,7 @@ import {
   isValidDaysOfWeek,
   isNonNegativeIntOrNull,
   isValidDateOrNull,
+  isValidDiscountConfig,
 } from "@/lib/validate";
 import { NextRequest, NextResponse } from "next/server";
 
@@ -22,7 +23,9 @@ export async function GET(req: NextRequest, { params }: Params) {
   try {
     const rows = await sql`
       SELECT
-        p.id, p.bank_id, p.card_types, p.merchant_id, p.discount, p.cap, p.min_purchase,
+        p.id, p.bank_id, p.card_types, p.merchant_id,
+        p.discount, p.discount_per_unit, p.discount_unit, p.stackable,
+        p.cap, p.min_purchase,
         p.days_of_week, p.start_date, p.end_date, p.modality, p.code, p.conditions,
         p.source, p.verified_at, p.active, p.created_at, p.updated_at,
         b.name AS bank_name, m.name AS merchant_name
@@ -56,6 +59,7 @@ export async function PATCH(req: NextRequest, { params }: Params) {
     if (has("bank_id") && !isValidId(fields.bank_id as string)) return NextResponse.json({ error: "bank_id inválido" }, { status: 400, headers: NO_CACHE });
     if (has("merchant_id") && !isValidId(fields.merchant_id as string)) return NextResponse.json({ error: "merchant_id inválido" }, { status: 400, headers: NO_CACHE });
     if (has("discount") && (typeof fields.discount !== "number" || fields.discount < 1 || fields.discount > 100)) return NextResponse.json({ error: "discount debe ser 1-100" }, { status: 400, headers: NO_CACHE });
+    if (has("discount_per_unit") && (typeof fields.discount_per_unit !== "number" || fields.discount_per_unit <= 0)) return NextResponse.json({ error: "discount_per_unit debe ser un entero > 0" }, { status: 400, headers: NO_CACHE });
     if (has("modality") && !["presencial", "online", "both"].includes(fields.modality as string)) return NextResponse.json({ error: "modality inválido" }, { status: 400, headers: NO_CACHE });
     if (has("card_types") && !isValidCardTypes(fields.card_types)) return NextResponse.json({ error: "card_types debe ser un array no vacío de 'credit'/'debit'/'prepaid'" }, { status: 400, headers: NO_CACHE });
     if (has("days_of_week") && !isValidDaysOfWeek(fields.days_of_week)) return NextResponse.json({ error: "days_of_week debe ser enteros 0-6" }, { status: 400, headers: NO_CACHE });
@@ -66,11 +70,14 @@ export async function PATCH(req: NextRequest, { params }: Params) {
     if (has("verified_at") && !isValidDateOrNull(fields.verified_at)) return NextResponse.json({ error: "verified_at inválida (YYYY-MM-DD)" }, { status: 400, headers: NO_CACHE });
     if (has("source") && (typeof fields.source !== "string" || !fields.source.trim())) return NextResponse.json({ error: "source inválido" }, { status: 400, headers: NO_CACHE });
     if (has("active") && typeof fields.active !== "boolean") return NextResponse.json({ error: "active inválido" }, { status: 400, headers: NO_CACHE });
+    if (has("stackable") && typeof fields.stackable !== "boolean") return NextResponse.json({ error: "stackable inválido" }, { status: 400, headers: NO_CACHE });
     if (has("code") && fields.code !== null && typeof fields.code !== "string") return NextResponse.json({ error: "code inválido" }, { status: 400, headers: NO_CACHE });
     if (has("conditions") && fields.conditions !== null && typeof fields.conditions !== "string") return NextResponse.json({ error: "conditions inválido" }, { status: 400, headers: NO_CACHE });
 
     const allowed = [
-      "bank_id", "card_types", "merchant_id", "discount", "cap", "min_purchase",
+      "bank_id", "card_types", "merchant_id",
+      "discount", "discount_per_unit", "discount_unit", "stackable",
+      "cap", "min_purchase",
       "days_of_week", "start_date", "end_date", "modality", "code", "conditions",
       "source", "verified_at", "active",
     ] as const;
@@ -86,7 +93,9 @@ export async function PATCH(req: NextRequest, { params }: Params) {
     // Read current row, merge provided fields, write back in ONE atomic UPDATE
     // (no partial-write window if something fails mid-way). (audit L4)
     const rows = await sql`
-      SELECT bank_id, card_types, merchant_id, discount, cap, min_purchase,
+      SELECT bank_id, card_types, merchant_id,
+             discount, discount_per_unit, discount_unit, stackable,
+             cap, min_purchase,
              days_of_week, start_date, end_date, modality, code, conditions,
              source, verified_at, active
       FROM promotions WHERE id = ${id}
@@ -97,22 +106,34 @@ export async function PATCH(req: NextRequest, { params }: Params) {
       has(k) ? (nullable ? ((fields[k] ?? null) as unknown) : fields[k]) : cur[k];
 
     const next = {
-      bank_id:      pick("bank_id"),
-      card_types:   pick("card_types"),
-      merchant_id:  pick("merchant_id"),
-      discount:     pick("discount"),
-      cap:          pick("cap", true),
-      min_purchase: pick("min_purchase", true),
-      days_of_week: pick("days_of_week"),
-      start_date:   pick("start_date", true),
-      end_date:     pick("end_date", true),
-      modality:     pick("modality"),
-      code:         pick("code", true),
-      conditions:   pick("conditions", true),
-      source:       pick("source"),
-      verified_at:  pick("verified_at"),
-      active:       pick("active"),
+      bank_id:           pick("bank_id"),
+      card_types:        pick("card_types"),
+      merchant_id:       pick("merchant_id"),
+      discount:          pick("discount", true),
+      discount_per_unit: pick("discount_per_unit", true),
+      discount_unit:     pick("discount_unit", true),
+      stackable:         pick("stackable"),
+      cap:               pick("cap", true),
+      min_purchase:      pick("min_purchase", true),
+      days_of_week:      pick("days_of_week"),
+      start_date:        pick("start_date", true),
+      end_date:          pick("end_date", true),
+      modality:          pick("modality"),
+      code:              pick("code", true),
+      conditions:        pick("conditions", true),
+      source:            pick("source"),
+      verified_at:       pick("verified_at"),
+      active:            pick("active"),
     };
+
+    // Validate XOR constraint on the merged result
+    if (!isValidDiscountConfig({
+      discount: next.discount,
+      discount_per_unit: next.discount_per_unit,
+      discount_unit: next.discount_unit,
+    })) {
+      return NextResponse.json({ error: "La promoción debe tener exactamente uno: discount (%) o discount_per_unit+discount_unit" }, { status: 400, headers: NO_CACHE });
+    }
 
     // Cross-field check on the merged result (string dates compare lexicographically).
     if (next.start_date && next.end_date && (next.end_date as string) < (next.start_date as string)) {
@@ -121,22 +142,25 @@ export async function PATCH(req: NextRequest, { params }: Params) {
 
     await sql`
       UPDATE promotions SET
-        bank_id      = ${next.bank_id as string},
-        card_types   = ${next.card_types as string[]},
-        merchant_id  = ${next.merchant_id as string},
-        discount     = ${next.discount as number},
-        cap          = ${next.cap as number | null},
-        min_purchase = ${next.min_purchase as number | null},
-        days_of_week = ${next.days_of_week as number[]},
-        start_date   = ${next.start_date as string | null}::date,
-        end_date     = ${next.end_date as string | null}::date,
-        modality     = ${next.modality as string},
-        code         = ${next.code as string | null},
-        conditions   = ${next.conditions as string | null},
-        source       = ${next.source as string},
-        verified_at  = ${next.verified_at as string}::date,
-        active        = ${next.active as boolean},
-        updated_at   = now()
+        bank_id           = ${next.bank_id as string},
+        card_types        = ${next.card_types as string[]},
+        merchant_id       = ${next.merchant_id as string},
+        discount          = ${next.discount as number | null},
+        discount_per_unit = ${next.discount_per_unit as number | null},
+        discount_unit     = ${next.discount_unit as string | null},
+        stackable         = ${next.stackable as boolean},
+        cap               = ${next.cap as number | null},
+        min_purchase      = ${next.min_purchase as number | null},
+        days_of_week      = ${next.days_of_week as number[]},
+        start_date        = ${next.start_date as string | null}::date,
+        end_date          = ${next.end_date as string | null}::date,
+        modality          = ${next.modality as string},
+        code              = ${next.code as string | null},
+        conditions        = ${next.conditions as string | null},
+        source            = ${next.source as string},
+        verified_at       = ${next.verified_at as string}::date,
+        active            = ${next.active as boolean},
+        updated_at        = now()
       WHERE id = ${id}
     `;
 

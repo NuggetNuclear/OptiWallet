@@ -6,7 +6,9 @@ import { DeleteModal } from "../../components/DeleteModal";
 
 interface Promo {
   id: string; bank_id: string; card_types: string[]; merchant_id: string;
-  discount: number; cap: number | null; min_purchase: number | null;
+  discount: number | null; discount_per_unit: number | null; discount_unit: string | null;
+  stackable: boolean;
+  cap: number | null; min_purchase: number | null;
   days_of_week: number[]; start_date: string | null; end_date: string | null;
   modality: string; code: string | null; conditions: string | null;
   source: string; verified_at: string; active: boolean;
@@ -19,7 +21,9 @@ const DAYS = ["Dom", "Lun", "Mar", "Mié", "Jue", "Vie", "Sáb"];
 
 const EMPTY: Promo = {
   id: "", bank_id: "", card_types: ["credit"], merchant_id: "",
-  discount: 10, cap: null, min_purchase: null,
+  discount: 10, discount_per_unit: null, discount_unit: null,
+  stackable: false,
+  cap: null, min_purchase: null,
   days_of_week: [], start_date: null, end_date: null,
   modality: "both", code: null, conditions: null,
   source: "", verified_at: new Date().toISOString().slice(0, 10), active: true,
@@ -223,10 +227,43 @@ export default function PromotionsPage() {
               </select>
             </div>
             <div className="admin-form-row">
-              <label className="admin-label">Descuento (%)</label>
-              <input className="admin-input" type="number" min={1} max={100}
-                value={form.discount} onChange={(e) => setForm({ ...form, discount: +e.target.value })} />
+              <label className="admin-label">Tipo de descuento</label>
+              <div className="admin-check-group" style={{ flexDirection: "row", gap: 16 }}>
+                <label className="admin-check-row">
+                  <input
+                    type="radio"
+                    name="discount_type"
+                    checked={form.discount !== null}
+                    onChange={() => setForm({ ...form, discount: 10, discount_per_unit: null, discount_unit: null })}
+                  />
+                  % Porcentaje
+                </label>
+                <label className="admin-check-row">
+                  <input
+                    type="radio"
+                    name="discount_type"
+                    checked={form.discount_unit === "liter"}
+                    onChange={() => setForm({ ...form, discount: null, discount_per_unit: 100, discount_unit: "liter" })}
+                  />
+                  $/litro (bencina por app)
+                </label>
+              </div>
             </div>
+            {form.discount !== null ? (
+              <div className="admin-form-row">
+                <label className="admin-label">Descuento (%)</label>
+                <input className="admin-input" type="number" min={1} max={100}
+                  value={form.discount} onChange={(e) => setForm({ ...form, discount: +e.target.value })} />
+              </div>
+            ) : (
+              <div className="admin-form-row">
+                <label className="admin-label">Descuento por litro (CLP)</label>
+                <input className="admin-input" type="number" min={1}
+                  placeholder="ej. 100"
+                  value={form.discount_per_unit ?? ""}
+                  onChange={(e) => setForm({ ...form, discount_per_unit: e.target.value ? +e.target.value : null })} />
+              </div>
+            )}
             <div className="admin-form-row">
               <label className="admin-label">Tope (CLP, opcional)</label>
               <input className="admin-input" type="number" min={0}
@@ -305,6 +342,11 @@ export default function PromotionsPage() {
           <label className="admin-check-row" style={{ marginBottom: 16 }}>
             <input type="checkbox" checked={form.active} onChange={(e) => setForm({ ...form, active: e.target.checked })} />
             Activa
+          </label>
+
+          <label className="admin-check-row" style={{ marginBottom: 16 }}>
+            <input type="checkbox" checked={form.stackable} onChange={(e) => setForm({ ...form, stackable: e.target.checked })} />
+            Apilable <span style={{ fontSize: 11, color: "var(--ink-dim)", fontFamily: "var(--font-jetbrains)" }}>(puede combinarse con otras promos simultáneamente)</span>
           </label>
 
           <div className="admin-form-actions">
@@ -398,7 +440,13 @@ export default function PromotionsPage() {
                   <td><code className="admin-code" style={{ fontSize: 10 }}>{p.id}</code></td>
                   <td style={{ fontSize: 12 }}>{p.bank_name ?? bankName(p.bank_id)}</td>
                   <td style={{ fontSize: 12 }}>{p.merchant_name ?? merchantName(p.merchant_id)}</td>
-                  <td style={{ fontWeight: 700, color: "var(--lime)" }}>{p.discount}%</td>
+                  <td style={{ fontWeight: 700, color: "var(--lime)" }}>
+                    {p.discount !== null
+                      ? `${p.discount}%`
+                      : p.discount_per_unit !== null
+                        ? `$${p.discount_per_unit}/L`
+                        : "—"}
+                  </td>
                   <td style={{ fontSize: 11 }}>
                     {p.card_types
                       .map((t) => (t === "credit" ? "Crédito" : t === "debit" ? "Débito" : "Prepago"))

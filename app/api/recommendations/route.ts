@@ -41,6 +41,9 @@ export async function GET(req: NextRequest) {
       SELECT
         p.id             AS promotion_id,
         p.discount,
+        p.discount_per_unit,
+        p.discount_unit,
+        p.stackable,
         p.cap,
         p.min_purchase,
         p.days_of_week,
@@ -80,7 +83,7 @@ export async function GET(req: NextRequest) {
               ${merchantId ?? ""} = ''
               OR p.merchant_id = ${merchantId ?? ""}
             )
-      ORDER BY p.discount DESC
+      ORDER BY COALESCE(p.discount, 0) DESC, COALESCE(p.discount_per_unit, 0) DESC
     `;
 
     return NextResponse.json(rows, {

@@ -73,3 +73,18 @@ export function modalityLabel(modality: "presencial" | "online" | "both"): strin
   if (modality === "online") return "Online";
   return "Presencial";
 }
+
+/**
+ * Formatea un descuento para mostrar al usuario, sin importar el tipo.
+ * Ej: porcentaje → "15%"  |  por litro → "$100/L"
+ */
+export function formatDiscount(
+  discount: number | null,
+  discountPerUnit: number | null,
+  discountUnit: string | null
+): string {
+  if (discountPerUnit !== null && discountUnit === "liter") {
+    return `${formatCLP(discountPerUnit)}/L`;
+  }
+  return `${discount}%`;
+}

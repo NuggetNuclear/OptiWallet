@@ -1,9 +1,9 @@
 import type { ApiRecommendation } from "./api-client";
 
 /**
- * Calcula el ahorro en pesos (CLP) para una promoción dada.
+ * Calcula el ahorro en pesos (CLP) para una promoción de tipo porcentaje.
  *
- * @param amount Monto total de la compra.
+ * @param amount Monto total de la compra en CLP.
  * @param discount Porcentaje de descuento (1-100).
  * @param cap Tope máximo de descuento en CLP (null si no tiene).
  * @param minPurchase Compra mínima requerida en CLP (null si no tiene).
@@ -26,33 +26,83 @@ export function calculateSavings(
 }
 
 /**
+ * Calcula el ahorro en pesos (CLP) para una promoción de tipo "fijo por litro"
+ * (ej. $100/L al pagar con app en bencineras).
+ *
+ * @param units Cantidad de litros a cargar.
+ * @param discountPerUnit Descuento fijo en CLP por litro (ej. 100).
+ * @param cap Tope máximo de descuento en CLP (null si no tiene).
+ * @returns El ahorro calculado en pesos.
+ */
+export function calculateSavingsPerUnit(
+  units: number,
+  discountPerUnit: number,
+  cap: number | null
+): number {
+  if (units <= 0) return 0;
+  const savings = Math.round(units * discountPerUnit);
+  return cap !== null ? Math.min(savings, cap) : savings;
+}
+
+/**
+ * Calcula el ahorro de una recomendación dado el contexto del usuario.
+ * Usa `units` para promos de tipo por-litro, `amount` para las de porcentaje.
+ */
+export function calculateSavingsForRec(
+  rec: ApiRecommendation,
+  amount?: number,
+  units?: number
+): number {
+  if (rec.discount_per_unit !== null && rec.discount_unit === "liter") {
+    if (units === undefined || units <= 0) return 0;
+    return calculateSavingsPerUnit(units, rec.discount_per_unit, rec.cap);
+  }
+  if (rec.discount !== null) {
+    if (amount === undefined || amount <= 0) return 0;
+    const minPurchase = rec.min_purchase;
+    return calculateSavings(amount, rec.discount, rec.cap, minPurchase);
+  }
+  return 0;
+}
+
+/**
  * Ordena y prioriza las recomendaciones disponibles.
  *
- * Si no se proporciona un monto, se ordenan por mayor porcentaje de descuento (excluyentes estándar).
- * Si se proporciona un monto, se calcula el ahorro real para cada una (considerando topes
- * y mínimos de compra) y se ordenan por mayor ahorro en pesos.
+ * Si no se proporciona contexto, se ordenan por mayor descuento:
+ *   - Porcentaje: por el valor del porcentaje.
+ *   - Por litro: por el monto por unidad.
+ * Si se proporciona monto/litros, se calcula el ahorro real y se ordena por él.
  *
  * @param recs Lista de recomendaciones aplicables.
- * @param amount Monto de compra opcional.
+ * @param amount Monto de compra en CLP (para promos de porcentaje).
+ * @param units Litros a cargar (para promos de tipo por litro).
  * @returns Lista de recomendaciones ordenadas.
  */
 export function rankRecommendations(
   recs: ApiRecommendation[],
-  amount?: number
+  amount?: number,
+  units?: number
 ): ApiRecommendation[] {
-  if (amount === undefined || amount <= 0) {
-    return [...recs].sort((a, b) => b.discount - a.discount);
+  const hasContext = (amount !== undefined && amount > 0) || (units !== undefined && units > 0);
+
+  if (!hasContext) {
+    return [...recs].sort((a, b) => {
+      // Comparar usando el valor bruto del descuento (% vs CLP/L se mezclan solo sin contexto)
+      const va = a.discount_per_unit ?? a.discount ?? 0;
+      const vb = b.discount_per_unit ?? b.discount ?? 0;
+      return vb - va;
+    });
   }
 
   return [...recs].sort((a, b) => {
-    const savingsA = calculateSavings(amount, a.discount, a.cap, a.min_purchase);
-    const savingsB = calculateSavings(amount, b.discount, b.cap, b.min_purchase);
+    const savingsA = calculateSavingsForRec(a, amount, units);
+    const savingsB = calculateSavingsForRec(b, amount, units);
 
-    if (savingsB !== savingsA) {
-      return savingsB - savingsA;
-    }
-    // Si el ahorro en pesos es el mismo, prioriza la de mayor porcentaje
-    return b.discount - a.discount;
+    if (savingsB !== savingsA) return savingsB - savingsA;
+    // Desempate: mayor porcentaje o mayor monto por unidad
+    const va = a.discount_per_unit ?? a.discount ?? 0;
+    const vb = b.discount_per_unit ?? b.discount ?? 0;
+    return vb - va;
   });
 }
 
@@ -65,43 +115,49 @@ export interface StackedResult {
 }
 
 /**
- * Calcula el ahorro acumulado al aplicar múltiples promociones apilables de forma sucesiva.
- * El descuento posterior se aplica sobre el monto restante después del descuento anterior.
+ * Calcula el ahorro acumulado al aplicar múltiples promociones apilables (stackable=true)
+ * de forma sucesiva. El descuento posterior se aplica sobre el monto restante.
  *
- * @param promos Lista de promociones apilables.
- * @param amount Monto de compra inicial.
- * @returns Resultado con el ahorro total y el desglose de cada promoción aplicada.
+ * Solo se incluyen en el cálculo las promociones marcadas como `stackable`.
+ *
+ * @param promos Lista de recomendaciones (se filtra internamente por stackable).
+ * @param amount Monto de compra inicial en CLP.
+ * @param units Litros a cargar (para promos de tipo por litro).
+ * @returns Resultado con el ahorro total y el desglose por promoción.
  */
 export function calculateStackedSavings(
   promos: ApiRecommendation[],
-  amount: number
+  amount: number,
+  units?: number
 ): StackedResult {
   if (amount <= 0 || promos.length === 0) {
     return { totalSavings: 0, breakdown: [] };
   }
 
+  // Solo promos marcadas como apilables
+  const stackable = promos.filter((p) => p.stackable);
+  if (stackable.length === 0) return { totalSavings: 0, breakdown: [] };
+
   let currentAmount = amount;
   const breakdown: { promotionId: string; savings: number }[] = [];
   let totalSavings = 0;
 
-  // Aplicar las promociones empezando por la de mayor descuento para maximizar beneficio
-  const sorted = [...promos].sort((a, b) => b.discount - a.discount);
+  // Ordenar por mayor ahorro primero para maximizar el beneficio
+  const sorted = [...stackable].sort((a, b) => {
+    const sa = calculateSavingsForRec(a, currentAmount, units);
+    const sb = calculateSavingsForRec(b, currentAmount, units);
+    return sb - sa;
+  });
 
   for (const promo of sorted) {
-    const savings = calculateSavings(
-      currentAmount,
-      promo.discount,
-      promo.cap,
-      promo.min_purchase
-    );
-
+    const savings = calculateSavingsForRec(promo, currentAmount, units);
     if (savings > 0) {
       totalSavings += savings;
-      breakdown.push({
-        promotionId: promo.promotion_id,
-        savings,
-      });
-      currentAmount -= savings;
+      breakdown.push({ promotionId: promo.promotion_id, savings });
+      // Las promos de tipo porcentaje reducen el monto base; las de por litro no
+      if (promo.discount !== null) {
+        currentAmount -= savings;
+      }
     }
   }
 

@@ -107,3 +107,22 @@ ALTER TABLE cards ADD CONSTRAINT cards_type_check CHECK (type IN ('credit', 'deb
 
 ALTER TABLE promotions DROP CONSTRAINT IF EXISTS promotions_card_types_check;
 ALTER TABLE promotions ADD CONSTRAINT promotions_card_types_check CHECK (card_types <@ ARRAY['credit','debit','prepaid']);
+
+-- Descuento fijo por litro de combustible ($X por litro al pagar por app).
+-- discount_unit está limitado a 'liter' por ahora.
+-- Extensible a otras unidades (ej. 'kg' para GLP) según requerimientos futuros.
+ALTER TABLE promotions ADD COLUMN IF NOT EXISTS discount_per_unit INTEGER;
+ALTER TABLE promotions ADD COLUMN IF NOT EXISTS discount_unit      TEXT
+  CHECK (discount_unit IN ('liter'));
+
+-- XOR: exactamente uno de los dos mecanismos debe estar presente.
+-- Filas existentes (discount NOT NULL, discount_per_unit NULL) satisfacen la condición izquierda.
+ALTER TABLE promotions DROP CONSTRAINT IF EXISTS promotions_discount_xor;
+ALTER TABLE promotions ADD CONSTRAINT promotions_discount_xor CHECK (
+  (discount IS NOT NULL AND discount_per_unit IS NULL AND discount_unit IS NULL)
+  OR
+  (discount IS NULL AND discount_per_unit IS NOT NULL AND discount_unit IS NOT NULL)
+);
+
+-- Indica si esta promoción puede combinarse (apilarse) con otras simultáneamente.
+ALTER TABLE promotions ADD COLUMN IF NOT EXISTS stackable BOOLEAN NOT NULL DEFAULT false;

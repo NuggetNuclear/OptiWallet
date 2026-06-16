@@ -56,3 +56,33 @@ export function isValidDateOrNull(v: unknown): boolean {
   if (typeof v !== "string" || !/^\d{4}-\d{2}-\d{2}$/.test(v)) return false;
   return !Number.isNaN(new Date(v + "T00:00:00Z").getTime());
 }
+
+/**
+ * Unidades de descuento por unidad soportadas.
+ * Actualmente solo 'liter' (litros de combustible, descuento $X/L al pagar por app).
+ * Extensible a otras unidades según requerimientos futuros (ej. 'kg' para GLP).
+ */
+export const DISCOUNT_UNITS = ["liter"] as const;
+export type DiscountUnit = (typeof DISCOUNT_UNITS)[number];
+
+/**
+ * Valida que la configuración de descuento sea exclusiva (XOR).
+ * O se provee `discount` (porcentaje 1-100), o se proveen `discount_per_unit` + `discount_unit`.
+ * Nunca ambos, nunca ninguno.
+ */
+export function isValidDiscountConfig(body: {
+  discount?: unknown;
+  discount_per_unit?: unknown;
+  discount_unit?: unknown;
+}): boolean {
+  const hasPct =
+    typeof body.discount === "number" &&
+    body.discount >= 1 &&
+    body.discount <= 100;
+  const hasPu =
+    Number.isInteger(body.discount_per_unit) &&
+    (body.discount_per_unit as number) > 0 &&
+    DISCOUNT_UNITS.includes(body.discount_unit as DiscountUnit);
+  // XOR: exactamente uno de los dos
+  return hasPct !== hasPu;
+}

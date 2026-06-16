@@ -28,6 +28,9 @@ function toRecCardShape(rec: ApiRecommendation, bankName: string) {
     promotion: {
       id: rec.promotion_id,
       discount: rec.discount,
+      discount_per_unit: rec.discount_per_unit,
+      discount_unit: rec.discount_unit,
+      stackable: rec.stackable,
       cap: rec.cap,
       min_purchase: rec.min_purchase,
       modality: rec.modality,
@@ -75,6 +78,8 @@ export function MerchantDetail({
 
   const [amount, setAmount] = useState<number | undefined>(undefined);
   const [amountInput, setAmountInput] = useState("");
+  const [units, setUnits] = useState<number | undefined>(undefined);
+  const [unitsInput, setUnitsInput] = useState("");
 
   const { data: applicableRecs, loading: recsLoading } = useRecommendations(
     cardIds,
@@ -85,10 +90,16 @@ export function MerchantDetail({
   const bankNameMap = useMemo(() => buildBankNameMap(allPromos), [allPromos]);
   const getBankName = (bankId: string) => bankNameMap.get(bankId) ?? bankId;
 
-  // Ordenar dinámicamente las recomendaciones basándose en el monto ingresado
+  // Detectar si hay promos de tipo por-litro
+  const hasPerUnitPromos = useMemo(
+    () => applicableRecs.some((r) => r.discount_unit === "liter"),
+    [applicableRecs]
+  );
+
+  // Ordenar dinámicamente las recomendaciones basándose en el monto/litros ingresados
   const rankedRecs = useMemo(() => {
-    return rankRecommendations(applicableRecs, amount);
-  }, [applicableRecs, amount]);
+    return rankRecommendations(applicableRecs, amount, units);
+  }, [applicableRecs, amount, units]);
 
   const winner = rankedRecs[0];
   const alternatives = winner
@@ -192,6 +203,40 @@ export function MerchantDetail({
           <p className="mt-2 text-[11px] text-ink-dim">
             Así calculamos el ahorro real considerando el tope de cada promo.
           </p>
+
+          {/* Input de litros (solo si hay promos de tipo por-litro) */}
+          {hasPerUnitPromos && (
+            <>
+              <div className="mt-4 border-t border-line pt-4">
+                <label className="block font-mono text-[10px] uppercase tracking-widest text-ink-dim">
+                  ¿Cuántos litros vas a cargar? <span className="opacity-60">(para descuentos $X/L)</span>
+                </label>
+                <div className="mt-2 flex items-center gap-2">
+                  <input
+                    type="text"
+                    inputMode="numeric"
+                    placeholder="40"
+                    value={unitsInput}
+                    onChange={(e) => {
+                      const raw = e.target.value.replace(/\D/g, "");
+                      setUnitsInput(raw);
+                      setUnits(raw ? Number(raw) : undefined);
+                    }}
+                    className="flex-1 bg-transparent font-serif text-2xl text-ink placeholder:text-ink-dim/50 focus:outline-none"
+                  />
+                  <span className="font-mono text-sm text-ink-dim">L</span>
+                  {unitsInput && (
+                    <button
+                      onClick={() => { setUnitsInput(""); setUnits(undefined); }}
+                      className="text-xs text-ink-dim hover:text-ink"
+                    >
+                      limpiar
+                    </button>
+                  )}
+                </div>
+              </div>
+            </>
+          )}
         </div>
 
         {/* Ganadora o estado vacío */}
@@ -203,6 +248,7 @@ export function MerchantDetail({
                 <RecommendationCard
                   recommendation={toRecCardShape(winner, getBankName(winner.bank_id))}
                   amount={amount}
+                  units={units}
                 />
               </div>
             </div>

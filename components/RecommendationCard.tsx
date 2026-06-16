@@ -1,13 +1,16 @@
 "use client";
 
-import { formatCLP, modalityLabel } from "@/lib/format";
-import { calculateSavings } from "@/lib/recommendations";
+import { formatCLP, formatDiscount, modalityLabel } from "@/lib/format";
+import { calculateSavingsForRec } from "@/lib/recommendations";
 
 interface RecommendationCardProps {
   recommendation: {
     promotion: {
       id: string;
-      discount: number;
+      discount: number | null;
+      discount_per_unit?: number | null;
+      discount_unit?: string | null;
+      stackable?: boolean;
       cap: number | null;
       min_purchase?: number | null;
       modality: string;
@@ -25,6 +28,7 @@ interface RecommendationCardProps {
     bankName: string;
   };
   amount?: number;
+  units?: number;
   compact?: boolean;
   onClick?: () => void;
 }
@@ -42,14 +46,34 @@ function getMinPurchase(promotion: RecommendationCardProps["recommendation"]["pr
   return parseInt(match[1].replace(/\./g, ""), 10) || null;
 }
 
-export function RecommendationCard({ recommendation, amount, compact, onClick }: RecommendationCardProps) {
+export function RecommendationCard({ recommendation, amount, units, compact, onClick }: RecommendationCardProps) {
   const { promotion, card, merchant, bankName } = recommendation;
+  const isPerUnit = promotion.discount_per_unit != null && promotion.discount_unit === "liter";
 
   const minPurchase = getMinPurchase(promotion);
-  const belowMinimum = amount !== undefined && minPurchase !== null && amount < minPurchase;
+  const belowMinimum = !isPerUnit && amount !== undefined && minPurchase !== null && amount < minPurchase;
 
-  const savings = amount !== undefined && !belowMinimum
-    ? calculateSavings(amount, promotion.discount, promotion.cap, minPurchase)
+  // Calcular ahorro usando la función unificada
+  const savings = !belowMinimum
+    ? calculateSavingsForRec(
+        {
+          promotion_id: promotion.id,
+          discount: promotion.discount,
+          discount_per_unit: promotion.discount_per_unit ?? null,
+          discount_unit: promotion.discount_unit ?? null,
+          stackable: promotion.stackable ?? false,
+          cap: promotion.cap,
+          min_purchase: minPurchase,
+          // los demás campos no son necesarios para el cálculo
+          days_of_week: [], start_date: null, end_date: null,
+          modality: "", code: null, conditions: null, source: "",
+          verified_at: "", merchant_id: "", merchant_name: "",
+          category_id: "", category_label: "", emoji: "",
+          card_id: "", card_name: "", card_type: "", bank_id: "",
+        },
+        amount,
+        units
+      )
     : null;
 
   const Inner = (
@@ -82,7 +106,7 @@ export function RecommendationCard({ recommendation, amount, compact, onClick }:
 
         <div className="mt-5 flex flex-wrap items-baseline gap-x-2 gap-y-1">
           <span className="font-serif text-[52px] font-bold leading-none tracking-[-0.04em] text-bg sm:text-[64px]">
-            {promotion.discount}%
+            {formatDiscount(promotion.discount, promotion.discount_per_unit ?? null, promotion.discount_unit ?? null)}
           </span>
           <span className="font-mono text-[10px] uppercase tracking-widest text-bg/70">
             descuento
@@ -96,9 +120,10 @@ export function RecommendationCard({ recommendation, amount, compact, onClick }:
           </div>
         )}
 
-        {savings !== null && (
+        {savings !== null && savings > 0 && (
           <div className="mt-2 font-mono text-[11px] text-bg/80">
-            Ahorras ~{formatCLP(savings)} en {formatCLP(amount!)}
+            Ahorras ~{formatCLP(savings)}{" "}
+            {isPerUnit && units ? `en ${units} L` : amount ? `en ${formatCLP(amount)}` : ""}
           </div>
         )}
 
@@ -106,6 +131,7 @@ export function RecommendationCard({ recommendation, amount, compact, onClick }:
           <Chip>{merchant.name}</Chip>
           <Chip>{modalityLabel(promotion.modality as "presencial" | "online" | "both")}</Chip>
           {promotion.cap && <Chip>Tope {formatCLP(promotion.cap)}</Chip>}
+          {promotion.stackable && <Chip>⚡ Apilable</Chip>}
           {promotion.code && (
             <Chip mono>
               <span className="opacity-70">Código: </span>
