@@ -10,6 +10,9 @@ import type { ApiRecommendation } from "../lib/api-client";
 function rec(overrides: Partial<ApiRecommendation> & { promotion_id: string }): ApiRecommendation {
   return {
     discount: 10,
+    discount_per_unit: null,
+    discount_unit: null,
+    stackable: false,
     cap: null,
     min_purchase: null,
     days_of_week: [],
@@ -159,8 +162,8 @@ describe("rankRecommendations — excluyentes", () => {
 // ─────────────────────────── calculateStackedSavings ─────────────────────────
 
 describe("calculateStackedSavings — apilables", () => {
-  const banco = rec({ promotion_id: "banco-20-cap10k", discount: 20, cap: 10_000 });
-  const cupon = rec({ promotion_id: "cupon-10-min10k", discount: 10, cap: 5_000, min_purchase: 10_000 });
+  const banco = rec({ promotion_id: "banco-20-cap10k", discount: 20, cap: 10_000, stackable: true });
+  const cupon = rec({ promotion_id: "cupon-10-min10k", discount: 10, cap: 5_000, min_purchase: 10_000, stackable: true });
 
   it("amount 0 -> sin ahorro", () => {
     deepStrictEqual(calculateStackedSavings([banco], 0), { totalSavings: 0, breakdown: [] });
@@ -196,16 +199,16 @@ describe("calculateStackedSavings — apilables", () => {
   });
 
   it("aplica tope correctamente dentro de la cascada", () => {
-    const capChico = rec({ promotion_id: "cap-chico", discount: 50, cap: 3000 });
-    // 20.000: capChico(50%) -> tope 3.000 -> remanente 17.000; banco(20% de 17k=3.400) -> 6.400
+    const capChico = rec({ promotion_id: "cap-chico", discount: 50, cap: 3000, stackable: true });
+    // 20.000: banco (20%) -> 4.000 (remanente 16.000); capChico (50% de 16k=8k, tope 3.000) -> 7.000
     const result = calculateStackedSavings([capChico, banco], 20000);
-    strictEqual(result.totalSavings, 6400);
-    deepStrictEqual(result.breakdown[0], { promotionId: "cap-chico", savings: 3000 });
-    deepStrictEqual(result.breakdown[1], { promotionId: "banco-20-cap10k", savings: 3400 });
+    strictEqual(result.totalSavings, 7000);
+    deepStrictEqual(result.breakdown[0], { promotionId: "banco-20-cap10k", savings: 4000 });
+    deepStrictEqual(result.breakdown[1], { promotionId: "cap-chico", savings: 3000 });
   });
 
   it("promo con tope=0 -> savings=0, no aparece en breakdown", () => {
-    const sinAhorro = rec({ promotion_id: "tope-cero", discount: 50, cap: 0 });
+    const sinAhorro = rec({ promotion_id: "tope-cero", discount: 50, cap: 0, stackable: true });
     const result = calculateStackedSavings([sinAhorro, banco], 10000);
     strictEqual(result.breakdown.length, 1);
     strictEqual(result.breakdown[0].promotionId, "banco-20-cap10k");
@@ -213,7 +216,7 @@ describe("calculateStackedSavings — apilables", () => {
   });
 
   it("todas las promos excluidas -> { totalSavings: 0, breakdown: [] }", () => {
-    const imposible = rec({ promotion_id: "imposible", discount: 20, min_purchase: 999_999 });
+    const imposible = rec({ promotion_id: "imposible", discount: 20, min_purchase: 999_999, stackable: true });
     deepStrictEqual(calculateStackedSavings([imposible], 1000), { totalSavings: 0, breakdown: [] });
   });
 
