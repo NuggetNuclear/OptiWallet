@@ -8,7 +8,6 @@ import { TopBar } from "./layout/TopBar";
 import { BackButton } from "./layout/BackButton";
 import type { ApiRecommendation, ApiPromotion } from "@/lib/api-client";
 import { rankRecommendations } from "@/lib/recommendations";
-import { getBankVisual } from "@/lib/bank-display";
 
 
 interface MerchantDetailProps {
@@ -101,13 +100,6 @@ export function MerchantDetail({
   const rankedRecs = useMemo(() => {
     return rankRecommendations(applicableRecs, amount, units);
   }, [applicableRecs, amount, units]);
-
-  // Mapa promotion_id → card_ids, para saber si una promo es de "tarjeta única".
-  const exclusivePromoIds = useMemo(() => {
-    const s = new Set<string>();
-    for (const p of allPromos) if (p.card_ids && p.card_ids.length > 0) s.add(p.id);
-    return s;
-  }, [allPromos]);
 
   const winner = rankedRecs[0];
   const alternatives = winner
@@ -257,7 +249,6 @@ export function MerchantDetail({
                   recommendation={toRecCardShape(winner, getBankName(winner.bank_id))}
                   amount={amount}
                   units={units}
-                  exclusive={exclusivePromoIds.has(winner.promotion_id)}
                 />
               </div>
             </div>
@@ -341,8 +332,6 @@ function PromoRow({
   isWinner: boolean;
   isApplicable: boolean;
 }) {
-  const visual = getBankVisual(promo.bank_id, promo.bank_name);
-  const isSingleCard = (promo.card_names?.length ?? 0) > 0;
   return (
     <div
       className={`rounded-xl border p-4 ${
@@ -356,30 +345,18 @@ function PromoRow({
       <div className="flex items-start justify-between gap-3">
         <div className="min-w-0 flex-1">
           <div className="flex items-center gap-2">
-            <span
-              className="flex h-5 w-5 shrink-0 items-center justify-center rounded font-mono text-[8px] font-bold"
-              style={{ backgroundColor: visual.color, color: visual.text }}
-            >
-              {visual.letter}
-            </span>
             <span className="font-medium text-ink">{promo.bank_name}</span>
-            {isSingleCard ? (
-              <span className="inline-flex items-center gap-1 rounded-full bg-lime/10 px-2 py-0.5 font-mono text-[9px] uppercase tracking-wider text-lime">
-                🎯 {promo.card_names.join(" · ")}
-              </span>
-            ) : (
-              <span className="font-mono text-[9px] uppercase tracking-widest text-ink-dim">
-                {(() => {
-                  const parts: string[] = [];
-                  if (promo.card_types.includes("credit")) parts.push("Crédito");
-                  if (promo.card_types.includes("debit")) parts.push("Débito");
-                  if (promo.card_types.includes("prepaid")) parts.push("Prepago");
-                  return parts.join("/");
-                })()}
-              </span>
-            )}
+            <span className="font-mono text-[9px] uppercase tracking-widest text-ink-dim">
+              {(() => {
+                const parts: string[] = [];
+                if (promo.card_types.includes("credit")) parts.push("Crédito");
+                if (promo.card_types.includes("debit")) parts.push("Débito");
+                if (promo.card_types.includes("prepaid")) parts.push("Prepago");
+                return parts.join("/");
+              })()}
+            </span>
           </div>
-          <div className="mt-1 text-xs text-ink-soft">
+          <div className="mt-1 text-xs text-ink-dim">
             {daysOfWeekLabel(promo.days_of_week)} · {modalityLabel(promo.modality as "presencial" | "online" | "both")}
             {promo.cap && <> · Tope {formatCLP(promo.cap)}</>}
           </div>

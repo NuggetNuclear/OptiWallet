@@ -6,7 +6,6 @@
   --color-bg-2: #13161a;
   --color-bg-3: #1a1f1c;
   --color-ink: #f5f1e8;
-  --color-ink-soft: #c9c3b6;
   --color-ink-dim: #9a958a;
   --color-paper: #ede6d3;
   --color-lime: #d4ff3a;
@@ -57,7 +56,6 @@
     --bg-2: var(--color-bg-2);
     --bg-3: var(--color-bg-3);
     --ink: var(--color-ink);
-    --ink-soft: var(--color-ink-soft);
     --ink-dim: var(--color-ink-dim);
     --paper: var(--color-paper);
     --lime: var(--color-lime);

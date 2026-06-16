@@ -2,7 +2,6 @@
 
 import { formatCLP, formatDiscount, modalityLabel } from "@/lib/format";
 import { calculateSavingsForRec } from "@/lib/recommendations";
-import { getBankVisual } from "@/lib/bank-display";
 
 interface RecommendationCardProps {
   recommendation: {
@@ -31,8 +30,6 @@ interface RecommendationCardProps {
   amount?: number;
   units?: number;
   compact?: boolean;
-  /** La promo aplica solo a esta tarjeta específica (no a todo el tipo). */
-  exclusive?: boolean;
   onClick?: () => void;
 }
 
@@ -49,9 +46,8 @@ function getMinPurchase(promotion: RecommendationCardProps["recommendation"]["pr
   return parseInt(match[1].replace(/\./g, ""), 10) || null;
 }
 
-export function RecommendationCard({ recommendation, amount, units, compact, exclusive, onClick }: RecommendationCardProps) {
+export function RecommendationCard({ recommendation, amount, units, compact, onClick }: RecommendationCardProps) {
   const { promotion, card, merchant, bankName } = recommendation;
-  const visual = getBankVisual(card.bankId, bankName);
   const isPerUnit = promotion.discount_per_unit != null && promotion.discount_unit === "liter";
 
   const minPurchase = getMinPurchase(promotion);
@@ -102,26 +98,11 @@ export function RecommendationCard({ recommendation, amount, units, compact, exc
           </span>
         </div>
 
-        <div className="mt-2 flex items-center gap-2.5">
-          <span
-            className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg font-mono text-[11px] font-bold"
-            style={{ backgroundColor: visual.color, color: visual.text }}
-          >
-            {visual.letter}
-          </span>
-          <div className="min-w-0">
-            <div className="break-words font-serif text-[22px] font-semibold leading-[1.05] tracking-[-0.02em] text-bg sm:text-[26px]">
-              {bankName}
-            </div>
-            <div className="break-words text-xs text-bg/75">{card.name}</div>
-          </div>
+        <div className="mt-2 break-words font-serif text-[22px] font-semibold leading-[1.05] tracking-[-0.02em] text-bg sm:text-[26px]">
+          {bankName}
         </div>
 
-        {exclusive && (
-          <div className="mt-2.5 inline-flex items-center gap-1.5 rounded-full bg-bg/15 px-2.5 py-1 font-mono text-[10px] uppercase tracking-wider text-bg">
-            🎯 Solo con esta tarjeta
-          </div>
-        )}
+        <div className="mt-1 break-words text-xs text-bg/75">{card.name}</div>
 
         <div className="mt-5 flex flex-wrap items-baseline gap-x-2 gap-y-1">
           <span className="font-serif text-[52px] font-bold leading-none tracking-[-0.04em] text-bg sm:text-[64px]">
