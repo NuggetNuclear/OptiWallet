@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useMemo } from "react";
 import { AdminShell } from "../components/AdminShell";
 
 interface AuditEntry {
@@ -54,7 +54,10 @@ export default function AuditPage() {
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [refreshInterval, setRefreshInterval] = useState<number>(0);
-  const [filter,  setFilter]  = useState("");
+  const [filterAdmin, setFilterAdmin] = useState("");
+  const [filterAction, setFilterAction] = useState("");
+  const [filterEntity, setFilterEntity] = useState("");
+  const [searchQuery, setSearchQuery] = useState("");
 
   async function loadLogs(silent = false) {
     if (!silent) {
@@ -91,15 +94,35 @@ export default function AuditPage() {
     loadLogs(false);
   }
 
-  const visible = filter
-    ? entries.filter(
-        (e: AuditEntry) =>
-          e.admin_email.toLowerCase().includes(filter.toLowerCase()) ||
-          e.action.includes(filter.toLowerCase()) ||
-          (e.entity_id ?? "").toLowerCase().includes(filter.toLowerCase()) ||
-          (e.detail ?? "").toLowerCase().includes(filter.toLowerCase()),
-      )
-    : entries;
+  const admins = useMemo(() => {
+    return Array.from(new Set(entries.map((e) => e.admin_email))).sort();
+  }, [entries]);
+
+  const actions = useMemo(() => {
+    return Array.from(new Set(entries.map((e) => e.action))).sort();
+  }, [entries]);
+
+  const entities = useMemo(() => {
+    return Array.from(new Set(entries.filter((e) => e.entity_type !== null).map((e) => e.entity_type as string))).sort();
+  }, [entries]);
+
+  const visible = useMemo(() => {
+    return entries.filter((e) => {
+      if (filterAdmin && e.admin_email !== filterAdmin) return false;
+      if (filterAction && e.action !== filterAction) return false;
+      if (filterEntity && e.entity_type !== filterEntity) return false;
+      if (searchQuery) {
+        const q = searchQuery.toLowerCase();
+        const detailMatch = (e.detail ?? "").toLowerCase().includes(q);
+        const entityIdMatch = (e.entity_id ?? "").toLowerCase().includes(q);
+        const ipMatch = (e.ip_address ?? "").toLowerCase().includes(q);
+        const actionMatch = (ACTION_LABELS[e.action] ?? e.action).toLowerCase().includes(q);
+        const entityTypeMatch = (e.entity_type ? (ENTITY_LABELS[e.entity_type] ?? e.entity_type) : "").toLowerCase().includes(q);
+        return detailMatch || entityIdMatch || ipMatch || actionMatch || entityTypeMatch;
+      }
+      return true;
+    });
+  }, [entries, filterAdmin, filterAction, filterEntity, searchQuery]);
 
   return (
     <AdminShell>
@@ -111,13 +134,48 @@ export default function AuditPage() {
       </div>
 
       <div className="admin-toolbar" style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 12, flexWrap: "wrap", marginBottom: 24 }}>
-        <input
-          className="admin-input"
-          value={filter}
-          onChange={(e) => setFilter(e.target.value)}
-          placeholder="Filtrar por admin, acción, entidad…"
-          style={{ maxWidth: 320, flex: "1 1 auto" }}
-        />
+        <div style={{ display: "flex", gap: 12, alignItems: "center", flexWrap: "wrap", flex: "1 1 auto" }}>
+          <input
+            className="admin-input"
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            placeholder="Buscar por detalle, IP, ID..."
+            style={{ maxWidth: 220, flex: "1 1 auto" }}
+          />
+          <select
+            className="admin-input"
+            value={filterAdmin}
+            onChange={(e) => setFilterAdmin(e.target.value)}
+            style={{ width: "auto", minWidth: 160 }}
+          >
+            <option value="">Todos los admins</option>
+            {admins.map((adm) => (
+              <option key={adm} value={adm}>{adm}</option>
+            ))}
+          </select>
+          <select
+            className="admin-input"
+            value={filterAction}
+            onChange={(e) => setFilterAction(e.target.value)}
+            style={{ width: "auto", minWidth: 150 }}
+          >
+            <option value="">Todas las acciones</option>
+            {actions.map((act) => (
+              <option key={act} value={act}>{ACTION_LABELS[act] ?? act}</option>
+            ))}
+          </select>
+          <select
+            className="admin-input"
+            value={filterEntity}
+            onChange={(e) => setFilterEntity(e.target.value)}
+            style={{ width: "auto", minWidth: 150 }}
+          >
+            <option value="">Todas las entidades</option>
+            {entities.map((ent) => (
+              <option key={ent} value={ent}>{ENTITY_LABELS[ent] ?? ent}</option>
+            ))}
+          </select>
+        </div>
         <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
           {refreshing && <span className="admin-cell-dim" style={{ fontSize: 12 }}>Actualizando...</span>}
           <select
@@ -164,7 +222,9 @@ export default function AuditPage() {
       ) : visible.length === 0 ? (
         <div className="admin-empty">
           <div className="admin-empty-text">
-            {filter ? "Ninguna entrada coincide con el filtro." : "No hay actividad registrada en los últimos 30 días."}
+            {filterAdmin || filterAction || filterEntity || searchQuery
+              ? "Ninguna entrada coincide con los filtros."
+              : "No hay actividad registrada en los últimos 30 días."}
           </div>
         </div>
       ) : (
