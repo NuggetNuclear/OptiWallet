@@ -2,7 +2,7 @@
 
 import { useMemo, useState } from "react";
 import { useRecommendations, usePromotions, useMerchantFromApi } from "@/lib/hooks/use-api";
-import { daysOfWeekLabel, formatCLP, modalityLabel } from "@/lib/format";
+import { daysOfWeekLabel, formatCLP, modalityLabel, formatDiscount } from "@/lib/format";
 import { AlternativeCard, RecommendationCard } from "./RecommendationCard";
 import { TopBar } from "./layout/TopBar";
 import { BackButton } from "./layout/BackButton";
@@ -382,7 +382,7 @@ function PromoRow({
         </div>
         <div className="text-right">
           <div className="font-serif text-2xl font-semibold leading-none text-ink">
-            {promo.discount}%
+            {formatDiscount(promo.discount, promo.discount_per_unit, promo.discount_unit)}
           </div>
         </div>
       </div>

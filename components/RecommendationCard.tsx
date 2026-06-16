@@ -206,7 +206,7 @@ export function AlternativeCard({ recommendation }: { recommendation: Recommenda
       </div>
       <div className="ml-4 flex flex-col items-end">
         <span className="font-serif text-2xl font-semibold leading-none text-ink">
-          {promotion.discount}%
+          {formatDiscount(promotion.discount, promotion.discount_per_unit ?? null, promotion.discount_unit ?? null)}
         </span>
         {promotion.cap && (
           <span className="mt-1 font-mono text-[9px] uppercase tracking-wider text-ink-dim">
