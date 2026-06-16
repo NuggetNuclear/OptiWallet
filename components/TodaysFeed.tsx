@@ -2,7 +2,7 @@
 
 import { useMemo } from "react";
 import { useRecommendations } from "@/lib/hooks/use-api";
-import { formatCLP, modalityLabel } from "@/lib/format";
+import { formatCLP, modalityLabel, formatDiscount } from "@/lib/format";
 import type { ApiRecommendation } from "@/lib/api-client";
 
 interface TodaysFeedProps {
@@ -20,11 +20,17 @@ export function TodaysFeed({ cardIds, date, isToday, onMerchantClick }: TodaysFe
     const map = new Map<string, ApiRecommendation>();
     for (const rec of recs) {
       const existing = map.get(rec.merchant_id);
-      if (!existing || rec.discount > existing.discount) {
+      const recVal = rec.discount ?? rec.discount_per_unit ?? 0;
+      const extVal = existing ? (existing.discount ?? existing.discount_per_unit ?? 0) : -1;
+      if (!existing || recVal > extVal) {
         map.set(rec.merchant_id, rec);
       }
     }
-    return Array.from(map.values()).sort((a, b) => b.discount - a.discount);
+    return Array.from(map.values()).sort((a, b) => {
+      const va = a.discount ?? a.discount_per_unit ?? 0;
+      const vb = b.discount ?? b.discount_per_unit ?? 0;
+      return vb - va;
+    });
   }, [recs]);
 
   if (loading) {
@@ -91,7 +97,7 @@ function FeedRow({ rec, onClick }: { rec: ApiRecommendation; onClick: () => void
       </div>
       <div className="ml-3 text-right">
         <div className="font-serif text-[28px] font-semibold leading-none text-lime">
-          {rec.discount}%
+          {formatDiscount(rec.discount, rec.discount_per_unit, rec.discount_unit)}
         </div>
       </div>
     </button>
