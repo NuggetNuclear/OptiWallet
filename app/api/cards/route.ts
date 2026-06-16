@@ -20,7 +20,7 @@ export async function GET(req: NextRequest) {
     `;
 
     return NextResponse.json(cards, {
-      headers: { "Cache-Control": "public, s-maxage=300, stale-while-revalidate=600" },
+      headers: { "Cache-Control": "public, s-maxage=60, stale-while-revalidate=120" },
     });
   } catch (err) {
     console.error("GET /api/cards failed:", err);
