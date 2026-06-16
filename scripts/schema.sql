@@ -129,3 +129,12 @@ ALTER TABLE promotions ADD CONSTRAINT promotions_discount_xor CHECK (
 
 -- Indica si esta promoción puede combinarse (apilarse) con otras simultáneamente.
 ALTER TABLE promotions ADD COLUMN IF NOT EXISTS stackable BOOLEAN NOT NULL DEFAULT false;
+
+-- Restricción a tarjetas específicas (M5 — "tarjeta única").
+-- Por defecto vacío: la promo aplica a TODAS las tarjetas del banco cuyo `type`
+-- esté en `card_types` (comportamiento histórico). Cuando se pueblan uno o más
+-- card_ids, la promo aplica EXCLUSIVAMENTE a esas tarjetas (ej. "solo con la
+-- Mastercard Black"), ignorando card_types como filtro de matching. Esto resuelve
+-- el caso de un banco con varias tarjetas de crédito donde la promo es de una sola.
+ALTER TABLE promotions ADD COLUMN IF NOT EXISTS card_ids TEXT[] NOT NULL DEFAULT '{}';
+CREATE INDEX IF NOT EXISTS idx_promotions_card_ids ON promotions USING GIN(card_ids);

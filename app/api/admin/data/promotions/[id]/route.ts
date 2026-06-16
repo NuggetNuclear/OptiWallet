@@ -4,6 +4,7 @@ import { logAdminAction } from "@/lib/admin-log";
 import {
   isValidId,
   isValidCardTypes,
+  isValidCardIds,
   isValidDaysOfWeek,
   isNonNegativeIntOrNull,
   isValidDateOrNull,
@@ -23,7 +24,7 @@ export async function GET(req: NextRequest, { params }: Params) {
   try {
     const rows = await sql`
       SELECT
-        p.id, p.bank_id, p.card_types, p.merchant_id,
+        p.id, p.bank_id, p.card_types, p.card_ids, p.merchant_id,
         p.discount, p.discount_per_unit, p.discount_unit, p.stackable,
         p.cap, p.min_purchase,
         p.days_of_week, p.start_date, p.end_date, p.modality, p.code, p.conditions,
@@ -62,6 +63,7 @@ export async function PATCH(req: NextRequest, { params }: Params) {
     if (has("discount_per_unit") && (typeof fields.discount_per_unit !== "number" || fields.discount_per_unit <= 0)) return NextResponse.json({ error: "discount_per_unit debe ser un entero > 0" }, { status: 400, headers: NO_CACHE });
     if (has("modality") && !["presencial", "online", "both"].includes(fields.modality as string)) return NextResponse.json({ error: "modality inválido" }, { status: 400, headers: NO_CACHE });
     if (has("card_types") && !isValidCardTypes(fields.card_types)) return NextResponse.json({ error: "card_types debe ser un array no vacío de 'credit'/'debit'/'prepaid'" }, { status: 400, headers: NO_CACHE });
+    if (has("card_ids") && !isValidCardIds(fields.card_ids)) return NextResponse.json({ error: "card_ids debe ser un array de IDs de tarjeta válidos" }, { status: 400, headers: NO_CACHE });
     if (has("days_of_week") && !isValidDaysOfWeek(fields.days_of_week)) return NextResponse.json({ error: "days_of_week debe ser enteros 0-6" }, { status: 400, headers: NO_CACHE });
     if (has("cap") && !isNonNegativeIntOrNull(fields.cap)) return NextResponse.json({ error: "cap debe ser un entero ≥ 0 o null" }, { status: 400, headers: NO_CACHE });
     if (has("min_purchase") && !isNonNegativeIntOrNull(fields.min_purchase)) return NextResponse.json({ error: "min_purchase debe ser un entero ≥ 0 o null" }, { status: 400, headers: NO_CACHE });
@@ -75,7 +77,7 @@ export async function PATCH(req: NextRequest, { params }: Params) {
     if (has("conditions") && fields.conditions !== null && typeof fields.conditions !== "string") return NextResponse.json({ error: "conditions inválido" }, { status: 400, headers: NO_CACHE });
 
     const allowed = [
-      "bank_id", "card_types", "merchant_id",
+      "bank_id", "card_types", "card_ids", "merchant_id",
       "discount", "discount_per_unit", "discount_unit", "stackable",
       "cap", "min_purchase",
       "days_of_week", "start_date", "end_date", "modality", "code", "conditions",
@@ -93,7 +95,7 @@ export async function PATCH(req: NextRequest, { params }: Params) {
     // Read current row, merge provided fields, write back in ONE atomic UPDATE
     // (no partial-write window if something fails mid-way). (audit L4)
     const rows = await sql`
-      SELECT bank_id, card_types, merchant_id,
+      SELECT bank_id, card_types, card_ids, merchant_id,
              discount, discount_per_unit, discount_unit, stackable,
              cap, min_purchase,
              days_of_week, start_date, end_date, modality, code, conditions,
@@ -108,6 +110,7 @@ export async function PATCH(req: NextRequest, { params }: Params) {
     const next = {
       bank_id:           pick("bank_id"),
       card_types:        pick("card_types"),
+      card_ids:          pick("card_ids"),
       merchant_id:       pick("merchant_id"),
       discount:          pick("discount", true),
       discount_per_unit: pick("discount_per_unit", true),
@@ -144,6 +147,7 @@ export async function PATCH(req: NextRequest, { params }: Params) {
       UPDATE promotions SET
         bank_id           = ${next.bank_id as string},
         card_types        = ${next.card_types as string[]},
+        card_ids          = ${next.card_ids as string[]},
         merchant_id       = ${next.merchant_id as string},
         discount          = ${next.discount as number | null},
         discount_per_unit = ${next.discount_per_unit as number | null},

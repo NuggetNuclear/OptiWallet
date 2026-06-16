@@ -66,6 +66,10 @@ export type ApiPromotion = {
   id:                string;
   bank_id:           string;
   card_types:        string[];
+  /** IDs de tarjetas específicas. Vacío = aplica por card_types (sin restricción). */
+  card_ids:          string[];
+  /** Nombres de esas tarjetas específicas (derivado en el server). Vacío si no hay restricción. */
+  card_names:        string[];
   merchant_id:       string;
   discount:          number | null;
   discount_per_unit: number | null;

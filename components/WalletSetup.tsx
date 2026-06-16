@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { useBanks, useCards } from "@/lib/hooks/use-api";
 import type { ApiBank, ApiCard } from "@/lib/api-client";
+import { getBankVisual } from "@/lib/bank-display";
 import { TopBar } from "./layout/TopBar";
 import { BottomDock } from "./layout/BottomDock";
 import { BackButton } from "./layout/BackButton";
@@ -174,28 +175,9 @@ function BankRow({
 }) {
   const hasSelected = cards.some((c) => selectedCardIds.includes(c.id));
 
-  // Unique abbreviations and brand-inspired colors per bank.
-  // Fallback: first 2 chars of name + neutral bg.
-  const BANK_DISPLAY: Record<string, { letter: string; bg: string }> = {
-    "bice":          { letter: "BI",  bg: "#003087" },
-    "falabella":     { letter: "FB",  bg: "#8CC63F" },
-    "ripley":        { letter: "RP",  bg: "#6B2D8B" },
-    "santander":     { letter: "SA",  bg: "#EC0000" },
-    "security":      { letter: "SE",  bg: "#1A3D6D" },
-    "bco-chile":     { letter: "BC",  bg: "#003A70" },
-    "bci":           { letter: "BCI", bg: "#0033A0" },
-    "banco-estado":  { letter: "BE",  bg: "#002D72" },
-    "itau":          { letter: "IU",  bg: "#FF6600" },
-    "mach":          { letter: "MA",  bg: "#6C5CE7" },
-    "mercado-pago":  { letter: "MP",  bg: "#009EE3" },
-    "scotiabank":    { letter: "SB",  bg: "#EC1C24" },
-    "tenpo":         { letter: "TP",  bg: "#00C389" },
-    "coopeuch":      { letter: "CO",  bg: "#E4002B" },
-  };
-
-  const display = BANK_DISPLAY[bank.id];
-  const iconLetter = display?.letter ?? bank.name.slice(0, 2).toUpperCase();
-  const iconBg = hasSelected ? undefined : (bank.color ?? display?.bg);
+  // Identidad visual del banco (mapa compartido en lib/bank-display).
+  const visual = getBankVisual(bank.id, bank.name, bank.color);
+  const iconLetter = visual.letter;
 
   return (
     <div
@@ -211,9 +193,9 @@ function BankRow({
         <div className="flex items-center gap-3">
           <div
             className={`flex h-10 w-10 items-center justify-center rounded-xl font-mono text-[11px] font-bold tracking-wide ${
-              hasSelected ? "bg-lime text-bg" : "text-white"
+              hasSelected ? "bg-lime text-bg" : ""
             }`}
-            style={!hasSelected && iconBg ? { backgroundColor: iconBg } : !hasSelected ? { backgroundColor: "var(--bg-3)", color: "var(--ink)" } : undefined}
+            style={hasSelected ? undefined : { backgroundColor: visual.color, color: visual.text }}
           >
             {iconLetter}
           </div>

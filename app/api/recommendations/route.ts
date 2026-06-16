@@ -70,8 +70,14 @@ export async function GET(req: NextRequest) {
         ON m.category_id = mc.id
       JOIN cards c
         ON c.bank_id = p.bank_id
-       AND c.type    = ANY(p.card_types)
        AND c.id      = ANY(${cardIds})
+       AND (
+             -- "Tarjeta única": si la promo está restringida a card_ids específicos,
+             -- aplica SOLO a esas tarjetas (ignora card_types).
+             (cardinality(p.card_ids) > 0 AND c.id = ANY(p.card_ids))
+             -- Histórico: sin restricción, aplica por tipo de tarjeta del banco.
+             OR (cardinality(p.card_ids) = 0 AND c.type = ANY(p.card_types))
+           )
       WHERE p.active = true
         AND (
               cardinality(p.days_of_week) = 0

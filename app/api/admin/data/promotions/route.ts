@@ -4,6 +4,7 @@ import { logAdminAction } from "@/lib/admin-log";
 import {
   isValidId,
   isValidCardTypes,
+  isValidCardIds,
   isValidDaysOfWeek,
   isNonNegativeIntOrNull,
   isValidDateOrNull,
@@ -27,7 +28,7 @@ export async function GET(req: NextRequest) {
 
     const rows = await sql`
       SELECT
-        p.id, p.bank_id, p.card_types, p.merchant_id,
+        p.id, p.bank_id, p.card_types, p.card_ids, p.merchant_id,
         p.discount, p.discount_per_unit, p.discount_unit, p.stackable,
         p.cap, p.min_purchase,
         p.days_of_week, p.start_date, p.end_date, p.modality, p.code, p.conditions,
@@ -56,7 +57,7 @@ export async function POST(req: NextRequest) {
   try {
     const body = await req.json().catch(() => null);
     const {
-      id, bank_id, card_types, merchant_id,
+      id, bank_id, card_types, card_ids, merchant_id,
       discount, discount_per_unit, discount_unit,
       stackable,
       cap, min_purchase,
@@ -68,6 +69,7 @@ export async function POST(req: NextRequest) {
     if (!bank_id || !isValidId(bank_id)) return NextResponse.json({ error: "bank_id inválido" }, { status: 400, headers: NO_CACHE });
     if (!merchant_id || !isValidId(merchant_id)) return NextResponse.json({ error: "merchant_id inválido" }, { status: 400, headers: NO_CACHE });
     if (!isValidCardTypes(card_types)) return NextResponse.json({ error: "card_types debe ser un array no vacío de 'credit'/'debit'/'prepaid'" }, { status: 400, headers: NO_CACHE });
+    if (card_ids !== undefined && !isValidCardIds(card_ids)) return NextResponse.json({ error: "card_ids debe ser un array de IDs de tarjeta válidos" }, { status: 400, headers: NO_CACHE });
     if (!isValidDiscountConfig({ discount, discount_per_unit, discount_unit })) {
       return NextResponse.json({ error: "Especifica exactamente uno: discount (1-100) o discount_per_unit+discount_unit" }, { status: 400, headers: NO_CACHE });
     }
@@ -85,13 +87,13 @@ export async function POST(req: NextRequest) {
 
     await sql`
       INSERT INTO promotions (
-        id, bank_id, card_types, merchant_id,
+        id, bank_id, card_types, card_ids, merchant_id,
         discount, discount_per_unit, discount_unit, stackable,
         cap, min_purchase,
         days_of_week, start_date, end_date, modality, code, conditions,
         source, verified_at, active
       ) VALUES (
-        ${id}, ${bank_id}, ${card_types}, ${merchant_id},
+        ${id}, ${bank_id}, ${card_types}, ${card_ids ?? []}, ${merchant_id},
         ${discount ?? null}, ${discount_per_unit ?? null}, ${discount_unit ?? null}, ${stackable ?? false},
         ${cap ?? null}, ${min_purchase ?? null},
         ${days_of_week ?? []}, ${start_date ?? null}, ${end_date ?? null},

@@ -1,6 +1,29 @@
 import type { ApiRecommendation } from "./api-client";
 
 /**
+ * Determina si una promoción aplica a una tarjeta concreta.
+ *
+ * Refleja 1:1 la condición de JOIN de `/api/recommendations` (única fuente de
+ * verdad del matching, aquí extraída como función pura para poder testearla):
+ *
+ *   1. La tarjeta debe pertenecer al banco de la promo.
+ *   2. Si la promo tiene `cardIds` (≥ 1), aplica SOLO a esas tarjetas exactas
+ *      ("tarjeta única", ej. solo la Mastercard Black) — `cardTypes` se ignora.
+ *   3. Si `cardIds` está vacío, aplica a cualquier tarjeta del banco cuyo `type`
+ *      esté en `cardTypes` (comportamiento histórico).
+ */
+export function promoAppliesToCard(
+  promo: { bankId: string; cardTypes: string[]; cardIds: string[] },
+  card: { id: string; bankId: string; type: string }
+): boolean {
+  if (card.bankId !== promo.bankId) return false;
+  if (promo.cardIds.length > 0) {
+    return promo.cardIds.includes(card.id);
+  }
+  return promo.cardTypes.includes(card.type);
+}
+
+/**
  * Calcula el ahorro en pesos (CLP) para una promoción de tipo porcentaje.
  *
  * @param amount Monto total de la compra en CLP.

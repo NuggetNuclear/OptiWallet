@@ -37,6 +37,18 @@ export function isValidCardTypes(v: unknown): v is CardType[] {
   );
 }
 
+/**
+ * Array (posiblemente vacío) de IDs de tarjeta válidos.
+ * Vacío = la promo NO está restringida a tarjetas específicas (aplica por card_types).
+ * Con elementos = restringida a esas tarjetas exactas ("tarjeta única").
+ */
+export function isValidCardIds(v: unknown): v is string[] {
+  return (
+    Array.isArray(v) &&
+    v.every((id) => typeof id === "string" && isValidId(id))
+  );
+}
+
 /** Array (posiblemente vacío) de enteros 0–6 (días de la semana). */
 export function isValidDaysOfWeek(v: unknown): v is number[] {
   return (

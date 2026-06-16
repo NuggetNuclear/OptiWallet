@@ -5,7 +5,7 @@ import { AdminShell } from "../../components/AdminShell";
 import { DeleteModal } from "../../components/DeleteModal";
 
 interface Promo {
-  id: string; bank_id: string; card_types: string[]; merchant_id: string;
+  id: string; bank_id: string; card_types: string[]; card_ids: string[]; merchant_id: string;
   discount: number | null; discount_per_unit: number | null; discount_unit: string | null;
   stackable: boolean;
   cap: number | null; min_purchase: number | null;
@@ -16,11 +16,13 @@ interface Promo {
 }
 interface Bank     { id: string; name: string }
 interface Merchant { id: string; name: string }
+interface Card     { id: string; bank_id: string; name: string; type: string }
 
 const DAYS = ["Dom", "Lun", "Mar", "Mié", "Jue", "Vie", "Sáb"];
+const CARD_TYPE_LABEL = (t: string) => (t === "credit" ? "Crédito" : t === "debit" ? "Débito" : "Prepago");
 
 const EMPTY: Promo = {
-  id: "", bank_id: "", card_types: ["credit"], merchant_id: "",
+  id: "", bank_id: "", card_types: ["credit"], card_ids: [], merchant_id: "",
   discount: 10, discount_per_unit: null, discount_unit: null,
   stackable: false,
   cap: null, min_purchase: null,
@@ -33,6 +35,7 @@ export default function PromotionsPage() {
   const [promos,    setPromos]    = useState<Promo[]>([]);
   const [banks,     setBanks]     = useState<Bank[]>([]);
   const [merchants, setMerchants] = useState<Merchant[]>([]);
+  const [cards,     setCards]     = useState<Card[]>([]);
   const [loading,   setLoading]   = useState(true);
   const [form,      setForm]      = useState<Promo | null>(null);
   const [isNew,     setIsNew]     = useState(false);
@@ -54,26 +57,38 @@ export default function PromotionsPage() {
     if (filterBank) params.set("bankId", filterBank);
     if (filterMerchant) params.set("merchantId", filterMerchant);
     if (showActive) params.set("active", "true");
-    const [pr, br, mr] = await Promise.all([
+    const [pr, br, mr, cr] = await Promise.all([
       fetch(`/api/admin/data/promotions?${params}`),
       fetch("/api/admin/data/banks"),
       fetch("/api/admin/data/merchants"),
+      fetch("/api/admin/data/cards"),
     ]);
     if (pr.ok) setPromos(await pr.json());
     if (br.ok) setBanks(await br.json());
     if (mr.ok) setMerchants(await mr.json());
+    if (cr.ok) setCards(await cr.json());
     setLoading(false);
     setSelectedIds([]);
   }
   useEffect(() => { (async () => { await load(); })(); }, [filterBank, filterMerchant, showActive]); // eslint-disable-line react-hooks/exhaustive-deps
 
   function openNew()         { setForm({ ...EMPTY }); setIsNew(true);  setError(""); setSuccess(""); }
-  function openEdit(p: Promo){ setForm({ ...p, card_types: [...p.card_types], days_of_week: [...p.days_of_week] }); setIsNew(false); setError(""); setSuccess(""); }
+  function openEdit(p: Promo){ setForm({ ...p, card_types: [...p.card_types], card_ids: [...(p.card_ids ?? [])], days_of_week: [...p.days_of_week] }); setIsNew(false); setError(""); setSuccess(""); }
 
   function toggleCardType(t: string) {
     if (!form) return;
     const ct = form.card_types.includes(t) ? form.card_types.filter((x) => x !== t) : [...form.card_types, t];
     setForm({ ...form, card_types: ct });
+  }
+  function toggleCardId(id: string) {
+    if (!form) return;
+    const ids = form.card_ids.includes(id) ? form.card_ids.filter((x) => x !== id) : [...form.card_ids, id];
+    setForm({ ...form, card_ids: ids });
+  }
+  // Al cambiar el banco, las tarjetas específicas previas dejan de ser válidas.
+  function setBank(bankId: string) {
+    if (!form) return;
+    setForm({ ...form, bank_id: bankId, card_ids: [] });
   }
   function toggleDay(d: number) {
     if (!form) return;
@@ -137,6 +152,7 @@ export default function PromotionsPage() {
 
   const bankName     = (id: string) => banks.find((b) => b.id === id)?.name ?? id;
   const merchantName = (id: string) => merchants.find((m) => m.id === id)?.name ?? id;
+  const cardName     = (id: string) => cards.find((c) => c.id === id)?.name ?? id;
 
   return (
     <AdminShell>
@@ -213,7 +229,7 @@ export default function PromotionsPage() {
             <div className="admin-form-row">
               <label className="admin-label">Banco</label>
               <select className="admin-input" value={form.bank_id}
-                onChange={(e) => setForm({ ...form, bank_id: e.target.value })}>
+                onChange={(e) => setBank(e.target.value)}>
                 <option value="">— Seleccionar —</option>
                 {banks.map((b) => <option key={b.id} value={b.id}>{b.name}</option>)}
               </select>
@@ -321,10 +337,75 @@ export default function PromotionsPage() {
               {["credit", "debit", "prepaid"].map((t) => (
                 <label key={t} className="admin-check-row">
                   <input type="checkbox" checked={form.card_types.includes(t)} onChange={() => toggleCardType(t)} />
-                  {t === "credit" ? "Crédito" : t === "debit" ? "Débito" : "Prepago"}
+                  {CARD_TYPE_LABEL(t)}
                 </label>
               ))}
             </div>
+          </div>
+
+          {/* ─── Tarjeta única: restringir a tarjetas específicas ───────────── */}
+          <div
+            style={{
+              marginBottom: 16,
+              border: "1px solid var(--line)",
+              borderRadius: 10,
+              padding: 14,
+              background: form.card_ids.length > 0 ? "rgba(212,255,58,0.04)" : "transparent",
+            }}
+          >
+            <label className="admin-check-row" style={{ marginBottom: form.card_ids.length > 0 ? 12 : 0 }}>
+              <input
+                type="checkbox"
+                checked={form.card_ids.length > 0}
+                disabled={!form.bank_id}
+                onChange={(e) => {
+                  if (!form) return;
+                  if (e.target.checked) {
+                    // Pre-seleccionar la primera tarjeta del banco para que el check tenga efecto.
+                    const first = cards.find((c) => c.bank_id === form.bank_id);
+                    setForm({ ...form, card_ids: first ? [first.id] : [] });
+                  } else {
+                    setForm({ ...form, card_ids: [] });
+                  }
+                }}
+              />
+              Solo para tarjetas específicas
+              <span style={{ fontSize: 11, color: "var(--ink-dim)", fontFamily: "var(--font-jetbrains)" }}>
+                (ej. solo la Mastercard Black — ignora el filtro por tipo)
+              </span>
+            </label>
+
+            {!form.bank_id && (
+              <p style={{ fontSize: 11, color: "var(--ink-dim)", margin: 0 }}>
+                Selecciona un banco primero para elegir sus tarjetas.
+              </p>
+            )}
+
+            {form.card_ids.length > 0 && form.bank_id && (
+              <div className="admin-check-group" style={{ marginTop: 4 }}>
+                {cards.filter((c) => c.bank_id === form.bank_id).length === 0 ? (
+                  <p style={{ fontSize: 12, color: "var(--ink-dim)", margin: 0 }}>
+                    Este banco no tiene tarjetas cargadas.
+                  </p>
+                ) : (
+                  cards
+                    .filter((c) => c.bank_id === form.bank_id)
+                    .map((c) => (
+                      <label key={c.id} className="admin-check-row">
+                        <input
+                          type="checkbox"
+                          checked={form.card_ids.includes(c.id)}
+                          onChange={() => toggleCardId(c.id)}
+                        />
+                        {c.name}
+                        <span style={{ fontSize: 10, color: "var(--ink-dim)", fontFamily: "var(--font-jetbrains)", textTransform: "uppercase" }}>
+                          {CARD_TYPE_LABEL(c.type)}
+                        </span>
+                      </label>
+                    ))
+                )}
+              </div>
+            )}
           </div>
 
           <div style={{ marginBottom: 16 }}>
@@ -448,9 +529,16 @@ export default function PromotionsPage() {
                         : "—"}
                   </td>
                   <td style={{ fontSize: 11 }}>
-                    {p.card_types
-                      .map((t) => (t === "credit" ? "Crédito" : t === "debit" ? "Débito" : "Prepago"))
-                      .join(", ")}
+                    {p.card_ids && p.card_ids.length > 0 ? (
+                      <span
+                        title={p.card_ids.map(cardName).join(", ")}
+                        style={{ display: "inline-flex", alignItems: "center", gap: 4, color: "var(--lime)", fontWeight: 600 }}
+                      >
+                        🎯 {p.card_ids.length === 1 ? cardName(p.card_ids[0]) : `${p.card_ids.length} tarjetas`}
+                      </span>
+                    ) : (
+                      p.card_types.map(CARD_TYPE_LABEL).join(", ")
+                    )}
                   </td>
                   <td className="admin-cell-dim" style={{ fontSize: 11 }}>
                     {p.days_of_week.length ? p.days_of_week.map((d) => DAYS[d]).join(", ") : "Todos"}

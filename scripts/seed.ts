@@ -25,6 +25,8 @@ const BANKS = [
   { id: "santander", name: "Banco Santander Chile", short_name: "Santander", available: true, color: "#EC0000" },
   { id: "banco-chile", name: "Banco de Chile", short_name: "Banco de Chile", available: true, color: "#003A70" },
   { id: "falabella", name: "Banco Falabella", short_name: "Falabella", available: true, color: "#8CC63F" },
+  // Banco con varias tarjetas de crédito — para demostrar "tarjeta única".
+  { id: "bice", name: "Banco BICE", short_name: "BICE", available: true, color: "#003087" },
 ];
 
 const CARDS = [
@@ -34,6 +36,12 @@ const CARDS = [
   { id: "banco-chile-debit", bank_id: "banco-chile", name: "Banco de Chile Débito", type: "debit" },
   { id: "falabella-credit", bank_id: "falabella", name: "CMR Visa", type: "credit" },
   { id: "falabella-debit", bank_id: "falabella", name: "Falabella Débito", type: "debit" },
+  // BICE: tres tarjetas de crédito distintas + débito. La promo destacada abajo
+  // aplica SOLO a la Mastercard Black, no a las otras dos de crédito.
+  { id: "bice-visa-gold",      bank_id: "bice", name: "BICE Visa Gold",       type: "credit" },
+  { id: "bice-visa-signature", bank_id: "bice", name: "BICE Visa Signature",  type: "credit" },
+  { id: "bice-mc-black",       bank_id: "bice", name: "BICE Mastercard Black", type: "credit" },
+  { id: "bice-debito",         bank_id: "bice", name: "BICE Débito",           type: "debit"  },
 ];
 
 const CATEGORIES = [
@@ -87,6 +95,17 @@ const PROMOTIONS = [
   { id: "fal-copec-vie", bank_id: "falabella", card_types: ["debit"], merchant_id: "copec",
     discount: 18, cap: 12000, min_purchase: 15000, days_of_week: [5], modality: "presencial",
     code: "CMR18", conditions: "Solo viernes en estaciones Copec.", source: "https://www.bancofalabella.cl/beneficios" },
+
+  // ── BICE: demo de "tarjeta única" ──
+  // Esta promo es card_types ["credit"] PERO restringida a card_ids ["bice-mc-black"].
+  // Resultado: de las 3 tarjetas de crédito BICE, SOLO la Mastercard Black recibe el 30%.
+  { id: "bice-jumbo-black", bank_id: "bice", card_types: ["credit"], card_ids: ["bice-mc-black"],
+    merchant_id: "jumbo", discount: 30, cap: 25000, min_purchase: 50000, days_of_week: [], modality: "presencial",
+    code: null, conditions: "Exclusivo Mastercard Black. Tope $25.000.", source: "https://www.bice.cl/personas/beneficios" },
+  // Contraste: sin card_ids → aplica a las 3 tarjetas de crédito BICE por igual.
+  { id: "bice-copec-all", bank_id: "bice", card_types: ["credit"], merchant_id: "copec",
+    discount: 12, cap: 8000, min_purchase: null, days_of_week: [], modality: "presencial",
+    code: null, conditions: "Todas las tarjetas de crédito BICE.", source: "https://www.bice.cl/personas/beneficios" },
 
   // ── Casos borde (NO deben aparecer en recomendaciones) ──
   { id: "edge-inactive", bank_id: "santander", card_types: ["credit"], merchant_id: "jumbo",
@@ -155,14 +174,16 @@ async function seed() {
   for (const p of PROMOTIONS) {
     await sql.query(
       `INSERT INTO promotions
-         (id, bank_id, card_types, merchant_id, discount, cap, min_purchase,
+         (id, bank_id, card_types, card_ids, merchant_id, discount, cap, min_purchase,
           days_of_week, start_date, end_date, modality, code, conditions,
           source, verified_at, active)
-       VALUES ($1, $2, $3::text[], $4, $5, $6, $7,
-               $8::smallint[], $9, $10, $11, $12, $13,
-               $14, $15, $16)`,
+       VALUES ($1, $2, $3::text[], $4::text[], $5, $6, $7, $8,
+               $9::smallint[], $10, $11, $12, $13, $14,
+               $15, $16, $17)`,
       [
-        p.id, p.bank_id, [...p.card_types], p.merchant_id, p.discount,
+        p.id, p.bank_id, [...p.card_types],
+        ("card_ids" in p ? [...(p.card_ids as readonly string[])] : []),
+        p.merchant_id, p.discount,
         p.cap, p.min_purchase, [...p.days_of_week],
         ("start_date" in p ? p.start_date : null),
         ("end_date" in p ? p.end_date : null),

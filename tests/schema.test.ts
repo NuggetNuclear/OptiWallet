@@ -32,4 +32,11 @@ describe("schema.sql — integridad del esquema de base de datos", () => {
   it("define el campo color en banks para el diseño dinámico", () => {
     ok(schemaContent.includes("color"), "Debe definir la columna color en banks");
   });
+
+  it("define la columna card_ids en promotions para tarjeta única", () => {
+    ok(
+      schemaContent.includes("card_ids"),
+      "Debe definir la columna card_ids en promotions (restricción a tarjetas específicas)",
+    );
+  });
 });
