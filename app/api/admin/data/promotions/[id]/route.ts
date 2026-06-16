@@ -59,8 +59,8 @@ export async function PATCH(req: NextRequest, { params }: Params) {
     // error surfacing as 500. (audit L4)
     if (has("bank_id") && !isValidId(fields.bank_id as string)) return NextResponse.json({ error: "bank_id inválido" }, { status: 400, headers: NO_CACHE });
     if (has("merchant_id") && !isValidId(fields.merchant_id as string)) return NextResponse.json({ error: "merchant_id inválido" }, { status: 400, headers: NO_CACHE });
-    if (has("discount") && (typeof fields.discount !== "number" || fields.discount < 1 || fields.discount > 100)) return NextResponse.json({ error: "discount debe ser 1-100" }, { status: 400, headers: NO_CACHE });
-    if (has("discount_per_unit") && (typeof fields.discount_per_unit !== "number" || fields.discount_per_unit <= 0)) return NextResponse.json({ error: "discount_per_unit debe ser un entero > 0" }, { status: 400, headers: NO_CACHE });
+    if (has("discount") && fields.discount !== null && (typeof fields.discount !== "number" || fields.discount < 1 || fields.discount > 100)) return NextResponse.json({ error: "discount debe ser 1-100" }, { status: 400, headers: NO_CACHE });
+    if (has("discount_per_unit") && fields.discount_per_unit !== null && (typeof fields.discount_per_unit !== "number" || fields.discount_per_unit <= 0)) return NextResponse.json({ error: "discount_per_unit debe ser un entero > 0" }, { status: 400, headers: NO_CACHE });
     if (has("modality") && !["presencial", "online", "both"].includes(fields.modality as string)) return NextResponse.json({ error: "modality inválido" }, { status: 400, headers: NO_CACHE });
     if (has("card_types") && !isValidCardTypes(fields.card_types)) return NextResponse.json({ error: "card_types debe ser un array no vacío de 'credit'/'debit'/'prepaid'" }, { status: 400, headers: NO_CACHE });
     if (has("card_ids") && !isValidCardIds(fields.card_ids)) return NextResponse.json({ error: "card_ids debe ser un array de IDs de tarjeta válidos" }, { status: 400, headers: NO_CACHE });
