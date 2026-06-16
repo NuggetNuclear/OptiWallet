@@ -36,7 +36,7 @@ CREATE TABLE IF NOT EXISTS promotions (
   bank_id      TEXT NOT NULL REFERENCES banks(id)     ON DELETE RESTRICT ON UPDATE RESTRICT,
   card_types   TEXT[] NOT NULL CHECK (card_types <@ ARRAY['credit','debit','prepaid']),
   merchant_id  TEXT NOT NULL REFERENCES merchants(id) ON DELETE RESTRICT ON UPDATE RESTRICT,
-  discount     INTEGER NOT NULL CHECK (discount > 0 AND discount <= 100),
+  discount     INTEGER CHECK (discount > 0 AND discount <= 100),
   cap          INTEGER,
   min_purchase INTEGER,
   days_of_week SMALLINT[] NOT NULL DEFAULT '{}',
@@ -114,6 +114,9 @@ ALTER TABLE promotions ADD CONSTRAINT promotions_card_types_check CHECK (card_ty
 ALTER TABLE promotions ADD COLUMN IF NOT EXISTS discount_per_unit INTEGER;
 ALTER TABLE promotions ADD COLUMN IF NOT EXISTS discount_unit      TEXT
   CHECK (discount_unit IN ('liter'));
+
+-- Permitir que discount sea nulo para cuando se usa discount_per_unit/discount_unit
+ALTER TABLE promotions ALTER COLUMN discount DROP NOT NULL;
 
 -- XOR: exactamente uno de los dos mecanismos debe estar presente.
 -- Filas existentes (discount NOT NULL, discount_per_unit NULL) satisfacen la condición izquierda.
