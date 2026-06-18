@@ -91,7 +91,7 @@ export function aiProvider(): string {
 
 /** ¿Hay un backend configurado y usable? Gemini/Groq necesitan key; Ollama se asume local. */
 export function aiAvailable(): boolean {
-  if (PROVIDER === "gemini") return GEMINI_KEY.length > 0;
+  if (PROVIDER === "gemini") return GEMINI_KEY.length > 0 || GROQ_KEY.length > 0;
   if (PROVIDER === "ollama") return true;
   if (PROVIDER === "groq")   return GROQ_KEY.length > 0;
   return false;
@@ -149,9 +149,27 @@ async function embedOllama(texts: string[]): Promise<number[][]> {
  */
 export async function generateJSON<T = unknown>(prompt: string): Promise<T> {
   let raw: string;
-  if (PROVIDER === "ollama") raw = await genOllama(prompt);
-  else if (PROVIDER === "groq") raw = await genGroq(prompt);
-  else raw = await genGemini(prompt);
+  if (PROVIDER === "ollama") {
+    raw = await genOllama(prompt);
+  } else if (PROVIDER === "groq") {
+    raw = await genGroq(prompt);
+  } else {
+    try {
+      raw = await genGemini(prompt);
+    } catch (err) {
+      if (GROQ_KEY.length > 0) {
+        console.warn(`[AI Provider] Gemini generation failed. Falling back to Groq... Error:`, err instanceof Error ? err.message : err);
+        try {
+          raw = await genGroq(prompt);
+        } catch (groqErr) {
+          console.error(`[AI Provider] Groq fallback also failed:`, groqErr);
+          throw err;
+        }
+      } else {
+        throw err;
+      }
+    }
+  }
   return parseLooseJSON<T>(raw);
 }
 

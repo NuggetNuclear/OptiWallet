@@ -82,19 +82,41 @@ ${cardsTs}
 const CATEGORIES = [
   { id: "supermercados", label: "Supermercados", emoji: "🛒" },
   { id: "combustible", label: "Combustible", emoji: "⛽" },
-  { id: "restaurantes", label: "Restaurantes y Cafés", emoji: "🍽️" },
-  { id: "comida-rapida", label: "Comida Rápida", emoji: "🍔" },
-  { id: "farmacias", label: "Farmacias y Salud", emoji: "💊" },
-  { id: "tiendas", label: "Tiendas y Vestuario", emoji: "🛍️" },
-  { id: "viajes", label: "Viajes y Turismo", emoji: "✈️" },
-  { id: "servicios", label: "Servicios y Cuentas", emoji: "💳" },
-  { id: "entretencion", label: "Entretención y Cine", emoji: "🎬" },
+  { id: "restaurantes", label: "Restaurantes", emoji: "🍽️" },
+  { id: "cafes-pastelerias", label: "Cafés y Pastelerías", emoji: "☕" },
+  { id: "sushi", label: "Sushi", emoji: "🍣" },
+  { id: "pizzerias", label: "Pizzerías", emoji: "🍕" },
+  { id: "hamburguesas-sandwiches", label: "Hamburguesas y Sándwiches", emoji: "🍔" },
+  { id: "comida-rapida", label: "Comida Rápida", emoji: "🍟" },
+  { id: "heladerias-postres", label: "Heladerías y Postres", emoji: "🍦" },
+  { id: "farmacias", label: "Farmacias", emoji: "💊" },
+  { id: "salud", label: "Salud y Bienestar", emoji: "🏥" },
+  { id: "dental", label: "Dental", emoji: "🦷" },
+  { id: "vestuario-moda", label: "Vestuario y Moda", emoji: "👕" },
+  { id: "calzado", label: "Calzado", emoji: "👟" },
+  { id: "grandes-tiendas", label: "Grandes Tiendas y Retail", emoji: "🏬" },
+  { id: "belleza-cosmetica", label: "Belleza y Cosmética", emoji: "💄" },
+  { id: "tecnologia-electro", label: "Tecnología y Electrodomésticos", emoji: "💻" },
+  { id: "hogar-decoracion", label: "Hogar y Decoración", emoji: "🏡" },
+  { id: "viajes-turismo", label: "Viajes y Turismo", emoji: "✈️" },
+  { id: "hoteles-alojamiento", label: "Hoteles y Alojamiento", emoji: "🏨" },
+  { id: "entretencion-cine", label: "Entretención y Cine", emoji: "🎬" },
+  { id: "conciertos-eventos", label: "Conciertos y Eventos", emoji: "🎟️" },
+  { id: "deportes-fitness", label: "Deportes y Fitness", emoji: "🏋️" },
+  { id: "mascotas", label: "Mascotas", emoji: "🐶" },
+  { id: "automotriz", label: "Automotriz y Talleres", emoji: "🚗" },
+  { id: "educacion-cursos", label: "Educación y Cursos", emoji: "📚" },
+  { id: "servicios-cuentas", label: "Servicios y Cuentas", emoji: "💳" },
+  { id: "delivery-apps", label: "Apps de Delivery", emoji: "🛵" },
+  { id: "licores-botillerias", label: "Licores y Botillerías", emoji: "🍾" },
+  { id: "juguetes-ninos", label: "Juguetes y Niños", emoji: "🧸" },
+  { id: "librerias-papelerias", label: "Librerías y Papelerías", emoji: "📖" },
   { id: "otros", label: "Otros", emoji: "🏷️" }
 ];
 
 async function reset() {
   console.log("🗑️  Dropeando tablas…");
-  for (const table of ["promo_staging", "scraper_runs", "promotions", "cards", "merchants", "merchant_categories", "banks"]) {
+  for (const table of ["promotion_codes", "scraper_raw_cache", "promo_staging", "scraper_runs", "promotions", "cards", "merchants", "merchant_categories", "banks"]) {
     await sql.query(\`DROP TABLE IF EXISTS \${table} CASCADE\`);
   }
   console.log("📋 Reaplicando schema.sql…");

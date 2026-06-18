@@ -382,6 +382,11 @@ function ReviewRow({
       const data = await res.json();
       if (!res.ok) { setAutofillMsg(data.error ?? "Error al autorrellenar"); return; }
       // Aplicar solo los campos que la IA devolvió con valor
+      if (data.merchant_name) {
+        setNmName(data.merchant_name);
+        setNmId(slugify(data.merchant_name));
+        setMode("new");
+      }
       if (data.discount !== null)        setDiscount(data.discount);
       if (data.discount_per_unit !== null) { setDiscountPerUnit(data.discount_per_unit); setDiscountType("perliter"); }
       else if (data.discount !== null)   setDiscountType("percent");

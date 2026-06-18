@@ -214,7 +214,26 @@ CREATE TABLE IF NOT EXISTS promo_staging (
   reviewed_by       TEXT
 );
 CREATE INDEX IF NOT EXISTS idx_promo_staging_bank_status ON promo_staging(bank_id, status);
-CREATE INDEX IF NOT EXISTS idx_promo_staging_fingerprint ON promo_staging(fingerprint);
+-- promotion_codes (for dynamic multi-code promotions)
+CREATE TABLE IF NOT EXISTS promotion_codes (
+  id           BIGSERIAL PRIMARY KEY,
+  promotion_id TEXT NOT NULL REFERENCES promotions(id) ON DELETE CASCADE,
+  code         TEXT NOT NULL,
+  start_date   DATE NOT NULL,
+  end_date     DATE NOT NULL,
+  created_at   TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+CREATE INDEX IF NOT EXISTS idx_promo_codes_promo ON promotion_codes(promotion_id);
+CREATE INDEX IF NOT EXISTS idx_promo_codes_dates ON promotion_codes(start_date, end_date);
+
+-- scraper_raw_cache (to cache CMS JSON raw responses and prevent duplicates)
+CREATE TABLE IF NOT EXISTS scraper_raw_cache (
+  bank_id    TEXT NOT NULL,
+  uuid       TEXT NOT NULL,
+  raw_json   JSONB NOT NULL,
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+  PRIMARY KEY (bank_id, uuid)
+);
 
 -- ── App settings (feature flags y configuración global) ────────────────────────
 -- Tabla key-value minimalista para flags que no merecen una tabla propia.

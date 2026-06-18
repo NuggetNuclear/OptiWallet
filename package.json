@@ -12,6 +12,7 @@
     "db:seed": "dotenv -e .env -e .env.local -- node scripts/seed.ts",
     "db:gen-seed": "dotenv -e .env -e .env.local -- node scripts/gen-seed.ts",
     "popularity:compute": "dotenv -e .env -e .env.local -- node scripts/compute-merchant-popularity.ts",
+    "promotions:refresh": "dotenv -e .env -e .env.local -- node scripts/refresh-promos.ts",
     "test": "node --test \"lib/**/*.test.ts\" \"tests/**/*.test.ts\"",
     "test:watch": "node --test --watch \"lib/**/*.test.ts\" \"tests/**/*.test.ts\"",
     "test:coverage": "node --test --experimental-test-coverage \"lib/**/*.test.ts\" \"tests/**/*.test.ts\"",

@@ -63,6 +63,7 @@ ${row.conditions ?? "(sin condiciones)"}
 
 INSTRUCCIONES:
 - Extrae o confirma cada campo usando el texto de condiciones como fuente principal.
+- Para merchant_name: Si el nombre del comercio original ("Comercio") es demasiado largo (más de 40 caracteres) o tiene texto extra o sucio, sugiere una versión corta y limpia de un máximo de 40 caracteres (ej. "JUMBO SUPERMERCADOS EN APP" -> "Jumbo"). Si no, mantén el nombre original.
 - Si el texto menciona "miércoles", days_of_week debe ser [3]. Si menciona "lunes y martes", [1,2]. Si dice "todos los días", [].
 - Si menciona "presencial" o "tienda" o "local", modality="presencial". Si dice "app" o "web" o "online", modality="online". Si dice ambos, modality="both".
 - Si menciona "acumulable" o "combinable", stackable=true.
@@ -74,6 +75,7 @@ INSTRUCCIONES:
 
 Responde SOLO con este JSON exacto (sin texto adicional):
 {
+  "merchant_name": <string de máximo 40 caracteres o null>,
   "discount": <número 1-100 o null>,
   "discount_per_unit": <número o null>,
   "discount_unit": <"liter" o null>,
@@ -87,10 +89,12 @@ Responde SOLO con este JSON exacto (sin texto adicional):
   "conditions": <texto limpio de condiciones o null>,
   "card_types": <array con "credit","debit","prepaid">,
   "stackable": <true | false>
-}`;
+}
+`;
 
   try {
     const result = await generateJSON<{
+      merchant_name: string | null;
       discount: number | null;
       discount_per_unit: number | null;
       discount_unit: string | null;
@@ -108,6 +112,7 @@ Responde SOLO con este JSON exacto (sin texto adicional):
 
     // Sanitizar la respuesta antes de devolverla
     const safe = {
+      merchant_name:     typeof result.merchant_name === "string" && result.merchant_name.trim() ? result.merchant_name.trim().slice(0, 40) : null,
       discount:          typeof result.discount === "number" ? result.discount : null,
       discount_per_unit: typeof result.discount_per_unit === "number" ? result.discount_per_unit : null,
       discount_unit:     result.discount_unit === "liter" ? "liter" : null,

@@ -37,7 +37,7 @@ export default function MaintenancePage() {
 
         {/* Tag mono */}
         <div className="mt-4 font-mono text-[11px] uppercase tracking-[0.2em] text-copper">
-          Mantenimiento programado
+          Temporalmente fuera de servicio
         </div>
 
         {/* Heading */}
@@ -49,7 +49,9 @@ export default function MaintenancePage() {
         {/* Descripción */}
         <p className="mx-auto mt-4 max-w-sm text-sm leading-relaxed text-ink-dim">
           Estamos haciendo actualizaciones para mejorar tu experiencia.
-          Vuelve en unos minutos — tu wallet sigue guardada en este dispositivo.
+          Vuelve a intentarlo más tarde.
+
+          Tú wallet sigue guardada en este dispositivo.
         </p>
 
         {/* Separador */}

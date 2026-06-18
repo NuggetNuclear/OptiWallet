@@ -27,6 +27,20 @@ interface MaintenanceStatus {
   updatedAt: string | null;
   updatedBy: string | null;
 }
+interface FetchResult {
+  run_id: number;
+  raw_entries: number;
+  total: number;
+  imported: number;
+  skipped: number;
+  edge_count: number;
+  edge_counts?: Record<string, number>;
+}
+interface CookieRequired {
+  error: "cookie_required";
+  message: string;
+  instructions: string[];
+}
 
 // ── Helpers ─────────────────────────────────────────────────────────────────
 
@@ -165,17 +179,223 @@ function MaintenancePanel() {
   );
 }
 
+// ── Fetch Button + Cookie Modal ─────────────────────────────────────────────
+
+function FetchButton({ bankId, bankName, onFetched }: { bankId: string; bankName: string; onFetched: () => void }) {
+  const [state, setState] = useState<"idle" | "fetching" | "cookie" | "success" | "error">("idle");
+  const [cookieValue, setCookieValue] = useState("");
+  const [instructions, setInstructions] = useState<string[]>([]);
+  const [result, setResult] = useState<FetchResult | null>(null);
+  const [error, setError] = useState("");
+
+  async function doFetch(cookie?: string) {
+    setState("fetching");
+    setError("");
+    try {
+      const res = await fetch("/api/admin/ops/fetch", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ bank_id: bankId, cookie: cookie || undefined }),
+      });
+
+      if (res.status === 428) {
+        // Cookie required — show modal.
+        const data: CookieRequired = await res.json();
+        setInstructions(data.instructions || []);
+        setState("cookie");
+        return;
+      }
+
+      const data = await res.json();
+      if (!res.ok) {
+        setError(data.error ?? "Error desconocido");
+        setState("error");
+        return;
+      }
+
+      setResult(data as FetchResult);
+      setState("success");
+      onFetched();
+    } catch {
+      setError("Error de red al contactar el servidor");
+      setState("error");
+    }
+  }
+
+  function handleCookieSubmit() {
+    if (!cookieValue.trim()) return;
+    doFetch(cookieValue.trim());
+  }
+
+  function reset() {
+    setState("idle");
+    setResult(null);
+    setError("");
+    setCookieValue("");
+    setInstructions([]);
+  }
+
+  // ── Inline button (default state) ──
+  if (state === "idle") {
+    return (
+      <button
+        className="admin-btn admin-btn-ghost admin-btn-sm"
+        onClick={() => doFetch()}
+        title={`Fetch automático desde ${bankName}`}
+      >
+        ⚡ Fetch
+      </button>
+    );
+  }
+
+  // ── Loading state ──
+  if (state === "fetching") {
+    return (
+      <button className="admin-btn admin-btn-ghost admin-btn-sm" disabled style={{ gap: 6 }}>
+        <span className="admin-spinner" style={{ width: 12, height: 12, borderWidth: 1.5 }} aria-hidden="true" />
+        Scrapeando…
+      </button>
+    );
+  }
+
+  // ── Error state ──
+  if (state === "error") {
+    return (
+      <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+        <span style={{ fontSize: 11, color: "var(--copper)" }}>{error}</span>
+        <button className="admin-btn admin-btn-ghost admin-btn-sm" onClick={reset}>
+          Reintentar
+        </button>
+      </div>
+    );
+  }
+
+  // ── Success state ──
+  if (state === "success" && result) {
+    return (
+      <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
+        <span className="admin-badge admin-badge-green" style={{ fontSize: 10 }}>
+          +{result.imported} a staging
+        </span>
+        {result.skipped > 0 && (
+          <span style={{ fontSize: 10, color: "var(--ink-dim)", fontFamily: "var(--font-jetbrains)" }}>
+            {result.skipped} dup
+          </span>
+        )}
+        <Link href={`/admin/ops/${bankId}`} className="admin-btn admin-btn-primary admin-btn-sm" style={{ fontSize: 10 }}>
+          Revisar →
+        </Link>
+        <button className="admin-btn admin-btn-ghost admin-btn-sm" onClick={reset} style={{ fontSize: 10 }}>
+          ✕
+        </button>
+      </div>
+    );
+  }
+
+  // ── Cookie modal ──
+  if (state === "cookie") {
+    return (
+      <>
+        <div className="admin-modal-overlay" onClick={(e) => { if (e.target === e.currentTarget) reset(); }}>
+          <div className="admin-modal" style={{ width: 540 }}>
+            <p className="admin-modal-title">🔐 Cookie de Imperva requerida</p>
+
+            <p style={{ fontSize: 13, color: "var(--ink-dim)", marginBottom: 16 }}>
+              El sitio de <strong style={{ color: "var(--ink)" }}>{bankName}</strong> bloqueó la conexión directa (anti-bot).
+              Para continuar, pega la cookie de tu navegador:
+            </p>
+
+            <div style={{
+              background: "var(--bg-3, rgba(245,241,232,0.04))",
+              borderRadius: 8,
+              padding: "12px 14px",
+              marginBottom: 16,
+              fontSize: 12,
+              color: "var(--ink-dim)",
+              lineHeight: 1.8,
+            }}>
+              {instructions.length > 0 ? (
+                instructions.map((step, i) => (
+                  <div key={i} style={{ display: "flex", gap: 8, marginBottom: 2 }}>
+                    <span style={{ color: "var(--lime)", fontWeight: 700, fontFamily: "var(--font-jetbrains)", flexShrink: 0 }}>
+                      {step.slice(0, 2)}
+                    </span>
+                    <span>{step.slice(3)}</span>
+                  </div>
+                ))
+              ) : (
+                <>
+                  <div>1. Abre el sitio del banco en tu navegador</div>
+                  <div>2. DevTools → Network → copia el header &quot;Cookie&quot;</div>
+                  <div>3. Pégala abajo</div>
+                </>
+              )}
+            </div>
+
+            <div className="admin-form-row">
+              <label className="admin-label">Cookie header</label>
+              <textarea
+                className="admin-input"
+                rows={4}
+                placeholder="visid_incap_...; incap_ses_...; reese84=..."
+                value={cookieValue}
+                onChange={(e) => setCookieValue(e.target.value)}
+                style={{ fontFamily: "var(--font-jetbrains)", fontSize: 11 }}
+                autoFocus
+              />
+            </div>
+
+            {error && <div className="admin-error">{error}</div>}
+
+            <div className="admin-form-actions">
+              <button
+                className="admin-btn admin-btn-primary"
+                onClick={handleCookieSubmit}
+                disabled={!cookieValue.trim() || state !== "cookie"}
+              >
+                ⚡ Reintentar con cookie
+              </button>
+              <button className="admin-btn admin-btn-ghost" onClick={reset}>
+                Cancelar
+              </button>
+            </div>
+
+            <p style={{ fontSize: 10, color: "var(--ink-dim)", marginTop: 12, fontFamily: "var(--font-jetbrains)" }}>
+              La cookie se guarda para futuros fetches. Expira en unas horas según Imperva.
+            </p>
+          </div>
+        </div>
+
+        {/* Keep a visible button in the table row */}
+        <button className="admin-btn admin-btn-ghost admin-btn-sm" disabled style={{ gap: 6 }}>
+          <span className="admin-spinner" style={{ width: 12, height: 12, borderWidth: 1.5 }} aria-hidden="true" />
+          Cookie…
+        </button>
+      </>
+    );
+  }
+
+  return null;
+}
+
+// ── Scrapers disponibles ────────────────────────────────────────────────────
+
+/** Bancos que tienen scraper configurado y soportan auto-fetch. */
+const FETCHABLE_BANKS = new Set(["banco-chile"]);
+
 // ── Ops Center ──────────────────────────────────────────────────────────────
 
 export default function OpsCenter() {
   const [data, setData] = useState<Overview | null>(null);
   const [loading, setLoading] = useState(true);
 
-  useEffect(() => {
+  function loadOverview() {
     fetch("/api/admin/ops/overview")
       .then((r) => (r.ok ? r.json() : null))
       .then((d) => { setData(d); setLoading(false); });
-  }, []);
+  }
+
+  useEffect(() => { loadOverview(); }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   const t = data?.totals;
 
@@ -241,6 +461,13 @@ export default function OpsCenter() {
                   <td className="admin-cell-dim" style={{ fontSize: 11 }}>{b.last_edges ?? "—"}</td>
                   <td>
                     <div className="admin-actions">
+                      {FETCHABLE_BANKS.has(b.id) && (
+                        <FetchButton
+                          bankId={b.id}
+                          bankName={b.name}
+                          onFetched={loadOverview}
+                        />
+                      )}
                       <Link href={`/admin/ops/${b.id}`} className="admin-btn admin-btn-ghost admin-btn-sm">
                         Revisar →
                       </Link>

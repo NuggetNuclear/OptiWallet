@@ -97,7 +97,7 @@ function FeedRow({ rec, onClick }: { rec: ApiRecommendation; onClick: () => void
         </div>
         <div className="min-w-0">
           <div className="truncate font-medium text-ink">{rec.merchant_name}</div>
-          <div className="mt-0.5 text-xs text-ink-dim">
+          <div className="mt-0.5 truncate text-xs text-ink-dim">
             {rec.card_name} · {modalityLabel(rec.modality as "presencial" | "online" | "both")}
             {rec.cap && <> · tope {formatCLP(rec.cap)}</>}
           </div>

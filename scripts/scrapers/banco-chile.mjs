@@ -53,6 +53,21 @@ const KNOWN_MERCHANTS = {
   mcdonalds: "mcdonalds", copec: "copec", "juan valdez": "juan-valdez",
 };
 
+const CMS_TO_DB_CARD = {
+  "visa-credito-infinite": "bchile-visa-credito-infinite",
+  "visa-credito-signature": "bchile-visa-credito-signature",
+  "visa-credito-platinum": "bchile-visa-credito-platinum",
+  "visa-fan-credito": "bchile-visa-fan-credito",
+  "visa-debito-bch": "bchile-visa-debito-bch",
+  "visa-cuenta-fan": "bchile-visa-cuenta-fan",
+  "visa-credito-gold": "bchile-visa-credito-gold",
+  "mastercard-credito-black": "bchile-mastercard-credito-black",
+  "mastercard-credito-platinum": "bchile-mastercard-credito-platinum",
+  "mastercard-credito-dorada": "bchile-mastercard-credito-dorada",
+  "visa-debito-infinite": "bchile-visa-debito-infinite",
+  "visa-debito-signature": "bchile-visa-debito-signature"
+};
+
 // ── Helpers de parsing ───────────────────────────────────────────────────────
 const stripHtml = (h) =>
   (h || "")
@@ -101,6 +116,32 @@ function parseMin(text) {
   return m ? intCLP(m[1]) : null;
 }
 
+/** Busca códigos de descuento en el texto (ej: "código JUMBO20", "ingresa BCHILE10", "cupón: PROMO"). */
+function parseCode(text) {
+  if (!text) return null;
+  const regexes = [
+    /(?:c[oó]digo|cup[oó]n|cod\.|c[oó]d|clave)[^\w]{0,5}\b([A-Za-z0-9_-]{3,20})\b/g,
+    /usando el c[oó]digo\s+([A-Za-z0-9_-]{3,20})/gi,
+    /ingresando\s+(?:el\s+)?(?:c[oó]digo\s+)?([A-Za-z0-9_-]{4,20})\b/gi,
+    /con el cup[oó]n\s+([A-Za-z0-9_-]{3,20})/gi
+  ];
+
+  for (const rx of regexes) {
+    const matches = [...text.matchAll(rx)];
+    for (const match of matches) {
+      const candidate = match[1];
+      const hasLetters = /[a-zA-Z]/.test(candidate);
+      const isNotDate = !/^(?:202\d|junio|julio|agosto|septiembre|octubre|noviembre|diciembre|lunes|martes|miercoles|miércoles|jueves|viernes|sabado|sábado|domingo)$/i.test(candidate);
+      const isNotCommonWord = !/^(?:USD|CLP|UF|VISA|MASTER|AMEX|CMR|BCI|EDWARDS|BANCO|CHILE|WEB|APP|DEL|CON|POR|PARA|DESCUENTO|TOPE|TOTAL|MINIMO|MINIMA|VIGENCIA|PROMO|COMPRA|DESCTO|DESCUENTOS|CUPON|CODIGO)$/i.test(candidate);
+      
+      if (hasLetters && isNotDate && isNotCommonWord) {
+        return candidate.toUpperCase();
+      }
+    }
+  }
+  return null;
+}
+
 /**
  * Tarjetas. El CMS lista slugs granulares (visa-credito-infinite, etc).
  * OptiWallet hoy solo modela 2 tarjetas BCh (credit/debit), asi que colapsamos
@@ -108,19 +149,26 @@ function parseMin(text) {
  */
 function mapCards(arr) {
   const types = new Set();
+  const ids = [];
   (arr || []).forEach((s) => {
     const l = String(s).toLowerCase();
     if (l.includes("credito")) types.add("credit");
     else if (l.includes("debito")) types.add("debit");
     else if (l.includes("cuenta") || l.includes("fan")) types.add("debit");
     else if (l.includes("prepag")) types.add("prepaid");
+
+    const dbId = CMS_TO_DB_CARD[l];
+    if (dbId) {
+      ids.push(dbId);
+    }
   });
-  const ids = [...types]
-    .map((t) =>
-      t === "credit" ? "banco-chile-credit" : t === "debit" ? "banco-chile-debit" : null
-    )
-    .filter(Boolean);
-  return { card_types: [...types], card_ids: ids, raw: arr || [] };
+
+  const uniqueIds = [...new Set(ids)];
+  const totalCardsCount = Object.keys(CMS_TO_DB_CARD).length;
+  // If the mapped list includes ALL cards of the bank, card_ids is empty.
+  const finalCardIds = uniqueIds.length === totalCardsCount ? [] : uniqueIds;
+
+  return { card_types: [...types], card_ids: finalCardIds, raw: arr || [] };
 }
 
 /** presencial | online | both, heuristico sobre descripcion + condiciones. */
@@ -176,6 +224,25 @@ function normalizeEntry(e) {
   const slug = slugify(name);
   const mid = KNOWN_MERCHANTS[name.toLowerCase()] || KNOWN_MERCHANTS[slug] || null;
   const textForCaps = `${cond} ${body}`;
+
+  // Priority redirect link resolution
+  const rawWeb = f["Sitio web"] ? String(f["Sitio web"]).trim() : "";
+  let webUrl = "";
+  if (rawWeb) {
+    webUrl = rawWeb.match(/^https?:\/\//i) ? rawWeb : `https://${rawWeb}`;
+  }
+  const rawPak = f["Url Beneficio Pak"] ? String(f["Url Beneficio Pak"]).trim() : "";
+  const rawExt = f["Url Beneficio Externa"] ? String(f["Url Beneficio Externa"]).trim() : "";
+  const rawUrl = f["Url"] ? String(f["Url"]).trim() : "";
+
+  const redirectUrl = webUrl || rawPak || rawExt || rawUrl || `https://sitiospublicos.bancochile.cl/personas/beneficios/detalle/${m.slug || slug}`;
+
+  // Start date from updated_at
+  const start_date = (m.updated_at || "").slice(0, 10) || null;
+
+  // Merge description and conditions
+  const combinedConditions = [body, cond].filter(Boolean).join("\n\n");
+
   return {
     edge: null,
     record: {
@@ -191,15 +258,13 @@ function normalizeEntry(e) {
       card_ids: cards.card_ids,
       _source_cards: cards.raw,
       modality: parseModality(`${body} ${cond}`),
-      start_date: (m.published_at || "").slice(0, 10) || null,
+      start_date,
       end_date: (m.unpublish_at || "").slice(0, 10) || null,
-      // Casi todas las promos BCh dicen "no acumulable con otras". Default
-      // conservador false; solo true si el texto afirma que se puede acumular.
       stackable: /\bacumulable\b/i.test(cond) && !/no\s+(es\s+)?acumulable/i.test(cond),
-      code: null,
-      conditions: cond,
+      code: parseCode(textForCaps),
+      conditions: combinedConditions,
       category_path: m.category || "",
-      source: `https://sitiospublicos.bancochile.cl/personas/beneficios/detalle/${m.slug || slugify(name)}`,
+      source: redirectUrl,
       verified_at: new Date().toISOString().slice(0, 10),
     },
   };
@@ -257,19 +322,28 @@ function loadCookie() {
   return pairs.join("; ");
 }
 
-async function fetchAll(type) {
+/**
+ * Fetch all entries of a given CMS type, handling pagination.
+ *
+ * @param {string} type    CMS content type (e.g. "beneficios")
+ * @param {object} [opts]  Options
+ * @param {string} [opts.cookie]  Imperva cookie string to use. When omitted,
+ *                                falls back to env/file (CLI usage).
+ * @param {boolean} [opts.silent] Suppress console.log output (server-side usage).
+ */
+export async function fetchAll(type, opts = {}) {
   const headers = {
     Accept: "application/json, text/plain, */*",
     "Accept-Language": "es-CL,es;q=0.9",
     "User-Agent": UA,
     Referer: "https://sitiospublicos.bancochile.cl/personas/beneficios/categoria",
   };
-  const cookie = loadCookie();
+  const cookie = opts.cookie ?? loadCookie();
   if (cookie) {
     headers.Cookie = cookie;
-    console.log(`  (cookie cargada: ${cookie.length} chars)`);
+    if (!opts.silent) console.log(`  (cookie cargada: ${cookie.length} chars)`);
   } else {
-    console.log("  (sin cookie — probando directo; si falla, ver .bch-cookie.txt)");
+    if (!opts.silent) console.log("  (sin cookie — probando directo; si falla, ver .bch-cookie.txt)");
   }
   let page = 1;
   let out = [];
@@ -284,7 +358,10 @@ async function fetchAll(type) {
       throw new Error(impervaHelp(`No se pudo conectar a ${url}\n  causa: ${cause}`));
     }
     if (!r.ok) {
-      throw new Error(impervaHelp(`HTTP ${r.status} en ${url}`));
+      // Expose whether this is an anti-bot block for the caller to handle.
+      const error = new Error(impervaHelp(`HTTP ${r.status} en ${url}`));
+      /** @type {any} */ (error).statusCode = r.status;
+      throw error;
     }
     const j = await r.json();
     out = out.concat(j.entries || []);

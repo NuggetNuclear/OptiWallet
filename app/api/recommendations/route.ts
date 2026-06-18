@@ -50,7 +50,7 @@ export async function GET(req: NextRequest) {
         p.start_date,
         p.end_date,
         p.modality,
-        p.code,
+        COALESCE(pc.code, p.code) AS code,
         p.conditions,
         p.source,
         p.verified_at,
@@ -79,6 +79,10 @@ export async function GET(req: NextRequest) {
              -- Histórico: sin restricción, aplica por tipo de tarjeta del banco.
              OR (cardinality(p.card_ids) = 0 AND c.type = ANY(p.card_types))
            )
+      LEFT JOIN promotion_codes pc
+        ON pc.promotion_id = p.id
+       AND pc.start_date <= ${dateStr}::date
+       AND pc.end_date   >= ${dateStr}::date
       WHERE p.active = true
         AND (
               cardinality(p.days_of_week) = 0
@@ -89,6 +93,11 @@ export async function GET(req: NextRequest) {
         AND (
               ${merchantId ?? ""} = ''
               OR p.merchant_id = ${merchantId ?? ""}
+            )
+        AND (
+              -- If it has entries in promotion_codes, it must have an active code for this date
+              NOT EXISTS (SELECT 1 FROM promotion_codes WHERE promotion_id = p.id)
+              OR pc.code IS NOT NULL
             )
       ORDER BY COALESCE(p.discount, 0) DESC, COALESCE(p.discount_per_unit, 0) DESC
     `;

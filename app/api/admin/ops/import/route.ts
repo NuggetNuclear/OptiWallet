@@ -53,18 +53,11 @@ export async function POST(req: NextRequest) {
     const existingFp = new Set(fpRows.map((r) => (r as { fingerprint: string }).fingerprint));
 
     // Normalizar + dedup (contra DB y dentro del mismo lote).
-    // Filas con nombre de comercio demasiado largo se rechazan antes del staging.
     const seen = new Set<string>();
     const staged: StagedRow[] = [];
     const rejectedNames: string[] = [];
     let skipped = 0;
     for (const row of clean) {
-      const rawName = (row.merchant_name ?? "").trim();
-      if (rawName.length > MERCHANT_NAME_MAX_LENGTH) {
-        rejectedNames.push(rawName);
-        skipped++;
-        continue;
-      }
       const norm = normalizeRow(bankId, row, knownMerchants);
       if (existingFp.has(norm.fingerprint) || seen.has(norm.fingerprint)) {
         skipped++;

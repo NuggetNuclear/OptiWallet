@@ -9,7 +9,7 @@ import {
   isValidDateOrNull,
   isValidDiscountConfig,
 } from "@/lib/validate";
-import { promoId } from "@/lib/staging";
+import { promoId, MERCHANT_NAME_MAX_LENGTH } from "@/lib/staging";
 import { NextRequest, NextResponse } from "next/server";
 
 const NO_CACHE = { "Cache-Control": "no-store" };
@@ -63,6 +63,9 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
       if (typeof nm.name !== "string" || !nm.name.trim()) {
         return NextResponse.json({ error: "Nombre de comercio requerido" }, { status: 400, headers: NO_CACHE });
       }
+      if (nm.name.trim().length > MERCHANT_NAME_MAX_LENGTH) {
+        return NextResponse.json({ error: `El nombre del comercio no puede superar ${MERCHANT_NAME_MAX_LENGTH} caracteres` }, { status: 400, headers: NO_CACHE });
+      }
       if (!nm.category_id || !isValidId(nm.category_id)) {
         return NextResponse.json({ error: "category_id inválido" }, { status: 400, headers: NO_CACHE });
       }
@@ -102,6 +105,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
     const min_purchase      = pick("min_purchase", staged.min_purchase) as number | null;
     const days_of_week      = pick("days_of_week", staged.days_of_week) as number[];
     const card_types        = pick("card_types", staged.card_types) as string[];
+    const card_ids          = pick("card_ids", staged.card_ids) as string[];
     const modality          = pick("modality", staged.modality) as string;
     const start_date        = pick("start_date", staged.start_date) as string | null;
     const end_date          = pick("end_date", staged.end_date) as string | null;
@@ -143,14 +147,27 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
       return NextResponse.json({ error: "La promo no tiene fuente (source)" }, { status: 400, headers: NO_CACHE });
     }
 
-    // ── Insertar en promotions ────────────────────────────────────────────────
-    const newPromoId = promoId(bankId, merchantId, staged.fingerprint as string);
+    // ── Resolver newPromoId con bchile-slug y deduplicación por colisión ──
+    let newPromoId = bankId === "banco-chile"
+      ? `bchile-${merchantId}`.slice(0, 64)
+      : promoId(bankId, merchantId, staged.fingerprint as string);
+
     const dupe = await sql`SELECT id FROM promotions WHERE id = ${newPromoId}`;
     if (dupe.length > 0) {
-      return NextResponse.json({ error: `Ya existe una promoción con id '${newPromoId}' (posible duplicado)` }, { status: 409, headers: NO_CACHE });
+      if (bankId === "banco-chile") {
+        // Colisión: Añadir hash del fingerprint
+        newPromoId = `${newPromoId.slice(0, 55)}-${(staged.fingerprint as string).slice(0, 8)}`;
+        const secondDupe = await sql`SELECT id FROM promotions WHERE id = ${newPromoId}`;
+        if (secondDupe.length > 0) {
+          return NextResponse.json({ error: `Ya existe una promoción con id '${newPromoId}' (duplicado absoluto)` }, { status: 409, headers: NO_CACHE });
+        }
+      } else {
+        return NextResponse.json({ error: `Ya existe una promoción con id '${newPromoId}' (posible duplicado)` }, { status: 409, headers: NO_CACHE });
+      }
     }
     const today = new Date().toISOString().slice(0, 10);
 
+    // Insertar en promotions
     await sql`
       INSERT INTO promotions (
         id, bank_id, card_types, card_ids, merchant_id,
@@ -158,12 +175,20 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
         cap, min_purchase, days_of_week, start_date, end_date,
         modality, code, conditions, source, verified_at, active
       ) VALUES (
-        ${newPromoId}, ${bankId}, ${card_types}, ${[]}, ${merchantId},
+        ${newPromoId}, ${bankId}, ${card_types}, ${card_ids}, ${merchantId},
         ${discount ?? null}, ${discount_per_unit ?? null}, ${discount_unit ?? null}, ${stackable ?? false},
         ${cap ?? null}, ${min_purchase ?? null}, ${days_of_week ?? []}, ${sd}, ${ed},
         ${modality}, ${code ?? null}, ${conditions ?? null}, ${source}, ${today}::date, true
       )
     `;
+
+    // Insertar en promotion_codes como default
+    if (code) {
+      await sql`
+        INSERT INTO promotion_codes (promotion_id, code, start_date, end_date)
+        VALUES (${newPromoId}, ${code}, ${sd ? sd : today}::date, ${ed ? ed : '9999-12-31'}::date)
+      `;
+    }
 
     await sql`
       UPDATE promo_staging
