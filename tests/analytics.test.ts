@@ -64,6 +64,41 @@ describe("trackEvent — wrapper de Plausible", () => {
     trackEvent("Evento Que Falla");
     ok(true);
   });
+
+  it("ignora el evento si la ruta actual empieza con /admin", () => {
+    const calls: Call[] = [];
+    (globalThis as G).window = {
+      plausible: (event, options) => calls.push({ event: event as string, options: options as Call["options"] }),
+      location: { pathname: "/admin/dashboard" }
+    };
+    trackEvent("Onboarding Started");
+    strictEqual(calls.length, 0);
+  });
+
+  it("permite el evento si la ruta actual no empieza con /admin", () => {
+    const calls: Call[] = [];
+    (globalThis as G).window = {
+      plausible: (event, options) => calls.push({ event: event as string, options: options as Call["options"] }),
+      location: { pathname: "/app/comercio" }
+    };
+    trackEvent("Onboarding Started");
+    strictEqual(calls.length, 1);
+    strictEqual(calls[0].event, "Onboarding Started");
+  });
+
+  it("no lanza si window.location es defectuoso o inaccesible", () => {
+    const calls: Call[] = [];
+    (globalThis as G).window = {
+      plausible: (event, options) => calls.push({ event: event as string, options: options as Call["options"] }),
+      get location() {
+        throw new Error("unreachable location");
+      }
+    };
+    // No debe lanzar y debe continuar a plausible
+    trackEvent("Onboarding Started");
+    strictEqual(calls.length, 1);
+    strictEqual(calls[0].event, "Onboarding Started");
+  });
 });
 
 describe("events — helpers de eventos tipados", () => {
@@ -117,5 +152,41 @@ describe("events — helpers de eventos tipados", () => {
     events.merchantViewed("papa-johns");
     strictEqual(calls[0].event, "Merchant Viewed");
     deepStrictEqual(calls[0].options, { props: { merchant: "papa-johns" } });
+  });
+
+  it("promotionViewed -> props { promotionId, merchantId, bankId, location }", () => {
+    events.promotionViewed({
+      promotionId: "promo-1",
+      merchantId: "jumbo",
+      bankId: "bci",
+      location: "winner",
+    });
+    strictEqual(calls[0].event, "Promotion Viewed");
+    deepStrictEqual(calls[0].options, {
+      props: {
+        promotionId: "promo-1",
+        merchantId: "jumbo",
+        bankId: "bci",
+        location: "winner",
+      },
+    });
+  });
+
+  it("promotionClicked -> props { promotionId, merchantId, bankId, location }", () => {
+    events.promotionClicked({
+      promotionId: "promo-1",
+      merchantId: "jumbo",
+      bankId: "bci",
+      location: "winner",
+    });
+    strictEqual(calls[0].event, "Promotion Clicked");
+    deepStrictEqual(calls[0].options, {
+      props: {
+        promotionId: "promo-1",
+        merchantId: "jumbo",
+        bankId: "bci",
+        location: "winner",
+      },
+    });
   });
 });

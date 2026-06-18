@@ -1,8 +1,10 @@
 "use client";
 
+import { useEffect } from "react";
 import { formatCLP, formatDiscount, modalityLabel } from "@/lib/format";
 import { calculateSavingsForRec } from "@/lib/recommendations";
 import { BANK_INFO } from "@/lib/constants";
+import { events } from "@/lib/analytics";
 
 interface RecommendationCardProps {
   recommendation: {
@@ -25,6 +27,7 @@ interface RecommendationCardProps {
       bankId: string;
     };
     merchant: {
+      id?: string;
       name: string;
     };
     bankName: string;
@@ -51,6 +54,15 @@ function getMinPurchase(promotion: RecommendationCardProps["recommendation"]["pr
 export function RecommendationCard({ recommendation, amount, units, compact, onClick }: RecommendationCardProps) {
   const { promotion, card, merchant, bankName } = recommendation;
   const isPerUnit = promotion.discount_per_unit != null && promotion.discount_unit === "liter";
+
+  useEffect(() => {
+    events.promotionViewed({
+      promotionId: promotion.id,
+      merchantId: merchant.id || "",
+      bankId: card.bankId,
+      location: "winner",
+    });
+  }, [promotion.id, merchant.id, card.bankId]);
 
   const minPurchase = getMinPurchase(promotion);
   const belowMinimum = !isPerUnit && amount !== undefined && minPurchase !== null && amount < minPurchase;
@@ -145,6 +157,14 @@ export function RecommendationCard({ recommendation, amount, units, compact, onC
             href={promotion.source}
             target="_blank"
             rel="noopener noreferrer"
+            onClick={() => {
+              events.promotionClicked({
+                promotionId: promotion.id,
+                merchantId: merchant.id || "",
+                bankId: card.bankId,
+                location: "winner",
+              });
+            }}
             className="mt-4 inline-flex items-center gap-1.5 rounded-full bg-white/15 px-3.5 py-2 font-mono text-[11px] uppercase tracking-wider text-white backdrop-blur-sm transition-all hover:bg-white/25 hover:scale-[1.02] active:scale-[0.98]"
           >
             Ver oferta
@@ -199,7 +219,16 @@ function Chip({ children, mono }: { children: React.ReactNode; mono?: boolean })
  * Alternativa más pequeña, para listas de opciones secundarias.
  */
 export function AlternativeCard({ recommendation }: { recommendation: RecommendationCardProps["recommendation"] }) {
-  const { promotion, merchant, bankName } = recommendation;
+  const { promotion, merchant, bankName, card } = recommendation;
+
+  useEffect(() => {
+    events.promotionViewed({
+      promotionId: promotion.id,
+      merchantId: merchant.id || "",
+      bankId: card.bankId,
+      location: "alternative",
+    });
+  }, [promotion.id, merchant.id, card.bankId]);
 
   return (
     <div className="flex items-center justify-between rounded-2xl border border-line bg-bg-2 p-4 transition-colors hover:border-line-strong">
@@ -230,6 +259,14 @@ export function AlternativeCard({ recommendation }: { recommendation: Recommenda
             href={promotion.source}
             target="_blank"
             rel="noopener noreferrer"
+            onClick={() => {
+              events.promotionClicked({
+                promotionId: promotion.id,
+                merchantId: merchant.id || "",
+                bankId: card.bankId,
+                location: "alternative",
+              });
+            }}
             className="font-mono text-[10px] text-accent hover:underline"
           >
             Ver oferta ↗

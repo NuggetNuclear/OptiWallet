@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useRecommendations, usePromotions, useMerchantFromApi } from "@/lib/hooks/use-api";
 import { daysOfWeekLabel, formatCLP, modalityLabel, formatDiscount } from "@/lib/format";
 import { AlternativeCard, RecommendationCard } from "./RecommendationCard";
@@ -8,6 +8,7 @@ import { TopBar } from "./layout/TopBar";
 import { BackButton } from "./layout/BackButton";
 import type { ApiRecommendation, ApiPromotion } from "@/lib/api-client";
 import { rankRecommendations } from "@/lib/recommendations";
+import { events } from "@/lib/analytics";
 
 
 interface MerchantDetailProps {
@@ -44,6 +45,7 @@ function toRecCardShape(rec: ApiRecommendation, bankName: string) {
       bankId: rec.bank_id,
     },
     merchant: {
+      id: rec.merchant_id,
       name: rec.merchant_name,
     },
     bankName,
@@ -333,6 +335,15 @@ function PromoRow({
   isWinner: boolean;
   isApplicable: boolean;
 }) {
+  useEffect(() => {
+    events.promotionViewed({
+      promotionId: promo.id,
+      merchantId: promo.merchant_id,
+      bankId: promo.bank_id,
+      location: "list",
+    });
+  }, [promo.id, promo.merchant_id, promo.bank_id]);
+
   return (
     <div
       className={`rounded-xl border p-4 ${
@@ -385,6 +396,14 @@ function PromoRow({
               href={promo.source}
               target="_blank"
               rel="noopener noreferrer"
+              onClick={() => {
+                events.promotionClicked({
+                  promotionId: promo.id,
+                  merchantId: promo.merchant_id,
+                  bankId: promo.bank_id,
+                  location: "list",
+                });
+              }}
               className="mt-1.5 inline-flex items-center gap-1 font-mono text-[10px] text-accent hover:underline"
             >
               Ver oferta ↗
