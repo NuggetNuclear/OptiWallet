@@ -211,3 +211,20 @@ CREATE TABLE IF NOT EXISTS promo_staging (
 );
 CREATE INDEX IF NOT EXISTS idx_promo_staging_bank_status ON promo_staging(bank_id, status);
 CREATE INDEX IF NOT EXISTS idx_promo_staging_fingerprint ON promo_staging(fingerprint);
+
+-- ── App settings (feature flags y configuración global) ────────────────────────
+-- Tabla key-value minimalista para flags que no merecen una tabla propia.
+-- `maintenance_mode` bloquea el acceso público a la app mientras el panel admin
+-- sigue funcionando con normalidad.
+CREATE TABLE IF NOT EXISTS app_settings (
+  key        TEXT PRIMARY KEY,
+  value      TEXT NOT NULL,
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+  updated_by TEXT  -- email del admin que hizo el último cambio
+);
+
+-- Semilla: maintenance_mode OFF por defecto (idempotente).
+INSERT INTO app_settings (key, value)
+  VALUES ('maintenance_mode', 'false')
+  ON CONFLICT (key) DO NOTHING;
+

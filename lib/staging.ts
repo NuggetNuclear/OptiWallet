@@ -9,6 +9,14 @@ import { createHash } from "node:crypto";
  * bloqueantes que se le muestran al revisor).
  */
 
+/**
+ * Máximo de caracteres permitidos en el nombre de un comercio.
+ * Valor elegido para que quepa en una sola línea en el FeedRow móvil (390px)
+ * junto al badge de descuento. Aplica tanto al import de scraper como a la
+ * creación manual desde el panel de administración.
+ */
+export const MERCHANT_NAME_MAX_LENGTH = 40;
+
 export type ScrapedRow = {
   merchant_id?: string | null; // puede venir "NEW:slug" desde el scraper
   merchant_name?: string | null;
@@ -115,6 +123,8 @@ export function normalizeRow(
   const hasPct = typeof r.discount === "number";
   const hasPu = typeof r.discount_per_unit === "number" && !!r.discount_unit;
   if (hasPct === hasPu) warnings.push("descuento_ambiguo"); // ni uno ni ambos
+  const name = r.merchant_name || candidate;
+  if (name.length > MERCHANT_NAME_MAX_LENGTH) warnings.push("nombre_muy_largo");
 
   return {
     merchant_name: r.merchant_name || candidate,

@@ -3,9 +3,26 @@
 
 import { NextRequest, NextResponse } from "next/server";
 import { getAdminFromRequest } from "@/lib/admin-session";
+import { isMaintenanceMode } from "@/lib/maintenance";
 
 export async function proxy(req: NextRequest) {
   const { pathname } = req.nextUrl;
+
+  // ── 0. Maintenance mode ───────────────────────────────────────────────────
+  // El admin panel y sus APIs quedan SIEMPRE accesibles para poder desactivarlo.
+  // La página /mantencion misma también se excluye para no crear un loop.
+  const isAdminRoute = pathname.startsWith("/admin") || pathname.startsWith("/api/admin");
+  const isMaintenancePage = pathname === "/mantencion";
+  const isAsset = pathname.startsWith("/_next") || pathname.startsWith("/favicon") || pathname === "/manifest.json";
+
+  if (!isAdminRoute && !isMaintenancePage && !isAsset) {
+    const maintenance = await isMaintenanceMode();
+    if (maintenance) {
+      const url = req.nextUrl.clone();
+      url.pathname = "/mantencion";
+      return NextResponse.redirect(url, 307);
+    }
+  }
 
   // ── 1. Admin auth guard ───────────────────────────────────────────────────
   // Rutas admin que NO requieren sesión válida
@@ -45,5 +62,22 @@ export async function proxy(req: NextRequest) {
 }
 
 export const config = {
-  matcher: ["/", "/admin/:path*"],
+  // Extendemos el matcher para cubrir todas las rutas de la app pública
+  // además de las rutas admin (el guard de admin ya estaba).
+  matcher: [
+    "/",
+    "/app/:path*",
+    "/blog/:path*",
+    "/sobre-nosotros/:path*",
+    "/contacto/:path*",
+    "/privacidad/:path*",
+    "/terminos/:path*",
+    "/cookies/:path*",
+    "/prensa/:path*",
+    "/roadmap/:path*",
+    "/api-docs/:path*",
+    "/mantencion",
+    "/admin/:path*",
+  ],
 };
+

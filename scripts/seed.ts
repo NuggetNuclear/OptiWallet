@@ -30,7 +30,18 @@ const BANKS = [
 ];
 
 const CARDS = [
-  { id: "bchile-debit", bank_id: "banco-chile", name: "Débito Banco de Chile", type: "debit" },
+  { id: "bchile-mastercard-credito-black", bank_id: "banco-chile", name: "Mastercard Black", type: "credit" },
+  { id: "bchile-mastercard-credito-dorada", bank_id: "banco-chile", name: "Mastercard Dorada", type: "credit" },
+  { id: "bchile-mastercard-credito-platinum", bank_id: "banco-chile", name: "Mastercard Platinum", type: "credit" },
+  { id: "bchile-visa-credito-gold", bank_id: "banco-chile", name: "Visa Gold", type: "credit" },
+  { id: "bchile-visa-credito-infinite", bank_id: "banco-chile", name: "Visa Infinite", type: "credit" },
+  { id: "bchile-visa-credito-platinum", bank_id: "banco-chile", name: "Visa Platinum", type: "credit" },
+  { id: "bchile-visa-credito-signature", bank_id: "banco-chile", name: "Visa Signature", type: "credit" },
+  { id: "bchile-visa-cuenta-fan", bank_id: "banco-chile", name: "Débito Visa Fan", type: "debit" },
+  { id: "bchile-visa-debito-bch", bank_id: "banco-chile", name: "Débito Visa", type: "debit" },
+  { id: "bchile-visa-debito-infinite", bank_id: "banco-chile", name: "Débito Visa Infinite", type: "debit" },
+  { id: "bchile-visa-debito-signature", bank_id: "banco-chile", name: "Débito Visa Signature", type: "debit" },
+  { id: "bchile-visa-fan-credito", bank_id: "banco-chile", name: "Fan Crédito", type: "credit" },
   { id: "bci-aa-infinite", bank_id: "bci", name: "AAdvantage® Visa Infinite", type: "credit" },
   { id: "bci-aa-master", bank_id: "bci", name: "AAdvantage® Mastercard Black", type: "credit" },
   { id: "bci-debit", bank_id: "bci", name: "Bci Visa Débito", type: "debit" },
@@ -63,6 +74,19 @@ const CARDS = [
   { id: "tenpo-prepaid", bank_id: "tenpo", name: "Tenpo Prepago", type: "prepaid" },
 ];
 
+const CATEGORIES = [
+  { id: "supermercados", label: "Supermercados", emoji: "🛒" },
+  { id: "combustible", label: "Combustible", emoji: "⛽" },
+  { id: "restaurantes", label: "Restaurantes y Cafés", emoji: "🍽️" },
+  { id: "comida-rapida", label: "Comida Rápida", emoji: "🍔" },
+  { id: "farmacias", label: "Farmacias y Salud", emoji: "💊" },
+  { id: "tiendas", label: "Tiendas y Vestuario", emoji: "🛍️" },
+  { id: "viajes", label: "Viajes y Turismo", emoji: "✈️" },
+  { id: "servicios", label: "Servicios y Cuentas", emoji: "💳" },
+  { id: "entretencion", label: "Entretención y Cine", emoji: "🎬" },
+  { id: "otros", label: "Otros", emoji: "🏷️" }
+];
+
 async function reset() {
   console.log("🗑️  Dropeando tablas…");
   for (const table of ["promo_staging", "scraper_runs", "promotions", "cards", "merchants", "merchant_categories", "banks"]) {
@@ -78,7 +102,14 @@ async function reset() {
 }
 
 async function seed() {
-  console.log("🌱 Insertando bancos y tarjetas…");
+  console.log("🌱 Insertando categorías, bancos y tarjetas…");
+
+  for (const cat of CATEGORIES) {
+    await sql.query(
+      `INSERT INTO merchant_categories (id, label, emoji) VALUES ($1, $2, $3)`,
+      [cat.id, cat.label, cat.emoji]
+    );
+  }
 
   for (const b of BANKS) {
     await sql.query(

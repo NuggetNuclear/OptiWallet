@@ -16,6 +16,7 @@ interface RecommendationCardProps {
       modality: string;
       code?: string | null;
       conditions?: string | null;
+      source?: string | null;
     };
     card: {
       name: string;
@@ -116,14 +117,14 @@ export function RecommendationCard({ recommendation, amount, units, compact, onC
           </span>
         </div>
 
-        <div className="mt-2 break-words font-serif text-[22px] font-semibold leading-[1.05] tracking-[-0.02em] text-white sm:text-[26px]">
+        <div className="mt-2 break-words font-serif text-[18px] font-semibold leading-[1.05] tracking-[-0.02em] text-white sm:text-[22px]">
           {bankName}
         </div>
 
         <div className="mt-1 break-words text-xs text-white/75">{card.name}</div>
 
         <div className="mt-5 flex flex-wrap items-baseline gap-x-2 gap-y-1">
-          <span className="font-serif text-[52px] font-bold leading-none tracking-[-0.04em] text-white sm:text-[64px]">
+          <span className="font-serif text-[40px] font-bold leading-none tracking-[-0.04em] text-white sm:text-[52px]">
             {formatDiscount(promotion.discount, promotion.discount_per_unit ?? null, promotion.discount_unit ?? null)}
           </span>
           <span className="font-mono text-[10px] uppercase tracking-widest text-white/70">
@@ -162,6 +163,21 @@ export function RecommendationCard({ recommendation, amount, units, compact, onC
           <div className="mt-3 text-[11px] italic text-white/70">
             {promotion.conditions}
           </div>
+        )}
+
+        {promotion.source && (
+          <a
+            href={promotion.source}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="mt-4 inline-flex items-center gap-1.5 rounded-full bg-white/15 px-3.5 py-2 font-mono text-[11px] uppercase tracking-wider text-white backdrop-blur-sm transition-all hover:bg-white/25 hover:scale-[1.02] active:scale-[0.98]"
+          >
+            Ver oferta
+            <svg width="12" height="12" viewBox="0 0 12 12" fill="none" className="opacity-70">
+              <path d="M3.5 1.5H10.5V8.5" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round" strokeLinejoin="round"/>
+              <path d="M10.5 1.5L1.5 10.5" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round" strokeLinejoin="round"/>
+            </svg>
+          </a>
         )}
       </div>
     </>
@@ -225,14 +241,24 @@ export function AlternativeCard({ recommendation }: { recommendation: Recommenda
           )}
         </div>
       </div>
-      <div className="ml-4 flex flex-col items-end">
+      <div className="ml-4 flex flex-col items-end gap-1.5">
         <span className="font-serif text-2xl font-semibold leading-none text-ink">
           {formatDiscount(promotion.discount, promotion.discount_per_unit ?? null, promotion.discount_unit ?? null)}
         </span>
         {promotion.cap && (
-          <span className="mt-1 font-mono text-[9px] uppercase tracking-wider text-ink-dim">
+          <span className="font-mono text-[9px] uppercase tracking-wider text-ink-dim">
             tope {formatCLP(promotion.cap)}
           </span>
+        )}
+        {promotion.source && (
+          <a
+            href={promotion.source}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="font-mono text-[10px] text-accent hover:underline"
+          >
+            Ver oferta ↗
+          </a>
         )}
       </div>
     </div>

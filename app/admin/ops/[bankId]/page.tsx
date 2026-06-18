@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { useParams } from "next/navigation";
 import { AdminShell } from "../../components/AdminShell";
+import { ConfirmModal } from "../../components/ConfirmModal";
 
 interface Staged {
   id: number;
@@ -38,6 +39,7 @@ const WARN_LABEL: Record<string, string> = {
   sin_fecha_termino: "Sin fecha de término",
   sin_tipo_tarjeta: "Sin tipo de tarjeta",
   descuento_ambiguo: "Descuento ambiguo",
+  nombre_muy_largo: `⚠️ Nombre >40 chars`,
 };
 
 function slugify(s: string) {
@@ -73,6 +75,8 @@ export default function BankReview() {
   const [expanded, setExpanded] = useState<number | null>(null);
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
+  const [bulkApproving, setBulkApproving] = useState(false);
+  const [confirmStep, setConfirmStep] = useState<"confirm_all" | "confirm_new_merchants" | null>(null);
 
   async function load() {
     setLoading(true);
@@ -90,6 +94,48 @@ export default function BankReview() {
   }
   useEffect(() => { (async () => { await load(); })(); }, [bankId, status]); // eslint-disable-line react-hooks/exhaustive-deps
 
+  function handleApproveAll() {
+    setConfirmStep("confirm_all");
+  }
+
+  function handleConfirmStep1() {
+    setConfirmStep("confirm_new_merchants");
+  }
+
+  async function handleConfirmStep2() {
+    setConfirmStep(null);
+    setBulkApproving(true);
+    setError("");
+    setSuccess("");
+    try {
+      const res = await fetch(`/api/admin/ops/${bankId}/approve-all`, {
+        method: "POST",
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        setError(data.error ?? "Error al auto-aprobar el backlog.");
+        return;
+      }
+      let msg = `Se aprobaron ${data.approvedCount} promociones.`;
+      if (data.createdMerchantsCount > 0) {
+        msg += ` Se crearon ${data.createdMerchantsCount} comercios nuevos.`;
+      }
+      if (data.createdCategoriesCount > 0) {
+        msg += ` Se crearon ${data.createdCategoriesCount} categorías nuevas.`;
+      }
+      if (data.errors && data.errors.length > 0) {
+        msg += ` (Se omitieron ${data.errors.length} filas por errores de validación, ver consola).`;
+        console.warn("Errores durante auto-aprobación:", data.errors);
+      }
+      setSuccess(msg);
+      load();
+    } catch (err) {
+      setError("Error de red al intentar auto-aprobar.");
+    } finally {
+      setBulkApproving(false);
+    }
+  }
+
   return (
     <AdminShell>
       <div className="admin-header">
@@ -103,16 +149,28 @@ export default function BankReview() {
       {error && <div className="admin-error">{error}</div>}
       {success && <div className="admin-success">{success}</div>}
 
-      <div className="admin-toolbar" style={{ display: "flex", gap: 8, marginBottom: 16 }}>
-        {["pending", "approved", "rejected"].map((s) => (
+      <div className="admin-toolbar" style={{ display: "flex", gap: 8, marginBottom: 16, justifyContent: "space-between", alignItems: "center", flexWrap: "wrap" }}>
+        <div style={{ display: "flex", gap: 8 }}>
+          {["pending", "approved", "rejected"].map((s) => (
+            <button
+              key={s}
+              className={`admin-btn admin-btn-sm ${status === s ? "admin-btn-primary" : "admin-btn-ghost"}`}
+              onClick={() => { setStatus(s); setExpanded(null); }}
+            >
+              {s === "pending" ? "Pendientes" : s === "approved" ? "Aprobadas" : "Rechazadas"}
+            </button>
+          ))}
+        </div>
+        {status === "pending" && rows.length > 0 && !loading && (
           <button
-            key={s}
-            className={`admin-btn admin-btn-sm ${status === s ? "admin-btn-primary" : "admin-btn-ghost"}`}
-            onClick={() => { setStatus(s); setExpanded(null); }}
+            className="admin-btn admin-btn-sm admin-btn-primary"
+            style={{ backgroundColor: "var(--lime)", color: "#000" }}
+            onClick={handleApproveAll}
+            disabled={bulkApproving}
           >
-            {s === "pending" ? "Pendientes" : s === "approved" ? "Aprobadas" : "Rechazadas"}
+            {bulkApproving ? "Aprobando todo..." : "⚡ Auto-aprobar backlog"}
           </button>
-        ))}
+        )}
       </div>
 
       {loading ? (
@@ -131,8 +189,30 @@ export default function BankReview() {
             onToggle={() => setExpanded(expanded === r.id ? null : r.id)}
             onDone={(msg) => { setSuccess(msg); setError(""); setExpanded(null); load(); }}
             onError={(msg) => { setError(msg); setSuccess(""); }}
+            onCategoryCreated={(id, label, emoji) => {
+              setCategories((prev) => [...prev, { id, label, emoji }]);
+            }}
           />
         ))
+      )}
+
+      {confirmStep === "confirm_all" && (
+        <ConfirmModal
+          title="Auto-aprobar todo el backlog"
+          description={`¿Estás seguro de que quieres auto-aprobar todas las promociones pendientes para el banco "${bankId}"?`}
+          confirmText="Continuar"
+          onConfirm={handleConfirmStep1}
+          onCancel={() => setConfirmStep(null)}
+        />
+      )}
+      {confirmStep === "confirm_new_merchants" && (
+        <ConfirmModal
+          title="Confirmación de comercios nuevos"
+          description="¡Atención! Este proceso creará comercios y categorías nuevas de forma automática en la base de datos para aquellas promociones que no estén mapeadas previamente. ¿Confirmas esta acción definitiva?"
+          confirmText="Sí, auto-aprobar todo"
+          onConfirm={handleConfirmStep2}
+          onCancel={() => setConfirmStep(null)}
+        />
       )}
     </AdminShell>
   );
@@ -141,11 +221,12 @@ export default function BankReview() {
 const CARD_TYPE_LABEL = (t: string) => (t === "credit" ? "Crédito" : t === "debit" ? "Débito" : "Prepago");
 
 function ReviewRow({
-  row, merchants, categories, cards, expanded, onToggle, onDone, onError,
+  row, merchants, categories, cards, expanded, onToggle, onDone, onError, onCategoryCreated,
 }: {
   row: Staged; merchants: Merchant[]; categories: Category[]; cards: Card[];
   expanded: boolean; onToggle: () => void;
   onDone: (msg: string) => void; onError: (msg: string) => void;
+  onCategoryCreated: (id: string, label: string, emoji: string) => void;
 }) {
   const isNewCandidate = !row.merchant_id;
   const [mode, setMode] = useState<"existing" | "new">(isNewCandidate ? "new" : "existing");
@@ -171,6 +252,35 @@ function ReviewRow({
   const [cardIds, setCardIds] = useState<string[]>([]);
   const [stackable, setStackable] = useState(row.stackable ?? false);
   const [busy, setBusy] = useState(false);
+
+  // Mini-form de nueva categoría inline
+  const [showNewCat, setShowNewCat] = useState(false);
+  const [newCatId, setNewCatId] = useState("");
+  const [newCatLabel, setNewCatLabel] = useState("");
+  const [newCatEmoji, setNewCatEmoji] = useState("");
+  const [savingCat, setSavingCat] = useState(false);
+  const [catError, setCatError] = useState("");
+
+  async function createCategory() {
+    if (!newCatId.trim() || !newCatLabel.trim() || !newCatEmoji.trim()) {
+      setCatError("Todos los campos son requeridos"); return;
+    }
+    setSavingCat(true); setCatError("");
+    try {
+      const res = await fetch("/api/admin/data/categories", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ id: newCatId.trim(), label: newCatLabel.trim(), emoji: newCatEmoji.trim() }),
+      });
+      const data = await res.json();
+      if (!res.ok) { setCatError(data.error ?? "Error"); return; }
+      onCategoryCreated(newCatId.trim(), newCatLabel.trim(), newCatEmoji.trim());
+      setNmCat(newCatId.trim());
+      setShowNewCat(false);
+      setNewCatId(""); setNewCatLabel(""); setNewCatEmoji("");
+    } catch { setCatError("Error de red"); }
+    finally { setSavingCat(false); }
+  }
 
   function toggleCardType(t: string) {
     setCardTypes((prev) => prev.includes(t) ? prev.filter((x) => x !== t) : [...prev, t]);
@@ -371,10 +481,34 @@ function ReviewRow({
               </div>
               <div className="admin-form-row">
                 <label className="admin-label">Categoría</label>
-                <select className="admin-input" value={nmCat} onChange={(e) => setNmCat(e.target.value)}>
-                  <option value="">— Seleccionar —</option>
-                  {categories.map((c) => <option key={c.id} value={c.id}>{c.emoji} {c.label}</option>)}
-                </select>
+                <div style={{ display: "flex", gap: 6, alignItems: "center" }}>
+                  <select className="admin-input" value={nmCat} onChange={(e) => setNmCat(e.target.value)}>
+                    <option value="">— Seleccionar —</option>
+                    {categories.map((c) => <option key={c.id} value={c.id}>{c.emoji} {c.label}</option>)}
+                  </select>
+                  <button
+                    className="admin-btn admin-btn-ghost admin-btn-sm"
+                    onClick={() => { setShowNewCat((v) => !v); setCatError(""); }}
+                    title="Crear nueva categoría"
+                    style={{ flexShrink: 0 }}
+                  >+</button>
+                </div>
+                {showNewCat && (
+                  <div style={{ marginTop: 8, padding: 10, border: "1px dashed var(--line)", borderRadius: 8, background: "var(--bg-2)" }}>
+                    <div style={{ display: "flex", gap: 6, flexWrap: "wrap", marginBottom: 6 }}>
+                      <input className="admin-input" style={{ width: 120 }} placeholder="id (slug)" value={newCatId} onChange={(e) => setNewCatId(e.target.value)} />
+                      <input className="admin-input" style={{ flex: 1, minWidth: 120 }} placeholder="Etiqueta" value={newCatLabel} onChange={(e) => setNewCatLabel(e.target.value)} />
+                      <input className="admin-input" style={{ width: 56, fontSize: 18 }} placeholder="🏷️" value={newCatEmoji} onChange={(e) => setNewCatEmoji(e.target.value)} />
+                    </div>
+                    {catError && <p style={{ fontSize: 11, color: "var(--red)", marginBottom: 6 }}>{catError}</p>}
+                    <div style={{ display: "flex", gap: 6 }}>
+                      <button className="admin-btn admin-btn-primary admin-btn-sm" onClick={createCategory} disabled={savingCat}>
+                        {savingCat ? "Creando…" : "Crear"}
+                      </button>
+                      <button className="admin-btn admin-btn-ghost admin-btn-sm" onClick={() => { setShowNewCat(false); setCatError(""); }}>Cancelar</button>
+                    </div>
+                  </div>
+                )}
               </div>
             </div>
           )}

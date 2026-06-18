@@ -2,7 +2,7 @@ import { sql } from "@/lib/db";
 import { requireAdmin, clientIp } from "@/lib/admin-guard";
 import { logAdminAction } from "@/lib/admin-log";
 import { isValidId } from "@/lib/validate";
-import { normalizeRow, type ScrapedRow, type StagedRow } from "@/lib/staging";
+import { normalizeRow, type ScrapedRow, type StagedRow, MERCHANT_NAME_MAX_LENGTH } from "@/lib/staging";
 import { NextRequest, NextResponse } from "next/server";
 
 const NO_CACHE = { "Cache-Control": "no-store" };
@@ -53,10 +53,18 @@ export async function POST(req: NextRequest) {
     const existingFp = new Set(fpRows.map((r) => (r as { fingerprint: string }).fingerprint));
 
     // Normalizar + dedup (contra DB y dentro del mismo lote).
+    // Filas con nombre de comercio demasiado largo se rechazan antes del staging.
     const seen = new Set<string>();
     const staged: StagedRow[] = [];
+    const rejectedNames: string[] = [];
     let skipped = 0;
     for (const row of clean) {
+      const rawName = (row.merchant_name ?? "").trim();
+      if (rawName.length > MERCHANT_NAME_MAX_LENGTH) {
+        rejectedNames.push(rawName);
+        skipped++;
+        continue;
+      }
       const norm = normalizeRow(bankId, row, knownMerchants);
       if (existingFp.has(norm.fingerprint) || seen.has(norm.fingerprint)) {
         skipped++;
@@ -110,7 +118,7 @@ export async function POST(req: NextRequest) {
     );
 
     return NextResponse.json(
-      { run_id: runId, total, imported, skipped, edge_count: edgeCount },
+      { run_id: runId, total, imported, skipped, edge_count: edgeCount, rejected_names: rejectedNames },
       { status: 201, headers: NO_CACHE }
     );
   } catch (err) {

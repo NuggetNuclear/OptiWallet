@@ -21,8 +21,8 @@ import "server-only";
 const PROVIDER = (process.env.AI_PROVIDER ?? "gemini").toLowerCase();
 
 const GEMINI_KEY   = process.env.GEMINI_API_KEY ?? "";
-const GEMINI_EMBED = process.env.GEMINI_EMBED_MODEL ?? "text-embedding-004";
-const GEMINI_GEN   = process.env.GEMINI_GEN_MODEL ?? "gemini-3.5-flash";
+const GEMINI_EMBED = process.env.GEMINI_EMBED_MODEL ?? "gemini-embedding-2";
+const GEMINI_GEN   = process.env.GEMINI_GEN_MODEL ?? "gemini-3.1-flash-lite";
 
 const OLLAMA_URL   = (process.env.OLLAMA_URL ?? "http://localhost:11434").replace(/\/+$/, "");
 const OLLAMA_EMBED = process.env.OLLAMA_EMBED_MODEL ?? "nomic-embed-text";
@@ -35,6 +35,55 @@ const GROQ_KEY = process.env.GROQ_API_KEY ?? "";
 const GROQ_GEN = process.env.GROQ_GEN_MODEL ?? "llama-3.1-8b-instant";
 
 const EMBED_BATCH = 96; // límite conservador por request
+const AI_TIMEOUT_MS = 8000; // 8 s — falla rápido antes de caer al fallback
+
+async function fetchWithTimeout(
+  url: string,
+  init: RequestInit,
+  ms = AI_TIMEOUT_MS,
+  maxRetries = 4
+): Promise<Response> {
+  let attempt = 0;
+  while (true) {
+    attempt++;
+    const ctrl = new AbortController();
+    const timer = setTimeout(() => ctrl.abort(), ms);
+    try {
+      const res = await fetch(url, { ...init, signal: ctrl.signal }).finally(() => clearTimeout(timer));
+      
+      if (res.status === 429 && attempt <= maxRetries) {
+        const retryAfterHeader = res.headers.get("retry-after") ?? res.headers.get("x-ratelimit-reset");
+        let delayMs = 6000; // 6 segundos por defecto para Groq free tier
+        if (retryAfterHeader) {
+          const parsed = parseFloat(retryAfterHeader);
+          if (!isNaN(parsed)) {
+            // Groq o APIs de LLMs pueden responder en segundos
+            delayMs = parsed * 1000;
+          }
+        } else {
+          delayMs = attempt * 8000; // backoff progresivo (8s, 16s, 24s...)
+        }
+        
+        // Agregar un pequeño margen extra de seguridad para asegurar que el límite de ventana de Groq se limpie
+        delayMs += 500;
+        
+        console.warn(`[AI Provider] HTTP 429 Rate Limit en ${url}. Reintentando ${attempt}/${maxRetries} en ${Math.round(delayMs)}ms...`);
+        await new Promise((resolve) => setTimeout(resolve, delayMs));
+        continue;
+      }
+      
+      return res;
+    } catch (err) {
+      if (attempt > maxRetries) throw err;
+      const isAbort = err instanceof Error && err.name === "AbortError";
+      console.warn(
+        `[AI Provider] Intento ${attempt}/${maxRetries} falló (${isAbort ? "Timeout" : "Error de red"}). ` +
+        `Reintentando en ${attempt * 2000}ms...`
+      );
+      await new Promise((resolve) => setTimeout(resolve, attempt * 2000));
+    }
+  }
+}
 
 export function aiProvider(): string {
   return PROVIDER;
@@ -64,25 +113,24 @@ export async function embed(texts: string[]): Promise<number[][]> {
 }
 
 async function embedGemini(texts: string[]): Promise<number[][]> {
-  const url = `https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_EMBED}:batchEmbedContents?key=${GEMINI_KEY}`;
-  const body = {
-    requests: texts.map((t) => ({
-      model: `models/${GEMINI_EMBED}`,
-      content: { parts: [{ text: t }] },
-    })),
-  };
-  const r = await fetch(url, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(body),
-  });
-  if (!r.ok) throw new Error(`Gemini embed HTTP ${r.status}: ${(await r.text()).slice(0, 200)}`);
-  const j = await r.json();
-  return (j.embeddings ?? []).map((e: { values: number[] }) => e.values);
+  // gemini-embedding-* usa embedContent (un texto por request), no batchEmbedContents.
+  const results: number[][] = [];
+  for (const text of texts) {
+    const url = `https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_EMBED}:embedContent?key=${GEMINI_KEY}`;
+    const r = await fetchWithTimeout(url, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ content: { parts: [{ text }] } }),
+    });
+    if (!r.ok) throw new Error(`Gemini embed HTTP ${r.status}: ${(await r.text()).slice(0, 200)}`);
+    const j = await r.json();
+    results.push(j.embedding?.values ?? []);
+  }
+  return results;
 }
 
 async function embedOllama(texts: string[]): Promise<number[][]> {
-  const r = await fetch(`${OLLAMA_URL}/api/embed`, {
+  const r = await fetchWithTimeout(`${OLLAMA_URL}/api/embed`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ model: OLLAMA_EMBED, input: texts }),
@@ -108,7 +156,7 @@ export async function generateJSON<T = unknown>(prompt: string): Promise<T> {
 }
 
 async function genGroq(prompt: string): Promise<string> {
-  const r = await fetch("https://api.groq.com/openai/v1/chat/completions", {
+  const r = await fetchWithTimeout("https://api.groq.com/openai/v1/chat/completions", {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
@@ -120,7 +168,7 @@ async function genGroq(prompt: string): Promise<string> {
       response_format: { type: "json_object" },
       temperature: 0,
     }),
-  });
+  }, 15000); // Groq puede tardar más en la primera llamada
   if (!r.ok) throw new Error(`Groq gen HTTP ${r.status}: ${(await r.text()).slice(0, 200)}`);
   const j = await r.json();
   return j?.choices?.[0]?.message?.content ?? "";
@@ -132,22 +180,22 @@ async function genGemini(prompt: string): Promise<string> {
     contents: [{ parts: [{ text: prompt }] }],
     generationConfig: { responseMimeType: "application/json", temperature: 0 },
   };
-  const r = await fetch(url, {
+  const r = await fetchWithTimeout(url, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(body),
-  });
+  }, 15000);
   if (!r.ok) throw new Error(`Gemini gen HTTP ${r.status}: ${(await r.text()).slice(0, 200)}`);
   const j = await r.json();
   return j?.candidates?.[0]?.content?.parts?.[0]?.text ?? "";
 }
 
 async function genOllama(prompt: string): Promise<string> {
-  const r = await fetch(`${OLLAMA_URL}/api/generate`, {
+  const r = await fetchWithTimeout(`${OLLAMA_URL}/api/generate`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ model: OLLAMA_GEN, prompt, stream: false, format: "json", options: { temperature: 0 } }),
-  });
+  }, 30000); // Ollama local puede tardar en la primera inferencia
   if (!r.ok) throw new Error(`Ollama gen HTTP ${r.status}`);
   const j = await r.json();
   return j.response ?? "";

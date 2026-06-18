@@ -36,6 +36,7 @@ function toRecCardShape(rec: ApiRecommendation, bankName: string) {
       modality: rec.modality,
       code: rec.code,
       conditions: rec.conditions,
+      source: rec.source,
     },
     card: {
       name: rec.card_name,
@@ -378,6 +379,16 @@ function PromoRow({
           )}
           {promo.conditions && (
             <div className="mt-1 text-[11px] italic text-ink-dim">{promo.conditions}</div>
+          )}
+          {promo.source && (
+            <a
+              href={promo.source}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="mt-1.5 inline-flex items-center gap-1 font-mono text-[10px] text-accent hover:underline"
+            >
+              Ver oferta ↗
+            </a>
           )}
         </div>
         <div className="text-right">
