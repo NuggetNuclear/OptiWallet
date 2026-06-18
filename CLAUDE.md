@@ -10,6 +10,7 @@ npm run build                # Production build
 npm run lint                 # ESLint (flat config)
 npm test                     # All unit tests
 npm run test:watch           # Tests in watch mode
+npm run test:coverage        # All unit tests + native coverage report
 node --test tests/validate.test.ts  # Single test file
 
 npm run db:schema            # Apply schema.sql to Neon DB (idempotent, non-destructive)
