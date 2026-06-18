@@ -50,10 +50,11 @@ Pages under `/blog`, `/contacto`, `/cookies`, etc. are server components using `
 
 ### Middleware: `proxy.ts` (not `middleware.ts`)
 
-Next.js 16 uses `proxy.ts` as the middleware convention — `middleware.ts` is deprecated in this version. It handles two concerns:
+Next.js 16 uses `proxy.ts` as the middleware convention — `middleware.ts` is deprecated in this version. It handles three concerns in order:
 
-1. **PWA redirect**: if cookie `ow_standalone=1` is present on `/`, redirects to `/app`
+1. **Maintenance mode**: for all public routes (not `/admin*`, not `/api/admin*`, not `/mantencion`), checks `app_settings.maintenance_mode` in the DB (cached 30s in memory via `lib/maintenance.ts`). If active → `307 /mantencion`. Fails open: if the DB doesn’t respond, traffic is not blocked.
 2. **Admin guard**: for `/admin/*` (except `/admin/login`), validates the HMAC-signed `ow_admin_session` cookie
+3. **PWA redirect**: if cookie `ow_standalone=1` is present on `/`, redirects to `/app`
 
 ### Database layer
 
@@ -111,13 +112,14 @@ TOTP secrets are stored AES-256-GCM encrypted in the DB (`lib/admin-crypto.ts`).
 
 ### `server-only` boundaries
 
-`lib/db.ts`, `lib/admin-auth.ts`, `lib/admin-session.ts`, and `lib/admin-guard.ts` are marked `import "server-only"`. Importing any of these from a Client Component will cause a build-time error. `lib/admin-crypto.ts` uses `node:crypto` which achieves the same boundary implicitly.
+`lib/db.ts`, `lib/admin-auth.ts`, `lib/admin-session.ts`, `lib/admin-guard.ts`, `lib/admin-log.ts`, `lib/maintenance.ts`, `lib/staging.ts`, and `lib/ai/provider.ts` are marked `import "server-only"`. Importing any of these from a Client Component will cause a build-time error. `lib/admin-crypto.ts` uses `node:crypto` which achieves the same boundary implicitly.
 
 ## Further reading
 
 - `docs/ARCHITECTURE.md` — deep dives: standalone system, service worker lifecycle, component hierarchy, page transitions
 - `docs/API.md` — all 8 public endpoints with request/response examples
 - `docs/ADMIN.md` — admin panel: auth flows, CRUD hierarchy, key rotation, first deploy walkthrough
+- `docs/SCRAPING.md` — scraping pipeline: scrapers → staging → review
 - `docs/SECURITY.md` — CSP rationale, SQL parameterization, secrets handling
 - `tests/README.md` — test coverage map and isolation methodology
 - `TODO.md` — placeholder pages and pending operational tasks (Sentry/Plausible activation, press/about content)

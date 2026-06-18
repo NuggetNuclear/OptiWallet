@@ -86,6 +86,10 @@ OptiWallet es una **PWA** construida con **Next.js 16 App Router**. El frontend 
 | `/api/admin/auth/*` | Route Handlers | `app/api/admin/auth/` | Login, verify-totp, logout, me. |
 | `/api/admin/users/*` | Route Handlers | `app/api/admin/users/` | CRUD de admin users + TOTP setup. |
 | `/api/admin/data/*` | Route Handlers | `app/api/admin/data/` | CRUD + deps de las 5 entidades. |
+| `/api/admin/maintenance` | Route Handler | `app/api/admin/maintenance/route.ts` | Toggle modo mantenimiento (GET estado, POST on/off). |
+| `/api/admin/ops/*` | Route Handlers | `app/api/admin/ops/` | Import scraper JSON, staging review, suggest merchant (IA). |
+| `/api/admin/audit` | Route Handler | `app/api/admin/audit/route.ts` | Consulta audit log paginado. |
+| `/mantencion` | Server component | `app/mantencion/page.tsx` | Pantalla de mantenimiento (redirigida por proxy.ts). |
 
 ### Deep-linking en `/app` (US-DL, Sprint 2)
 
@@ -107,10 +111,13 @@ Las vistas de la app son **rutas reales del App Router** — URLs compartibles y
 
 Next.js 16 usa `proxy.ts` en la raíz como convención de middleware (reemplaza a `middleware.ts`, que está deprecado en esta versión).
 
-- **Matcher:** `/` y `/admin/:path*`.
-- **Guard admin:** si el path empieza con `/admin` y no es `/admin/login`, verifica la cookie `ow_admin_session` (HMAC-SHA256). Si no es válida o está ausente → `307 /admin/login`. Si la sesión existe pero `totp_enabled = false` → `307 /admin/totp-setup`.
-- **Guard PWA:** si path es `/` y la cookie `ow_standalone=1` existe → `307 /app`.
-- **Propósito dual:** que la PWA instalada aterrice en la app + proteger el panel admin en el Edge antes de renderizar nada.
+- **Matcher:** `/`, `/app/:path*`, `/blog/:path*`, `/sobre-nosotros/:path*`, `/contacto/:path*`, `/privacidad/:path*`, `/terminos/:path*`, `/cookies/:path*`, `/prensa/:path*`, `/roadmap/:path*`, `/api-docs/:path*`, `/mantencion`, `/admin/:path*`.
+
+Tres guards se evalúan en orden:
+
+1. **Maintenance mode** (todas las rutas excepto `/admin*`, `/api/admin*`, `/mantencion` y assets estáticos): consulta `app_settings.maintenance_mode` en la DB (cacheado 30s en memoria via `lib/maintenance.ts`). Si está activo → `307 /mantencion`. Falla abierto: si la DB no responde, no bloquea tráfico.
+2. **Guard admin:** si el path empieza con `/admin` y no es `/admin/login`, verifica la cookie `ow_admin_session` (HMAC-SHA256). Si no es válida o está ausente → `307 /admin/login`. Si la sesión existe pero `totp_enabled = false` → `307 /admin/totp-setup`.
+3. **Guard PWA:** si path es `/` y la cookie `ow_standalone=1` existe → `307 /app`.
 
 Para la arquitectura completa del panel de administración, ver [`docs/ADMIN.md`](ADMIN.md).
 
@@ -177,12 +184,12 @@ export function isStandalone(): boolean {
 ### Viewport (root layout)
 
 ```typescript
+// Sin maximumScale ni userScalable: bloquear el zoom rompe accesibilidad
+// y iOS lo ignora igual.
 export const viewport: Viewport = {
   themeColor: "#0b0d0c",
   width: "device-width",
   initialScale: 1,
-  maximumScale: 1,
-  userScalable: false,      // Evita zoom accidental en inputs
   viewportFit: "cover",     // Habilita env(safe-area-inset-*)
 };
 ```
@@ -232,7 +239,7 @@ Se cachean al instalar el SW:
 - Solo se registra en **producción** (`NODE_ENV === "production"`).
 - Se registra **después del evento `load`** para no bloquear la carga inicial.
 - Hook: `lib/hooks/use-service-worker.ts` → componente: `ServiceWorkerRegistrar`.
-- Escucha `updatefound` y loguea cuando hay una nueva versión disponible (en beta, sin banner de actualización).
+- Escucha `updatefound`; cuando hay una nueva versión instalada, expone `updateAvailable`, `applyUpdate()` y `dismiss()` para mostrar un banner de actualización (pill flotante glassmorphism con botón "Actualizar").
 
 ### Ciclo de vida
 
@@ -340,7 +347,7 @@ Todos los Route Handlers responden con `Cache-Control`:
 
 | Endpoint | `s-maxage` | `stale-while-revalidate` |
 |---|---|---|
-| `/api/banks`, `/api/cards`, `/api/categories` | 300s (5 min) | 600s (10 min) |
+| `/api/banks`, `/api/cards`, `/api/categories` | 60s (1 min) | 120s (2 min) |
 | `/api/merchants`, `/api/merchants/[id]`, `/api/promotions/[id]`, `/api/recommendations` | 60s (1 min) | 300s (5 min) |
 | `/api/stats` | 60s (1 min) | 300s (5 min) |
 

@@ -36,25 +36,21 @@ export function useWallet() {
     setState({ cardIds: loaded, hydrated: true, initiallyEmpty: loaded.length === 0 });
   }, []);
 
-  const persist = useCallback((next: string[]) => {
-    setState((prev) => ({ ...prev, cardIds: next }));
+  /** Persiste un array de cardIds a localStorage (best-effort). */
+  function saveToStorage(next: string[]) {
     try {
       localStorage.setItem(STORAGE_KEY, JSON.stringify(next));
     } catch (e) {
       console.warn("[OptiWallet] No se pudo guardar la wallet en localStorage:", e);
     }
-  }, []);
+  }
 
   const addCard = useCallback(
     (cardId: string) => {
       setState((prev) => {
         if (prev.cardIds.includes(cardId)) return prev;
         const next = [...prev.cardIds, cardId];
-        try {
-          localStorage.setItem(STORAGE_KEY, JSON.stringify(next));
-        } catch (e) {
-          console.warn("[OptiWallet] No se pudo guardar la wallet en localStorage:", e);
-        }
+        saveToStorage(next);
         return { ...prev, cardIds: next };
       });
     },
@@ -65,11 +61,7 @@ export function useWallet() {
     (cardId: string) => {
       setState((prev) => {
         const next = prev.cardIds.filter((id) => id !== cardId);
-        try {
-          localStorage.setItem(STORAGE_KEY, JSON.stringify(next));
-        } catch (e) {
-          console.warn("[OptiWallet] No se pudo guardar la wallet en localStorage:", e);
-        }
+        saveToStorage(next);
         return { ...prev, cardIds: next };
       });
     },
@@ -82,11 +74,7 @@ export function useWallet() {
         const next = prev.cardIds.includes(cardId)
           ? prev.cardIds.filter((id) => id !== cardId)
           : [...prev.cardIds, cardId];
-        try {
-          localStorage.setItem(STORAGE_KEY, JSON.stringify(next));
-        } catch (e) {
-          console.warn("[OptiWallet] No se pudo guardar la wallet en localStorage:", e);
-        }
+        saveToStorage(next);
         return { ...prev, cardIds: next };
       });
     },
@@ -94,8 +82,9 @@ export function useWallet() {
   );
 
   const clearWallet = useCallback(() => {
-    persist([]);
-  }, [persist]);
+    setState((prev) => ({ ...prev, cardIds: [] }));
+    saveToStorage([]);
+  }, []);
 
   return {
     cardIds: state.cardIds,
