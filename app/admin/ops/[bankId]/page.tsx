@@ -5,6 +5,7 @@ import Link from "next/link";
 import { useParams } from "next/navigation";
 import { AdminShell } from "../../components/AdminShell";
 import { ConfirmModal } from "../../components/ConfirmModal";
+import { TerminalConsole, type TerminalLine } from "../../components/TerminalConsole";
 
 interface Staged {
   id: number;
@@ -76,7 +77,11 @@ export default function BankReview() {
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
   const [bulkApproving, setBulkApproving] = useState(false);
-  const [confirmStep, setConfirmStep] = useState<"confirm_all" | "confirm_new_merchants" | null>(null);
+  const [confirmStep, setConfirmStep] = useState<"confirm_all" | "confirm_new_merchants" | "confirm_reject_all" | null>(null);
+  const [terminalLines, setTerminalLines] = useState<TerminalLine[]>([]);
+  const [terminalDone, setTerminalDone] = useState(false);
+  const [showTerminal, setShowTerminal] = useState(false);
+  const [discarding, setDiscarding] = useState(false);
 
   async function load() {
     setLoading(true);
@@ -107,32 +112,74 @@ export default function BankReview() {
     setBulkApproving(true);
     setError("");
     setSuccess("");
+    setTerminalLines([]);
+    setTerminalDone(false);
+    setShowTerminal(true);
+
     try {
-      const res = await fetch(`/api/admin/ops/${bankId}/approve-all`, {
-        method: "POST",
-      });
-      const data = await res.json();
-      if (!res.ok) {
-        setError(data.error ?? "Error al auto-aprobar el backlog.");
+      const res = await fetch(`/api/admin/ops/${bankId}/approve-all/stream`, { method: "POST" });
+      if (!res.ok || !res.body) {
+        const data = await res.json().catch(() => ({}));
+        setTerminalLines([{ msg: data.error ?? "Error al conectar con el servidor.", level: "error" }]);
+        setTerminalDone(true);
+        setBulkApproving(false);
         return;
       }
-      let msg = `Se aprobaron ${data.approvedCount} promociones.`;
-      if (data.createdMerchantsCount > 0) {
-        msg += ` Se crearon ${data.createdMerchantsCount} comercios nuevos.`;
+
+      const reader = res.body.getReader();
+      const decoder = new TextDecoder();
+      let buf = "";
+
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        buf += decoder.decode(value, { stream: true });
+        const parts = buf.split("\n\n");
+        buf = parts.pop() ?? "";
+        for (const part of parts) {
+          for (const line of part.split("\n")) {
+            if (!line.startsWith("data: ")) continue;
+            try {
+              const event = JSON.parse(line.slice(6));
+              if (event.type === "log") {
+                setTerminalLines((prev) => [...prev, { msg: event.msg, level: event.level ?? "info" }]);
+              } else if (event.type === "done") {
+                const s = event.summary;
+                let msg = `Se aprobaron ${s.approved} promociones.`;
+                if (s.merchants > 0) msg += ` ${s.merchants} comercios creados.`;
+                if (s.categories > 0) msg += ` ${s.categories} categorías creadas.`;
+                if (s.errors?.length) msg += ` ${s.errors.length} errores (ver arriba).`;
+                setSuccess(msg);
+                setTerminalDone(true);
+                load();
+              }
+            } catch { /* malformed event — skip */ }
+          }
+        }
       }
-      if (data.createdCategoriesCount > 0) {
-        msg += ` Se crearon ${data.createdCategoriesCount} categorías nuevas.`;
-      }
-      if (data.errors && data.errors.length > 0) {
-        msg += ` (Se omitieron ${data.errors.length} filas por errores de validación, ver consola).`;
-        console.warn("Errores durante auto-aprobación:", data.errors);
-      }
-      setSuccess(msg);
-      load();
-    } catch (err) {
-      setError("Error de red al intentar auto-aprobar.");
+    } catch {
+      setTerminalLines((prev) => [...prev, { msg: "Error de red.", level: "error" }]);
+      setTerminalDone(true);
     } finally {
       setBulkApproving(false);
+    }
+  }
+
+  async function handleRejectAll() {
+    setConfirmStep(null);
+    setDiscarding(true);
+    setError("");
+    setSuccess("");
+    try {
+      const res = await fetch(`/api/admin/ops/${bankId}/reject-all`, { method: "POST" });
+      const data = await res.json();
+      if (!res.ok) { setError(data.error ?? "Error al descartar."); return; }
+      setSuccess(`Se descartaron ${data.rejectedCount} promociones.`);
+      load();
+    } catch {
+      setError("Error de red al descartar.");
+    } finally {
+      setDiscarding(false);
     }
   }
 
@@ -162,14 +209,23 @@ export default function BankReview() {
           ))}
         </div>
         {status === "pending" && rows.length > 0 && !loading && (
-          <button
-            className="admin-btn admin-btn-sm admin-btn-primary"
-            style={{ backgroundColor: "var(--lime)", color: "#000" }}
-            onClick={handleApproveAll}
-            disabled={bulkApproving}
-          >
-            {bulkApproving ? "Aprobando todo..." : "⚡ Auto-aprobar backlog"}
-          </button>
+          <div style={{ display: "flex", gap: 8 }}>
+            <button
+              className="admin-btn admin-btn-sm admin-btn-danger"
+              onClick={() => setConfirmStep("confirm_reject_all")}
+              disabled={bulkApproving || discarding}
+            >
+              {discarding ? "Descartando…" : "✕ Descartar todo"}
+            </button>
+            <button
+              className="admin-btn admin-btn-sm admin-btn-primary"
+              style={{ backgroundColor: "var(--lime)", color: "#000" }}
+              onClick={handleApproveAll}
+              disabled={bulkApproving || discarding}
+            >
+              {bulkApproving ? "Aprobando…" : "⚡ Auto-aprobar backlog"}
+            </button>
+          </div>
         )}
       </div>
 
@@ -212,6 +268,23 @@ export default function BankReview() {
           confirmText="Sí, auto-aprobar todo"
           onConfirm={handleConfirmStep2}
           onCancel={() => setConfirmStep(null)}
+        />
+      )}
+      {confirmStep === "confirm_reject_all" && (
+        <ConfirmModal
+          title="Descartar todo el backlog"
+          description={`Se rechazarán todas las promociones pendientes de "${bankId}". Esta acción no se puede deshacer.`}
+          confirmText="Sí, descartar todo"
+          onConfirm={handleRejectAll}
+          onCancel={() => setConfirmStep(null)}
+        />
+      )}
+      {showTerminal && (
+        <TerminalConsole
+          title={`approve-all · ${bankId}`}
+          lines={terminalLines}
+          done={terminalDone}
+          onClose={() => { setShowTerminal(false); setTerminalLines([]); }}
         />
       )}
     </AdminShell>

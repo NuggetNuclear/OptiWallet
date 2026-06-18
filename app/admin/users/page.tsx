@@ -9,6 +9,7 @@ interface AdminUser {
   id: string;
   email: string;
   totp_enabled: boolean;
+  is_root: boolean;
   created_at: string;
   last_login_at: string | null;
 }
@@ -109,7 +110,8 @@ export default function AdminUsersPage() {
                       <button
                         className="admin-btn admin-btn-danger admin-btn-sm"
                         onClick={() => setDeleteTarget(u)}
-                        disabled={u.email === "gabriel.gonzalez3@mail.udp.cl"}
+                        disabled={u.is_root}
+                        title={u.is_root ? "Administrador raíz — no se puede eliminar" : undefined}
                       >
                         Eliminar
                       </button>
