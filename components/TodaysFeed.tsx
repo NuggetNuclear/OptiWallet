@@ -3,6 +3,7 @@
 import { useMemo } from "react";
 import { useRecommendations } from "@/lib/hooks/use-api";
 import { formatCLP, modalityLabel, formatDiscount } from "@/lib/format";
+import { SkeletonCard } from "./SkeletonCard";
 import type { ApiRecommendation } from "@/lib/api-client";
 
 interface TodaysFeedProps {
@@ -53,17 +54,7 @@ export function TodaysFeed({
   if (loading) {
     return (
       <div className="grid gap-2">
-        {[1, 2, 3].map((i) => (
-          <div key={i} className="animate-pulse rounded-2xl border border-line bg-bg-2 p-4">
-            <div className="flex items-center gap-3">
-              <div className="h-11 w-11 rounded-xl bg-bg-3" />
-              <div className="flex-1 space-y-2">
-                <div className="h-4 w-32 rounded bg-bg-3" />
-                <div className="h-3 w-48 rounded bg-bg-3" />
-              </div>
-            </div>
-          </div>
-        ))}
+        {[1, 2, 3].map((i) => <SkeletonCard key={i} />)}
       </div>
     );
   }

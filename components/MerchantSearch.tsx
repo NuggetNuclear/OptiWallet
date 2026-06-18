@@ -2,6 +2,7 @@
 
 import { useMemo, useState } from "react";
 import { useMerchants, useCategories } from "@/lib/hooks/use-api";
+import { SkeletonCard } from "./SkeletonCard";
 import type { ApiMerchant } from "@/lib/api-client";
 
 interface MerchantSearchProps {
@@ -100,17 +101,7 @@ export function MerchantSearch({ onSelect, sortBy }: MerchantSearchProps) {
       {/* Results */}
       <div className="mt-5 space-y-2">
         {merchantsLoading ? (
-          Array.from({ length: 3 }).map((_, i) => (
-            <div key={i} className="animate-pulse rounded-2xl border border-line bg-bg-2 p-4">
-              <div className="flex items-center gap-3">
-                <div className="h-11 w-11 rounded-xl bg-bg-3" />
-                <div className="flex-1 space-y-2">
-                  <div className="h-4 w-32 rounded bg-bg-3" />
-                  <div className="h-3 w-20 rounded bg-bg-3" />
-                </div>
-              </div>
-            </div>
-          ))
+          Array.from({ length: 3 }).map((_, i) => <SkeletonCard key={i} />)
         ) : sortedMerchants.length === 0 ? (
           <div className="rounded-2xl border border-dashed border-line bg-bg-2/40 p-8 text-center">
             <div className="font-mono text-[10px] uppercase tracking-widest text-ink-dim">
