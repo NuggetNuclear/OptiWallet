@@ -117,3 +117,13 @@ sugerencias).
 
 La capa de extract (parseo a shape `promotions`) es genérica; lo único
 específico por banco es el fetch y los mapeos (días, tarjetas, categoría).
+
+## Contrato canónico del scraper
+
+El **shape exacto** de la salida, las reglas campo por campo, la taxonomía de
+casos borde, el fingerprint de dedup, los warnings y todos los endpoints `POST`
+del pipeline están normados en
+[`scripts/scrapers/SCRAPER-SPEC.md`](../scripts/scrapers/SCRAPER-SPEC.md). Ese
+documento es la fuente de verdad que mantiene a todos los scrapers en línea — un
+scraper nuevo que lo respeta entra por el pipeline sin cambios en el resto del
+sistema.
