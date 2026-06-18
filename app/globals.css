@@ -1,0 +1,321 @@
+@import "tailwindcss";
+
+@theme {
+  /* ─── Colors ─────────────────────────────────────────── */
+  --color-bg: #0b0d0c;
+  --color-bg-2: #13161a;
+  --color-bg-3: #1a1f1c;
+  --color-ink: #f5f1e8;
+  --color-ink-dim: #9a958a;
+  --color-paper: #ede6d3;
+  --color-lime: #d4ff3a;
+  --color-lime-deep: #a8d400;
+  --color-copper: #d67846;
+  --color-plum: #4a2d5a;
+  --color-line: rgba(245, 241, 232, 0.12);
+  --color-line-strong: rgba(245, 241, 232, 0.28);
+
+  /* ─── Font families ──────────────────────────────────── */
+  --font-serif: var(--font-fraunces), Georgia, serif;
+  --font-sans: var(--font-sora), system-ui, sans-serif;
+  --font-mono: var(--font-jetbrains), ui-monospace, monospace;
+
+  /* ─── Animations ─────────────────────────────────────── */
+  --animate-fade-up: fadeUp 0.6s ease-out forwards;
+  --animate-pulse-dot: pulseDot 2s ease-in-out infinite;
+  --animate-slide-up: slideUp 0.4s ease-out forwards;
+  --animate-page-enter: pageEnter 0.5s ease-out forwards;
+
+  @keyframes fadeUp {
+    from { opacity: 0; transform: translateY(16px); }
+    to   { opacity: 1; transform: translateY(0); }
+  }
+  @keyframes pulseDot {
+    0%, 100% { opacity: 1;   transform: scale(1); }
+    50%      { opacity: 0.6; transform: scale(1.2); }
+  }
+  @keyframes slideUp {
+    from { opacity: 0; transform: translateY(24px); }
+    to   { opacity: 1; transform: translateY(0); }
+  }
+  @keyframes pageEnter {
+    from { opacity: 0; transform: translateY(12px); }
+    to   { opacity: 1; transform: translateY(0); }
+  }
+}
+
+/*
+ * Expose theme colors as classic CSS custom properties so that
+ * both Tailwind utilities AND vanilla CSS (landing.css, etc.)
+ * can reference them with the same `var(--bg)` / `var(--lime)` syntax.
+ * Single source of truth — values come from @theme above.
+ */
+@layer base {
+  :root {
+    --bg: var(--color-bg);
+    --bg-2: var(--color-bg-2);
+    --bg-3: var(--color-bg-3);
+    --ink: var(--color-ink);
+    --ink-dim: var(--color-ink-dim);
+    --paper: var(--color-paper);
+    --lime: var(--color-lime);
+    --lime-deep: var(--color-lime-deep);
+    --copper: var(--color-copper);
+    --plum: var(--color-plum);
+    --line: var(--color-line);
+    --line-strong: var(--color-line-strong);
+    --noise-opacity: 0.035;
+
+    /* Safe areas for iOS (requiere viewport-fit=cover, ver app/layout.tsx) */
+    --safe-top: env(safe-area-inset-top, 0px);
+    --safe-bottom: env(safe-area-inset-bottom, 0px);
+
+    /* ─── Layout tokens ──────────────────────────────────
+     * Única fuente de verdad para el chrome de la app.
+     * Un futuro rediseño ajusta estos valores (y los
+     * componentes en components/layout/) en un solo lugar.
+     * IMPORTANTE: cualquier barra pegada al borde superior/
+     * inferior debe sumar --safe-top / --safe-bottom — nunca
+     * usar paddings fijos que los pisen (ver bug del notch
+     * que tuvimos en landing.css MOBILE OVERRIDES).
+     */
+    --page-px: 20px;        /* padding horizontal de página (= px-5) */
+    --topbar-pad-y: 14px;   /* padding vertical de la barra superior */
+    --dock-pad-y: 16px;     /* padding vertical del dock inferior */
+
+    /* Paddings compuestos listos para usar */
+    --topbar-pad-top: calc(var(--safe-top) + var(--topbar-pad-y));
+    --dock-pad-bottom: calc(var(--safe-bottom) + var(--dock-pad-y));
+  }
+}
+
+* {
+  -webkit-tap-highlight-color: transparent;
+}
+
+button, input, select, textarea {
+  touch-action: manipulation;
+}
+
+html,
+body {
+  background: var(--bg);
+  color: var(--ink);
+  min-height: 100%;
+}
+
+body {
+  font-family: var(--font-sora), system-ui, sans-serif;
+  position: relative;
+}
+
+/* Grain global — el alma estética del producto */
+body::before {
+  content: "";
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  z-index: 200;
+  opacity: var(--noise-opacity);
+  background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+  mix-blend-mode: overlay;
+}
+
+/* Glows decorativos reutilizables */
+.glow-lime {
+  position: absolute;
+  width: 400px;
+  height: 400px;
+  border-radius: 50%;
+  background: radial-gradient(circle, rgba(212, 255, 58, 0.25) 0%, transparent 60%);
+  filter: blur(80px);
+  pointer-events: none;
+  z-index: 0;
+}
+.glow-plum {
+  position: absolute;
+  width: 400px;
+  height: 400px;
+  border-radius: 50%;
+  background: radial-gradient(circle, rgba(74, 45, 90, 0.5) 0%, transparent 60%);
+  filter: blur(80px);
+  pointer-events: none;
+  z-index: 0;
+}
+.glow-copper {
+  position: absolute;
+  width: 300px;
+  height: 300px;
+  border-radius: 50%;
+  background: radial-gradient(circle, rgba(214, 120, 70, 0.3) 0%, transparent 60%);
+  filter: blur(80px);
+  pointer-events: none;
+  z-index: 0;
+}
+
+/* Scrollbar oculto en desktop, limpio en mobile */
+.no-scrollbar::-webkit-scrollbar {
+  display: none;
+}
+.no-scrollbar {
+  scrollbar-width: none;
+}
+
+/* Pulse dot reutilizable (single definition, used by both landing and app) */
+.pulse-dot {
+  animation: pulseDot 2s ease-in-out infinite;
+}
+
+@keyframes pulseDot {
+  0%,
+  100% {
+    opacity: 1;
+    transform: scale(1);
+  }
+  50% {
+    opacity: 0.6;
+    transform: scale(1.2);
+  }
+}
+
+/* Linea punteada decorativa para separadores tipo blueprint */
+.dashed-line {
+  background: repeating-linear-gradient(
+    90deg,
+    var(--line-strong) 0 6px,
+    transparent 6px 12px
+  );
+  height: 1px;
+  width: 100%;
+}
+
+/* Botón primario estándar */
+.btn-primary {
+  background: var(--lime);
+  color: var(--bg);
+  padding: 14px 22px;
+  border-radius: 100px;
+  font-weight: 600;
+  font-size: 15px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  transition: transform 0.2s, box-shadow 0.2s, background 0.2s;
+  border: none;
+  cursor: pointer;
+  width: 100%;
+}
+.btn-primary:hover:not(:disabled) {
+  transform: translateY(-1px);
+  box-shadow: 0 8px 24px rgba(212, 255, 58, 0.3);
+}
+.btn-primary:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.btn-ghost {
+  background: transparent;
+  color: var(--ink);
+  padding: 14px 22px;
+  border-radius: 100px;
+  font-weight: 500;
+  font-size: 15px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  border: 1px solid var(--line-strong);
+  cursor: pointer;
+  transition: border-color 0.2s, color 0.2s;
+}
+.btn-ghost:hover {
+  border-color: var(--lime);
+  color: var(--lime);
+}
+
+/* Focus visible accesible */
+:focus-visible {
+  outline: 2px solid var(--lime);
+  outline-offset: 2px;
+  border-radius: 4px;
+}
+
+/* ─── Page Transition Overlay ─────────────────────────── */
+.page-transition-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 9999;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  background: var(--bg);
+  gap: 24px;
+}
+
+.page-transition-overlay.entering {
+  animation: transitionFadeIn 0.3s ease-out forwards;
+}
+.page-transition-overlay.exiting {
+  animation: transitionFadeOut 0.35s ease-in forwards;
+}
+
+@keyframes transitionFadeIn {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}
+@keyframes transitionFadeOut {
+  from { opacity: 1; }
+  to   { opacity: 0; }
+}
+
+/* Shimmer bar inside transition overlay */
+.transition-shimmer {
+  width: 120px;
+  height: 3px;
+  border-radius: 100px;
+  background: var(--bg-3);
+  overflow: hidden;
+  position: relative;
+}
+.transition-shimmer::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  background: linear-gradient(90deg, transparent, var(--lime), transparent);
+  animation: shimmerSlide 1.2s ease-in-out infinite;
+}
+@keyframes shimmerSlide {
+  0%   { transform: translateX(-100%); }
+  100% { transform: translateX(100%); }
+}
+
+/* Page content entrance (applied to page wrappers after transition) */
+.page-content-enter {
+  animation: pageEnter 0.5s ease-out forwards;
+}
+
+@keyframes pageEnter {
+  from { opacity: 0; transform: translateY(12px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+/* Staggered children animation helper */
+.stagger-children > * {
+  opacity: 0;
+  animation: fadeUp 0.5s ease-out forwards;
+}
+.stagger-children > *:nth-child(1) { animation-delay: 0.05s; }
+.stagger-children > *:nth-child(2) { animation-delay: 0.1s; }
+.stagger-children > *:nth-child(3) { animation-delay: 0.15s; }
+.stagger-children > *:nth-child(4) { animation-delay: 0.2s; }
+.stagger-children > *:nth-child(5) { animation-delay: 0.25s; }
+.stagger-children > *:nth-child(6) { animation-delay: 0.3s; }
+
+@keyframes fadeUp {
+  from { opacity: 0; transform: translateY(16px); }
+  to   { opacity: 1; transform: translateY(0); }
+}

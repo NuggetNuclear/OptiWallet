@@ -1,0 +1,1366 @@
+<!DOCTYPE html>
+<html lang="es-CL">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>OptiWallet — Nunca más pagues de más</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,300;0,9..144,400;0,9..144,600;0,9..144,700;0,9..144,900;1,9..144,300;1,9..144,700&family=JetBrains+Mono:wght@400;500;700&family=Sora:wght@300;400;500;600;700&display=swap" rel="stylesheet" />
+
+<style>
+  :root {
+    --bg: #0b0d0c;
+    --bg-2: #13161a;
+    --ink: #f5f1e8;
+    --ink-dim: #9a958a;
+    --paper: #ede6d3;
+    --lime: #d4ff3a;
+    --lime-deep: #a8d400;
+    --copper: #d67846;
+    --plum: #4a2d5a;
+    --line: rgba(245, 241, 232, 0.12);
+    --line-strong: rgba(245, 241, 232, 0.28);
+    --noise-opacity: 0.035;
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  html { scroll-behavior: smooth; }
+
+  body {
+    font-family: 'Sora', sans-serif;
+    background: var(--bg);
+    color: var(--ink);
+    line-height: 1.5;
+    overflow-x: hidden;
+    position: relative;
+  }
+
+  /* Grain overlay */
+  body::before {
+    content: '';
+    position: fixed;
+    inset: 0;
+    pointer-events: none;
+    z-index: 9999;
+    opacity: var(--noise-opacity);
+    background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+    mix-blend-mode: overlay;
+  }
+
+  .mono { font-family: 'JetBrains Mono', monospace; }
+  .serif { font-family: 'Fraunces', serif; }
+
+  /* ============ NAV ============ */
+  nav {
+    position: fixed;
+    top: 0; left: 0; right: 0;
+    z-index: 100;
+    padding: 20px 40px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    backdrop-filter: blur(16px);
+    background: rgba(11, 13, 12, 0.6);
+    border-bottom: 1px solid var(--line);
+  }
+  .logo {
+    font-family: 'Fraunces', serif;
+    font-weight: 900;
+    font-size: 22px;
+    letter-spacing: -0.03em;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  .logo-dot {
+    width: 10px; height: 10px;
+    background: var(--lime);
+    border-radius: 50%;
+    box-shadow: 0 0 20px var(--lime);
+    animation: pulse 2s ease-in-out infinite;
+  }
+  @keyframes pulse {
+    0%,100% { opacity: 1; transform: scale(1); }
+    50% { opacity: 0.7; transform: scale(1.15); }
+  }
+  .nav-links {
+    display: flex;
+    gap: 32px;
+    font-size: 14px;
+    font-weight: 400;
+  }
+  .nav-links a {
+    color: var(--ink-dim);
+    text-decoration: none;
+    transition: color 0.2s;
+  }
+  .nav-links a:hover { color: var(--ink); }
+  .nav-cta {
+    background: var(--lime);
+    color: var(--bg);
+    padding: 10px 20px;
+    border-radius: 100px;
+    font-weight: 600;
+    font-size: 13px;
+    text-decoration: none;
+    transition: transform 0.2s, box-shadow 0.2s;
+    border: none;
+    cursor: pointer;
+  }
+  .nav-cta:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 8px 24px rgba(212, 255, 58, 0.3);
+  }
+  @media (max-width: 768px) {
+    nav { padding: 16px 20px; }
+    .nav-links { display: none; }
+  }
+
+  /* ============ HERO ============ */
+  .hero {
+    min-height: 100vh;
+    padding: 140px 40px 80px;
+    display: grid;
+    grid-template-columns: 1.2fr 1fr;
+    gap: 60px;
+    align-items: center;
+    position: relative;
+    max-width: 1400px;
+    margin: 0 auto;
+  }
+
+  .hero::before {
+    content: '';
+    position: absolute;
+    top: 20%; right: -10%;
+    width: 500px; height: 500px;
+    background: radial-gradient(circle, var(--plum) 0%, transparent 60%);
+    filter: blur(80px);
+    z-index: -1;
+    opacity: 0.5;
+  }
+  .hero::after {
+    content: '';
+    position: absolute;
+    bottom: 10%; left: -10%;
+    width: 400px; height: 400px;
+    background: radial-gradient(circle, var(--lime-deep) 0%, transparent 60%);
+    filter: blur(100px);
+    z-index: -1;
+    opacity: 0.15;
+  }
+
+  .eyebrow {
+    display: inline-flex;
+    align-items: center;
+    gap: 10px;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 12px;
+    text-transform: uppercase;
+    letter-spacing: 0.15em;
+    color: var(--lime);
+    margin-bottom: 28px;
+    padding: 6px 14px;
+    border: 1px solid var(--lime);
+    border-radius: 100px;
+    animation: fadeUp 0.8s ease-out;
+  }
+  .eyebrow::before {
+    content: '';
+    width: 6px; height: 6px;
+    background: var(--lime);
+    border-radius: 50%;
+    animation: pulse 1.5s ease-in-out infinite;
+  }
+
+  h1 {
+    font-family: 'Fraunces', serif;
+    font-size: clamp(48px, 7vw, 96px);
+    line-height: 0.95;
+    font-weight: 400;
+    letter-spacing: -0.04em;
+    margin-bottom: 32px;
+    animation: fadeUp 1s ease-out 0.15s backwards;
+  }
+  h1 em {
+    font-style: italic;
+    font-weight: 300;
+    color: var(--lime);
+  }
+  h1 .strike {
+    position: relative;
+    display: inline-block;
+    color: var(--ink-dim);
+  }
+  h1 .strike::after {
+    content: '';
+    position: absolute;
+    left: -4%; right: -4%;
+    top: 52%;
+    height: 4px;
+    background: var(--copper);
+    transform: rotate(-2deg);
+  }
+
+  .hero-sub {
+    font-size: 18px;
+    color: var(--ink-dim);
+    max-width: 480px;
+    margin-bottom: 40px;
+    line-height: 1.6;
+    animation: fadeUp 1s ease-out 0.3s backwards;
+  }
+
+  .hero-ctas {
+    display: flex;
+    gap: 16px;
+    align-items: center;
+    flex-wrap: wrap;
+    animation: fadeUp 1s ease-out 0.45s backwards;
+  }
+
+  .btn-primary {
+    background: var(--lime);
+    color: var(--bg);
+    padding: 16px 28px;
+    border-radius: 100px;
+    font-weight: 600;
+    font-size: 15px;
+    text-decoration: none;
+    display: inline-flex;
+    align-items: center;
+    gap: 10px;
+    transition: all 0.3s;
+    border: none;
+    cursor: pointer;
+  }
+  .btn-primary:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 12px 32px rgba(212, 255, 58, 0.4);
+  }
+  .btn-primary svg { transition: transform 0.3s; }
+  .btn-primary:hover svg { transform: translateX(4px); }
+
+  .btn-ghost {
+    color: var(--ink);
+    padding: 16px 0;
+    font-size: 15px;
+    text-decoration: none;
+    display: inline-flex;
+    align-items: center;
+    gap: 10px;
+    border-bottom: 1px solid var(--line-strong);
+    transition: color 0.2s, border-color 0.2s;
+  }
+  .btn-ghost:hover {
+    color: var(--lime);
+    border-bottom-color: var(--lime);
+  }
+
+  .hero-stats {
+    display: flex;
+    gap: 40px;
+    margin-top: 64px;
+    padding-top: 32px;
+    border-top: 1px solid var(--line);
+    animation: fadeUp 1s ease-out 0.6s backwards;
+  }
+  .stat-num {
+    font-family: 'Fraunces', serif;
+    font-size: 36px;
+    font-weight: 600;
+    color: var(--lime);
+    line-height: 1;
+  }
+  .stat-label {
+    font-size: 12px;
+    color: var(--ink-dim);
+    margin-top: 6px;
+    font-family: 'JetBrains Mono', monospace;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+  }
+
+  @keyframes fadeUp {
+    from { opacity: 0; transform: translateY(30px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+
+  /* ============ PHONE MOCKUP ============ */
+  .phone-wrap {
+    position: relative;
+    display: flex;
+    justify-content: center;
+    animation: floatIn 1.2s ease-out 0.5s backwards;
+  }
+  @keyframes floatIn {
+    from { opacity: 0; transform: translateY(40px) rotate(-2deg); }
+    to { opacity: 1; transform: translateY(0) rotate(-2deg); }
+  }
+
+  .phone {
+    width: 320px;
+    height: 640px;
+    background: #1a1d1c;
+    border-radius: 48px;
+    padding: 12px;
+    box-shadow:
+      0 40px 80px rgba(0,0,0,0.6),
+      0 0 0 1px rgba(255,255,255,0.08),
+      inset 0 0 0 2px rgba(255,255,255,0.04);
+    position: relative;
+    transform: rotate(-2deg);
+    animation: breathe 6s ease-in-out infinite;
+  }
+  @keyframes breathe {
+    0%, 100% { transform: rotate(-2deg) translateY(0); }
+    50% { transform: rotate(-2deg) translateY(-12px); }
+  }
+
+  .phone-notch {
+    position: absolute;
+    top: 16px; left: 50%;
+    transform: translateX(-50%);
+    width: 110px; height: 28px;
+    background: #000;
+    border-radius: 100px;
+    z-index: 2;
+  }
+
+  .phone-screen {
+    width: 100%; height: 100%;
+    background: linear-gradient(180deg, #0f1111 0%, #1a1f1c 100%);
+    border-radius: 38px;
+    overflow: hidden;
+    padding: 48px 20px 20px;
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+  }
+
+  .app-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 4px;
+  }
+  .greeting { font-size: 11px; color: var(--ink-dim); font-family: 'JetBrains Mono', monospace; }
+  .greeting-name { font-size: 20px; font-family: 'Fraunces', serif; color: var(--ink); letter-spacing: -0.02em; }
+
+  .search-bar {
+    background: rgba(255,255,255,0.06);
+    border: 1px solid rgba(255,255,255,0.08);
+    border-radius: 16px;
+    padding: 14px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    font-size: 13px;
+    color: var(--ink-dim);
+  }
+
+  .recommendation-card {
+    background: linear-gradient(135deg, var(--lime) 0%, var(--lime-deep) 100%);
+    border-radius: 20px;
+    padding: 18px;
+    color: var(--bg);
+    position: relative;
+    overflow: hidden;
+  }
+  .recommendation-card::before {
+    content: '';
+    position: absolute;
+    top: -30%; right: -20%;
+    width: 150px; height: 150px;
+    background: radial-gradient(circle, rgba(255,255,255,0.3) 0%, transparent 70%);
+  }
+  .rec-label {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 9px;
+    text-transform: uppercase;
+    letter-spacing: 0.12em;
+    opacity: 0.7;
+    margin-bottom: 8px;
+  }
+  .rec-merchant {
+    font-family: 'Fraunces', serif;
+    font-size: 22px;
+    font-weight: 600;
+    letter-spacing: -0.02em;
+  }
+  .rec-card-name {
+    font-size: 12px;
+    margin-top: 10px;
+    opacity: 0.85;
+  }
+  .rec-discount {
+    font-family: 'Fraunces', serif;
+    font-size: 44px;
+    font-weight: 700;
+    line-height: 1;
+    margin-top: 12px;
+    letter-spacing: -0.03em;
+  }
+  .rec-savings {
+    font-size: 11px;
+    margin-top: 6px;
+    opacity: 0.8;
+    font-family: 'JetBrains Mono', monospace;
+  }
+
+  .alt-title {
+    font-size: 10px;
+    color: var(--ink-dim);
+    font-family: 'JetBrains Mono', monospace;
+    text-transform: uppercase;
+    letter-spacing: 0.12em;
+    margin-top: 4px;
+  }
+
+  .alt-card {
+    background: rgba(255,255,255,0.04);
+    border: 1px solid rgba(255,255,255,0.06);
+    border-radius: 14px;
+    padding: 12px 14px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+  }
+  .alt-card-info { font-size: 12px; color: var(--ink); }
+  .alt-card-info small { display: block; color: var(--ink-dim); font-size: 10px; margin-top: 2px; }
+  .alt-card-percent { font-family: 'Fraunces', serif; font-weight: 600; color: var(--ink); font-size: 16px; }
+
+  @media (max-width: 900px) {
+    .hero { grid-template-columns: 1fr; gap: 60px; padding-top: 120px; }
+    .phone-wrap { order: 2; }
+  }
+
+  /* ============ LOGO MARQUEE ============ */
+  .marquee-section {
+    padding: 60px 0;
+    border-top: 1px solid var(--line);
+    border-bottom: 1px solid var(--line);
+    background: var(--bg-2);
+    overflow: hidden;
+  }
+  .marquee-label {
+    text-align: center;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 11px;
+    color: var(--ink-dim);
+    text-transform: uppercase;
+    letter-spacing: 0.2em;
+    margin-bottom: 32px;
+  }
+  .marquee {
+    display: flex;
+    gap: 60px;
+    animation: scroll 40s linear infinite;
+    width: max-content;
+  }
+  @keyframes scroll {
+    from { transform: translateX(0); }
+    to { transform: translateX(-50%); }
+  }
+  .bank-chip {
+    font-family: 'Fraunces', serif;
+    font-size: 26px;
+    font-weight: 600;
+    color: var(--ink-dim);
+    letter-spacing: -0.02em;
+    white-space: nowrap;
+    padding: 10px 24px;
+    border: 1px solid var(--line);
+    border-radius: 100px;
+    transition: all 0.3s;
+  }
+  .bank-chip:hover {
+    color: var(--lime);
+    border-color: var(--lime);
+  }
+
+  /* ============ HOW IT WORKS ============ */
+  .section {
+    max-width: 1400px;
+    margin: 0 auto;
+    padding: 140px 40px;
+  }
+
+  .section-label {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 12px;
+    color: var(--copper);
+    text-transform: uppercase;
+    letter-spacing: 0.2em;
+    margin-bottom: 24px;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+  }
+  .section-label::before {
+    content: '';
+    width: 24px;
+    height: 1px;
+    background: var(--copper);
+  }
+
+  .section-title {
+    font-family: 'Fraunces', serif;
+    font-size: clamp(36px, 5vw, 64px);
+    line-height: 1;
+    letter-spacing: -0.03em;
+    max-width: 900px;
+    margin-bottom: 80px;
+    font-weight: 400;
+  }
+  .section-title em { font-style: italic; color: var(--lime); font-weight: 300; }
+
+  .steps {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 24px;
+    position: relative;
+  }
+  .steps::before {
+    content: '';
+    position: absolute;
+    top: 60px;
+    left: 10%; right: 10%;
+    height: 1px;
+    background: repeating-linear-gradient(90deg, var(--line-strong) 0 6px, transparent 6px 12px);
+    z-index: 0;
+  }
+
+  .step {
+    position: relative;
+    z-index: 1;
+    padding: 32px 28px;
+    background: var(--bg-2);
+    border: 1px solid var(--line);
+    border-radius: 24px;
+    transition: transform 0.4s, border-color 0.4s;
+  }
+  .step:hover {
+    transform: translateY(-6px);
+    border-color: var(--lime);
+  }
+  .step-num {
+    font-family: 'Fraunces', serif;
+    font-size: 64px;
+    font-weight: 400;
+    font-style: italic;
+    color: var(--lime);
+    line-height: 1;
+    margin-bottom: 24px;
+  }
+  .step-title {
+    font-family: 'Fraunces', serif;
+    font-size: 24px;
+    font-weight: 600;
+    letter-spacing: -0.02em;
+    margin-bottom: 12px;
+  }
+  .step-text {
+    color: var(--ink-dim);
+    font-size: 15px;
+    line-height: 1.6;
+  }
+
+  @media (max-width: 800px) {
+    .steps { grid-template-columns: 1fr; }
+    .steps::before { display: none; }
+  }
+
+  /* ============ FEATURES BENTO ============ */
+  .bento {
+    display: grid;
+    grid-template-columns: 1.5fr 1fr 1fr;
+    grid-template-rows: auto auto;
+    gap: 20px;
+  }
+  .feature {
+    background: var(--bg-2);
+    border: 1px solid var(--line);
+    border-radius: 24px;
+    padding: 36px;
+    position: relative;
+    overflow: hidden;
+    transition: border-color 0.3s;
+  }
+  .feature:hover { border-color: var(--line-strong); }
+
+  .feature-big {
+    grid-column: 1;
+    grid-row: 1 / 3;
+    background: linear-gradient(135deg, #1a2e1c 0%, #0f1a11 100%);
+    border-color: rgba(212, 255, 58, 0.2);
+  }
+  .feature h3 {
+    font-family: 'Fraunces', serif;
+    font-size: 28px;
+    font-weight: 600;
+    letter-spacing: -0.02em;
+    margin-bottom: 14px;
+    line-height: 1.1;
+  }
+  .feature-big h3 { font-size: 44px; line-height: 1; margin-bottom: 20px; }
+  .feature-big h3 em { font-style: italic; font-weight: 300; color: var(--lime); }
+  .feature p {
+    color: var(--ink-dim);
+    font-size: 15px;
+    line-height: 1.6;
+  }
+  .feature-icon {
+    width: 48px; height: 48px;
+    border-radius: 14px;
+    background: rgba(212, 255, 58, 0.1);
+    border: 1px solid rgba(212, 255, 58, 0.3);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin-bottom: 20px;
+    color: var(--lime);
+  }
+
+  .visual-decoration {
+    margin-top: 32px;
+    padding: 20px;
+    background: rgba(0,0,0,0.3);
+    border-radius: 16px;
+    border: 1px solid var(--line);
+  }
+  .mini-comparison {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+  }
+  .mini-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 10px 14px;
+    background: rgba(255,255,255,0.03);
+    border-radius: 10px;
+    font-size: 13px;
+  }
+  .mini-row.best {
+    background: rgba(212, 255, 58, 0.1);
+    border: 1px solid rgba(212, 255, 58, 0.3);
+  }
+  .mini-row.best .mini-pct { color: var(--lime); }
+  .mini-name { color: var(--ink); font-weight: 500; }
+  .mini-pct { font-family: 'Fraunces', serif; font-weight: 600; font-size: 18px; color: var(--ink-dim); }
+
+  @media (max-width: 900px) {
+    .bento { grid-template-columns: 1fr; }
+    .feature-big { grid-column: 1; grid-row: auto; }
+  }
+
+  /* ============ BIG QUOTE ============ */
+  .quote-section {
+    background: var(--paper);
+    color: var(--bg);
+    padding: 160px 40px;
+    position: relative;
+    overflow: hidden;
+  }
+  .quote-section::before {
+    content: '"';
+    position: absolute;
+    top: -80px;
+    left: 20px;
+    font-family: 'Fraunces', serif;
+    font-size: 600px;
+    line-height: 1;
+    color: var(--bg);
+    opacity: 0.06;
+    font-weight: 900;
+  }
+  .quote-inner {
+    max-width: 1100px;
+    margin: 0 auto;
+    position: relative;
+    z-index: 1;
+  }
+  .quote-text {
+    font-family: 'Fraunces', serif;
+    font-size: clamp(32px, 4.5vw, 56px);
+    line-height: 1.15;
+    font-weight: 400;
+    letter-spacing: -0.02em;
+    margin-bottom: 48px;
+  }
+  .quote-text em { font-style: italic; color: var(--copper); }
+  .quote-author {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+  }
+  .quote-avatar {
+    width: 56px; height: 56px;
+    border-radius: 50%;
+    background: linear-gradient(135deg, var(--copper), var(--plum));
+  }
+  .quote-name {
+    font-family: 'Fraunces', serif;
+    font-size: 18px;
+    font-weight: 600;
+  }
+  .quote-role {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 12px;
+    color: #666;
+  }
+
+  /* ============ NUMBERS ============ */
+  .numbers-grid {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 0;
+    border-top: 1px solid var(--line);
+    border-bottom: 1px solid var(--line);
+  }
+  .number-cell {
+    padding: 48px 32px;
+    border-right: 1px solid var(--line);
+    text-align: left;
+  }
+  .number-cell:last-child { border-right: none; }
+  .big-num {
+    font-family: 'Fraunces', serif;
+    font-size: clamp(48px, 6vw, 80px);
+    font-weight: 500;
+    line-height: 1;
+    letter-spacing: -0.04em;
+    margin-bottom: 12px;
+  }
+  .big-num em { font-style: italic; color: var(--lime); font-weight: 300; }
+  .num-label {
+    font-size: 13px;
+    color: var(--ink-dim);
+    line-height: 1.5;
+  }
+  @media (max-width: 900px) {
+    .numbers-grid { grid-template-columns: repeat(2, 1fr); }
+    .number-cell:nth-child(2) { border-right: none; }
+    .number-cell:nth-child(1), .number-cell:nth-child(2) { border-bottom: 1px solid var(--line); }
+  }
+
+  /* ============ INSTALL PWA ============ */
+  .install-section {
+    background: linear-gradient(180deg, var(--bg) 0%, var(--bg-2) 100%);
+  }
+  .install-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 80px;
+    align-items: center;
+  }
+  .install-steps {
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
+  }
+  .install-step {
+    display: flex;
+    gap: 20px;
+    padding: 20px 24px;
+    background: var(--bg-2);
+    border: 1px solid var(--line);
+    border-radius: 16px;
+    transition: all 0.3s;
+  }
+  .install-step:hover { border-color: var(--lime); transform: translateX(6px); }
+  .install-step-num {
+    font-family: 'Fraunces', serif;
+    font-size: 28px;
+    font-weight: 600;
+    color: var(--lime);
+    font-style: italic;
+    min-width: 40px;
+  }
+  .install-step-title {
+    font-weight: 600;
+    font-size: 16px;
+    margin-bottom: 4px;
+  }
+  .install-step-desc {
+    font-size: 13px;
+    color: var(--ink-dim);
+  }
+  .install-visual {
+    background: var(--bg-2);
+    border: 1px solid var(--line);
+    border-radius: 24px;
+    padding: 40px;
+    text-align: center;
+  }
+  .safari-mockup {
+    background: var(--paper);
+    border-radius: 12px;
+    padding: 20px;
+    color: var(--bg);
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 13px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 20px;
+  }
+  .safari-url { opacity: 0.6; }
+  .share-icon {
+    display: inline-flex;
+    width: 24px; height: 24px;
+    background: var(--lime);
+    color: var(--bg);
+    border-radius: 6px;
+    align-items: center;
+    justify-content: center;
+    font-weight: 700;
+  }
+  @media (max-width: 900px) { .install-grid { grid-template-columns: 1fr; gap: 40px; } }
+
+  /* ============ FAQ ============ */
+  .faq-list { max-width: 900px; margin: 0 auto; }
+  .faq-item {
+    border-bottom: 1px solid var(--line);
+    padding: 28px 0;
+    cursor: pointer;
+  }
+  .faq-q {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    font-family: 'Fraunces', serif;
+    font-size: 22px;
+    font-weight: 500;
+    letter-spacing: -0.01em;
+  }
+  .faq-q::after {
+    content: '+';
+    font-size: 32px;
+    font-weight: 300;
+    color: var(--lime);
+    transition: transform 0.3s;
+    line-height: 1;
+  }
+  .faq-item.open .faq-q::after { transform: rotate(45deg); }
+  .faq-a {
+    max-height: 0;
+    overflow: hidden;
+    transition: max-height 0.4s, margin-top 0.4s;
+    color: var(--ink-dim);
+    line-height: 1.7;
+    font-size: 15px;
+  }
+  .faq-item.open .faq-a {
+    max-height: 300px;
+    margin-top: 16px;
+  }
+
+  /* ============ FINAL CTA ============ */
+  .final-cta {
+    padding: 160px 40px;
+    text-align: center;
+    position: relative;
+    overflow: hidden;
+  }
+  .final-cta::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background:
+      radial-gradient(circle at 30% 50%, rgba(212, 255, 58, 0.15) 0%, transparent 50%),
+      radial-gradient(circle at 70% 50%, rgba(74, 45, 90, 0.3) 0%, transparent 50%);
+    z-index: -1;
+  }
+  .final-cta h2 {
+    font-family: 'Fraunces', serif;
+    font-size: clamp(48px, 8vw, 120px);
+    line-height: 0.95;
+    letter-spacing: -0.04em;
+    margin-bottom: 40px;
+    font-weight: 400;
+  }
+  .final-cta h2 em { font-style: italic; font-weight: 300; color: var(--lime); }
+
+  /* ============ FOOTER ============ */
+  footer {
+    padding: 60px 40px 40px;
+    border-top: 1px solid var(--line);
+    background: var(--bg-2);
+  }
+  .footer-inner {
+    max-width: 1400px;
+    margin: 0 auto;
+    display: grid;
+    grid-template-columns: 2fr 1fr 1fr 1fr;
+    gap: 40px;
+    margin-bottom: 48px;
+  }
+  .footer-col h5 {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 0.15em;
+    color: var(--ink-dim);
+    margin-bottom: 20px;
+  }
+  .footer-col a {
+    display: block;
+    color: var(--ink);
+    text-decoration: none;
+    font-size: 14px;
+    margin-bottom: 10px;
+    transition: color 0.2s;
+  }
+  .footer-col a:hover { color: var(--lime); }
+  .footer-brand { font-family: 'Fraunces', serif; font-size: 32px; font-weight: 900; margin-bottom: 12px; letter-spacing: -0.03em; }
+  .footer-tagline { color: var(--ink-dim); font-size: 14px; max-width: 300px; line-height: 1.6; }
+  .footer-bottom {
+    max-width: 1400px;
+    margin: 0 auto;
+    padding-top: 32px;
+    border-top: 1px solid var(--line);
+    display: flex;
+    justify-content: space-between;
+    font-size: 12px;
+    color: var(--ink-dim);
+    font-family: 'JetBrains Mono', monospace;
+  }
+  @media (max-width: 800px) {
+    .footer-inner { grid-template-columns: 1fr 1fr; }
+    .footer-bottom { flex-direction: column; gap: 12px; }
+  }
+
+  .section-intro {
+    max-width: 1400px;
+    margin: 0 auto;
+    padding: 0 40px;
+  }
+</style>
+</head>
+<body>
+
+<!-- ============ NAV ============ -->
+<nav>
+  <div class="logo">
+    <span class="logo-dot"></span>
+    OptiWallet
+  </div>
+  <div class="nav-links">
+    <a href="#como-funciona">Cómo funciona</a>
+    <a href="#bancos">Bancos</a>
+    <a href="#instalar">Instalar</a>
+    <a href="#faq">FAQ</a>
+  </div>
+  <a href="#instalar" class="nav-cta">Probar gratis →</a>
+</nav>
+
+<!-- ============ HERO ============ -->
+<section class="hero">
+  <div class="hero-text">
+    <div class="eyebrow">Beta · Solo para Chile 🇨🇱</div>
+    <h1>
+      Nunca más pagues<br />
+      <span class="strike">de más.</span><br />
+      <em>Paga con la tarjeta correcta.</em>
+    </h1>
+    <p class="hero-sub">
+      OptiWallet cruza <strong style="color: var(--ink)">todas</strong> las promociones y descuentos de bancos y tarjetas de crédito en Chile, y te dice exactamente con cuál pagar, según el día y el comercio. Sin saldos. Sin clave. Solo recomendaciones.
+    </p>
+    <div class="hero-ctas">
+      <a href="#instalar" class="btn-primary">
+        Agregar al inicio
+        <svg width="16" height="16" viewBox="0 0 16 16" fill="none"><path d="M1 8h14m0 0l-6-6m6 6l-6 6" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
+      </a>
+      <a href="#como-funciona" class="btn-ghost">Ver cómo funciona</a>
+    </div>
+    <div class="hero-stats">
+      <div>
+        <div class="stat-num">$XXX.XXX</div>
+        <div class="stat-label">Ahorro anual estimado*</div>
+      </div>
+      <div>
+        <div class="stat-num">+250</div>
+        <div class="stat-label">Promos activas hoy</div>
+      </div>
+      <div>
+        <div class="stat-num">14</div>
+        <div class="stat-label">Bancos integrados</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="phone-wrap">
+    <div class="phone">
+      <div class="phone-notch"></div>
+      <div class="phone-screen">
+        <div class="app-header">
+          <div>
+            <div class="greeting">viernes · 17 de abril</div>
+            <div class="greeting-name">Hola, Gabriel</div>
+          </div>
+          <div style="width: 36px; height: 36px; border-radius: 50%; background: rgba(212,255,58,0.15); display: flex; align-items: center; justify-content: center; color: var(--lime); font-weight: 700; font-family: 'Fraunces', serif;">G</div>
+        </div>
+
+        <div class="search-bar">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
+          <span>Jumbo Costanera Center</span>
+        </div>
+
+        <div class="alt-title">Mejor opción hoy</div>
+
+        <div class="recommendation-card">
+          <div class="rec-label">Paga con</div>
+          <div class="rec-merchant">Scotiabank</div>
+          <div class="rec-card-name">Mastercard Black · crédito</div>
+          <div class="rec-discount">25%</div>
+          <div class="rec-savings">Ahorras ~$12.500 en $50.000</div>
+        </div>
+
+        <div class="alt-title">Otras opciones</div>
+
+        <div class="alt-card">
+          <div class="alt-card-info">
+            BancoEstado Visa
+            <small>Crédito · solo sábados</small>
+          </div>
+          <div class="alt-card-percent">15%</div>
+        </div>
+
+        <div class="alt-card">
+          <div class="alt-card-info">
+            Tarjeta Cencosud
+            <small>Promo Jumbo · martes</small>
+          </div>
+          <div class="alt-card-percent">10%</div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ============ MARQUEE ============ -->
+<section class="marquee-section" id="bancos">
+  <div class="marquee-label">— Cubrimos todos los bancos y tarjetas del mercado chileno —</div>
+  <div class="marquee">
+    <div class="bank-chip">Banco de Chile</div>
+    <div class="bank-chip">Santander</div>
+    <div class="bank-chip">BCI</div>
+    <div class="bank-chip">Scotiabank</div>
+    <div class="bank-chip">Itaú</div>
+    <div class="bank-chip">BancoEstado</div>
+    <div class="bank-chip">Falabella</div>
+    <div class="bank-chip">Cencosud</div>
+    <div class="bank-chip">Ripley</div>
+    <div class="bank-chip">Security</div>
+    <div class="bank-chip">Consorcio</div>
+    <div class="bank-chip">Tenpo</div>
+    <div class="bank-chip">MACH</div>
+    <div class="bank-chip">Copec Pay</div>
+    <!-- Duplicate for seamless loop -->
+    <div class="bank-chip">Banco de Chile</div>
+    <div class="bank-chip">Santander</div>
+    <div class="bank-chip">BCI</div>
+    <div class="bank-chip">Scotiabank</div>
+    <div class="bank-chip">Itaú</div>
+    <div class="bank-chip">BancoEstado</div>
+    <div class="bank-chip">Falabella</div>
+    <div class="bank-chip">Cencosud</div>
+    <div class="bank-chip">Ripley</div>
+    <div class="bank-chip">Security</div>
+    <div class="bank-chip">Consorcio</div>
+    <div class="bank-chip">Tenpo</div>
+    <div class="bank-chip">MACH</div>
+    <div class="bank-chip">Copec Pay</div>
+  </div>
+</section>
+
+<!-- ============ HOW IT WORKS ============ -->
+<section class="section" id="como-funciona">
+  <div class="section-label">Cómo funciona</div>
+  <h2 class="section-title">Tres pasos. <em>Un segundo.</em> Cero vueltas.</h2>
+
+  <div class="steps">
+    <div class="step">
+      <div class="step-num">01</div>
+      <h3 class="step-title">Registra tus tarjetas</h3>
+      <p class="step-text">Marca las tarjetas que tienes (solo el nombre, nunca el número). Nosotros ya sabemos qué promos aplican a cada una.</p>
+    </div>
+    <div class="step">
+      <div class="step-num">02</div>
+      <h3 class="step-title">Busca el comercio</h3>
+      <p class="step-text">Jumbo, Copec, Cinemark, La Polar, Sodimac, Starbucks... escribe el nombre del comercio o escanéalo con la cámara.</p>
+    </div>
+    <div class="step">
+      <div class="step-num">03</div>
+      <h3 class="step-title">Paga con la ganadora</h3>
+      <p class="step-text">Te mostramos la tarjeta con el mejor descuento <strong style="color: var(--ink)">hoy</strong>, cuánto ahorras, y las alternativas. Tú solo pagas.</p>
+    </div>
+  </div>
+</section>
+
+<!-- ============ FEATURES BENTO ============ -->
+<section class="section">
+  <div class="section-label">Por qué OptiWallet</div>
+  <h2 class="section-title">Las promos existen. <em>Encontrarlas, no.</em></h2>
+
+  <div class="bento">
+    <div class="feature feature-big">
+      <div class="feature-icon">
+        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2v20M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg>
+      </div>
+      <h3>Comparamos <em>todas</em> las tarjetas, en tiempo real, por ti.</h3>
+      <p>Cada día salen nuevas promos: 25% los martes en supermercados, 2x1 en cines los miércoles, cashback en farmacias. Nadie lleva la cuenta. Nosotros sí.</p>
+
+      <div class="visual-decoration">
+        <div class="mini-comparison">
+          <div class="mini-row best">
+            <div class="mini-name">🏆 BCI Mastercard Gold</div>
+            <div class="mini-pct">30%</div>
+          </div>
+          <div class="mini-row">
+            <div class="mini-name">Santander Visa</div>
+            <div class="mini-pct">15%</div>
+          </div>
+          <div class="mini-row">
+            <div class="mini-name">Falabella CMR</div>
+            <div class="mini-pct">10%</div>
+          </div>
+          <div class="mini-row">
+            <div class="mini-name">Itaú Black</div>
+            <div class="mini-pct">5%</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="feature">
+      <div class="feature-icon">
+        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/></svg>
+      </div>
+      <h3>Hoy no es martes</h3>
+      <p>Muchas promos dependen del día. OptiWallet sabe la fecha y solo te muestra lo vigente.</p>
+    </div>
+
+    <div class="feature">
+      <div class="feature-icon">
+        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 22s-8-4.5-8-11.8A8 8 0 0 1 12 2a8 8 0 0 1 8 8.2c0 7.3-8 11.8-8 11.8z"/><circle cx="12" cy="10" r="3"/></svg>
+      </div>
+      <h3>Favoritos cerca tuyo</h3>
+      <p>Marca los comercios que visitas seguido y recibe alertas cuando haya una promo imperdible.</p>
+    </div>
+
+    <div class="feature">
+      <div class="feature-icon">
+        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
+      </div>
+      <h3>Cero datos sensibles</h3>
+      <p>No pedimos números de tarjeta, clave ni acceso bancario. Solo el banco y el tipo de tarjeta.</p>
+    </div>
+
+    <div class="feature">
+      <div class="feature-icon">
+        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 3v18h18"/><path d="M7 14l4-4 4 4 5-5"/></svg>
+      </div>
+      <h3>Historial de ahorro</h3>
+      <p>Mira cuánto llevas ahorrado en el mes, el año, y qué tarjeta es tu caballo ganador.</p>
+    </div>
+  </div>
+</section>
+
+<!-- ============ NUMBERS STRIP ============ -->
+<section class="section-intro">
+  <div class="numbers-grid">
+    <div class="number-cell">
+      <div class="big-num">+<em>40%</em></div>
+      <div class="num-label">de los chilenos tiene más de 2 tarjetas de crédito, pero solo usa <strong>una</strong>.</div>
+    </div>
+    <div class="number-cell">
+      <div class="big-num"><em>$180k</em></div>
+      <div class="num-label">es el ahorro promedio anual que proyectamos para un usuario activo de OptiWallet.*</div>
+    </div>
+    <div class="number-cell">
+      <div class="big-num"><em>0</em> seg</div>
+      <div class="num-label">de espera. La recomendación aparece en el momento, sin sincronizaciones.</div>
+    </div>
+    <div class="number-cell">
+      <div class="big-num"><em>14</em></div>
+      <div class="num-label">bancos y emisores de tarjetas cubiertos al lanzamiento. Sumamos más cada semana.</div>
+    </div>
+  </div>
+</section>
+
+<!-- ============ QUOTE ============ -->
+<section class="quote-section">
+  <div class="quote-inner">
+    <p class="quote-text">
+      "Antes pagaba todo con la misma tarjeta porque no sabía cuál usar. Con OptiWallet, <em>ahorré $94.000 en un mes</em> solo ordenando con qué pago el super y la bencina."
+    </p>
+    <div class="quote-author">
+      <div class="quote-avatar"></div>
+      <div>
+        <div class="quote-name">— Nombre Apellido</div>
+        <div class="quote-role">Usuaria beta · Providencia</div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ============ INSTALL PWA ============ -->
+<section class="section install-section" id="instalar">
+  <div class="section-label">Sin descargar nada</div>
+  <h2 class="section-title">Se instala desde Safari. <em>Como una app real.</em></h2>
+
+  <div class="install-grid">
+    <div class="install-steps">
+      <div class="install-step">
+        <div class="install-step-num">01</div>
+        <div>
+          <div class="install-step-title">Abre optiwallet.cl en Safari</div>
+          <div class="install-step-desc">Desde tu iPhone o Android. No entres a la App Store.</div>
+        </div>
+      </div>
+      <div class="install-step">
+        <div class="install-step-num">02</div>
+        <div>
+          <div class="install-step-title">Toca el botón Compartir</div>
+          <div class="install-step-desc">El ícono del cuadrado con la flecha hacia arriba, abajo al centro.</div>
+        </div>
+      </div>
+      <div class="install-step">
+        <div class="install-step-num">03</div>
+        <div>
+          <div class="install-step-title">"Añadir a pantalla de inicio"</div>
+          <div class="install-step-desc">Aparece como una app normal. Ícono, pantalla completa, todo.</div>
+        </div>
+      </div>
+      <div class="install-step">
+        <div class="install-step-num">04</div>
+        <div>
+          <div class="install-step-title">Listo. Abre y arma tu wallet.</div>
+          <div class="install-step-desc">Marcas tus tarjetas en 30 segundos y ya está funcionando.</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="install-visual">
+      <div class="safari-mockup">
+        <span class="safari-url">optiwallet.cl</span>
+        <span class="share-icon">↑</span>
+      </div>
+      <div style="background: var(--bg); border: 1px solid var(--line); border-radius: 12px; padding: 24px; color: var(--ink); display: flex; align-items: center; gap: 16px;">
+        <div style="width: 56px; height: 56px; border-radius: 14px; background: var(--lime); display: flex; align-items: center; justify-content: center;">
+          <span style="font-family: 'Fraunces', serif; color: var(--bg); font-weight: 900; font-size: 24px;">O</span>
+        </div>
+        <div style="text-align: left;">
+          <div style="font-weight: 600; font-size: 15px;">OptiWallet</div>
+          <div style="font-size: 12px; color: var(--ink-dim);">Añadir a pantalla de inicio</div>
+        </div>
+        <div style="margin-left: auto; background: var(--lime); color: var(--bg); padding: 6px 14px; border-radius: 8px; font-size: 12px; font-weight: 600;">Añadir</div>
+      </div>
+      <p style="font-family: 'JetBrains Mono', monospace; font-size: 11px; color: var(--ink-dim); margin-top: 20px; text-transform: uppercase; letter-spacing: 0.1em;">— Funciona offline · pesa &lt; 1MB —</p>
+    </div>
+  </div>
+</section>
+
+<!-- ============ FAQ ============ -->
+<section class="section" id="faq">
+  <div class="section-label">Preguntas frecuentes</div>
+  <h2 class="section-title">¿Y esto <em>cómo</em>?</h2>
+
+  <div class="faq-list">
+    <div class="faq-item">
+      <div class="faq-q">¿Es realmente gratis?</div>
+      <div class="faq-a">Sí. Durante la beta es 100% gratuita. A futuro evaluaremos un plan Premium opcional con alertas geolocalizadas y comparador de cuotas, pero la funcionalidad core siempre será gratis.</div>
+    </div>
+    <div class="faq-item">
+      <div class="faq-q">¿Necesito conectar mi cuenta bancaria?</div>
+      <div class="faq-a">No. Jamás. Solo nos dices qué tarjetas tienes (Banco X, producto Y). No pedimos número, clave, RUT ni acceso a tu banca en línea. La app funciona sin leer un solo peso de tu cuenta.</div>
+    </div>
+    <div class="faq-item">
+      <div class="faq-q">¿De dónde sacan las promos?</div>
+      <div class="faq-a">De los canales oficiales de cada banco y emisor: sitios web, apps oficiales, newsletters y comunicados. Nuestro equipo actualiza la base diariamente y verifica la vigencia de cada promoción antes de publicarla.</div>
+    </div>
+    <div class="faq-item">
+      <div class="faq-q">¿Funciona fuera de Chile?</div>
+      <div class="faq-a">Hoy no. OptiWallet está diseñada exclusivamente para el ecosistema financiero chileno. Queremos hacer esto muy bien en un mercado antes de pensar en otros países.</div>
+    </div>
+    <div class="faq-item">
+      <div class="faq-q">¿Qué pasa si una promo ya no está vigente?</div>
+      <div class="faq-a">Tenemos un sistema de reporte en cada recomendación. Si ves una promo caducada, nos avisas con un toque y la bajamos en minutos. También puedes proponer promos nuevas que encuentres.</div>
+    </div>
+    <div class="faq-item">
+      <div class="faq-q">¿Quién está detrás de OptiWallet?</div>
+      <div class="faq-a">Un equipo de estudiantes de ingeniería de la UDP que estábamos cansados de pagar Jumbo los jueves con la tarjeta equivocada. Construido en Chile, para Chile.</div>
+    </div>
+  </div>
+</section>
+
+<!-- ============ FINAL CTA ============ -->
+<section class="final-cta">
+  <h2>Deja de pagar<br /><em>por pagar mal.</em></h2>
+  <a href="#instalar" class="btn-primary" style="padding: 20px 36px; font-size: 17px;">
+    Instalar OptiWallet
+    <svg width="18" height="18" viewBox="0 0 16 16" fill="none"><path d="M1 8h14m0 0l-6-6m6 6l-6 6" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
+  </a>
+  <p style="margin-top: 24px; font-family: 'JetBrains Mono', monospace; font-size: 12px; color: var(--ink-dim); text-transform: uppercase; letter-spacing: 0.15em;">
+    Gratis · Sin registro · Sin descargas
+  </p>
+</section>
+
+<!-- ============ FOOTER ============ -->
+<footer>
+  <div class="footer-inner">
+    <div class="footer-col">
+      <div class="footer-brand">OptiWallet</div>
+      <p class="footer-tagline">
+        La app que te dice con qué tarjeta pagar para ahorrar más, en cada comercio de Chile.
+      </p>
+    </div>
+    <div class="footer-col">
+      <h5>Producto</h5>
+      <a href="#como-funciona">Cómo funciona</a>
+      <a href="#bancos">Bancos soportados</a>
+      <a href="#instalar">Instalar</a>
+      <a href="#">Roadmap</a>
+    </div>
+    <div class="footer-col">
+      <h5>Compañía</h5>
+      <a href="#">Sobre nosotros</a>
+      <a href="#">Blog</a>
+      <a href="#">Contacto</a>
+      <a href="#">Prensa</a>
+    </div>
+    <div class="footer-col">
+      <h5>Legal</h5>
+      <a href="#">Términos de uso</a>
+      <a href="#">Política de privacidad</a>
+      <a href="#">Cookies</a>
+    </div>
+  </div>
+  <div class="footer-bottom">
+    <div>© 2026 OptiWallet · Hecho con ☕ en Santiago, Chile</div>
+    <div>v1.0.0-beta.1 · *Estimaciones con placeholder</div>
+  </div>
+</footer>
+
+<script>
+  // FAQ accordion
+  document.querySelectorAll('.faq-item').forEach(item => {
+    item.addEventListener('click', () => {
+      const wasOpen = item.classList.contains('open');
+      document.querySelectorAll('.faq-item').forEach(i => i.classList.remove('open'));
+      if (!wasOpen) item.classList.add('open');
+    });
+  });
+
+  // Open first FAQ by default
+  document.querySelector('.faq-item').classList.add('open');
+</script>
+
+</body>
+</html>

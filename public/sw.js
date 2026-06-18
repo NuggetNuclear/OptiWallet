@@ -1,0 +1,189 @@
+// OptiWallet Service Worker
+// Sprint 2 — PWA offline support
+// Estrategia: Cache-first para assets estáticos, Network-first para API
+
+// v2 (Sprint 2): deep-linking — /app/wallet y /app/comercio/[id] son rutas
+// reales. Se precachea también /app/wallet y el fallback offline de rutas
+// /app/* ahora es el shell de /app (no la landing).
+//
+// v3 (2026-06-15): el SW ya NO intercepta /admin ni /api/admin, así
+// que datos sensibles (lista de admins, audit log) nunca se cachean en
+// CacheStorage. El bump de versión purga cualquier respuesta admin que el SW
+// v2 hubiera cacheado ignorando `Cache-Control: no-store`.
+const CACHE_NAME = "optiwallet-v3";
+const STATIC_CACHE_NAME = "optiwallet-static-v3";
+const API_CACHE_NAME = "optiwallet-api-v3";
+
+// Assets que cacheamos inmediatamente al instalar
+const PRECACHE_URLS = [
+  "/",
+  "/app",
+  "/app/wallet",
+  "/manifest.json",
+  "/icon-192.png",
+  "/icon-512.png",
+  "/icon-maskable.png",
+];
+
+// ─── INSTALL ──────────────────────────────────────────────────────────────────
+// Se ejecuta una sola vez cuando el SW se registra por primera vez.
+// Precacheamos los assets críticos para que la app funcione offline.
+self.addEventListener("install", (event) => {
+  event.waitUntil(
+    caches
+      .open(STATIC_CACHE_NAME)
+      .then((cache) => cache.addAll(PRECACHE_URLS))
+  );
+});
+
+// ─── MESSAGE ──────────────────────────────────────────────────────────────────
+// Permite que la app pida explícitamente que el SW en espera tome control.
+// Usado por el banner de "nueva versión disponible" (applyUpdate).
+self.addEventListener("message", (event) => {
+  if (event.data && event.data.type === "SKIP_WAITING") {
+    self.skipWaiting();
+  }
+});
+
+// ─── ACTIVATE ─────────────────────────────────────────────────────────────────
+// Limpia caches viejos de versiones anteriores del SW.
+self.addEventListener("activate", (event) => {
+  const validCaches = [CACHE_NAME, STATIC_CACHE_NAME, API_CACHE_NAME];
+
+  event.waitUntil(
+    caches
+      .keys()
+      .then((keys) =>
+        Promise.all(
+          keys
+            .filter((key) => !validCaches.includes(key))
+            .map((key) => caches.delete(key))
+        )
+      )
+      .then(() => self.clients.claim()) // toma control de todas las tabs abiertas
+  );
+});
+
+// ─── FETCH ────────────────────────────────────────────────────────────────────
+self.addEventListener("fetch", (event) => {
+  const { request } = event;
+  const url = new URL(request.url);
+
+  // Solo interceptamos requests del mismo origen
+  if (url.origin !== self.location.origin) return;
+
+  // Ignoramos requests que no son GET
+  if (request.method !== "GET") return;
+
+  // Nunca tocamos el panel admin ni su API: sus respuestas son sensibles y
+  // viajan con `Cache-Control: no-store`. Las dejamos pasar directo a la red
+  // (sin respondWith) para que NO entren a CacheStorage.
+  if (url.pathname.startsWith("/admin") || url.pathname.startsWith("/api/admin")) {
+    return;
+  }
+
+  // Estrategia según el tipo de recurso
+  if (isAPIRoute(url.pathname)) {
+    event.respondWith(networkFirstStrategy(request, API_CACHE_NAME));
+  } else if (isStaticAsset(url.pathname)) {
+    event.respondWith(cacheFirstStrategy(request, STATIC_CACHE_NAME));
+  } else {
+    // Páginas HTML: network-first — use STATIC_CACHE_NAME where pages are precached
+    event.respondWith(networkFirstStrategy(request, STATIC_CACHE_NAME));
+  }
+});
+
+// ─── ESTRATEGIAS DE CACHE ─────────────────────────────────────────────────────
+
+/**
+ * Network-first: intenta la red, si falla usa el cache.
+ * Ideal para API y páginas que cambian frecuentemente.
+ */
+async function networkFirstStrategy(request, cacheName) {
+  const cache = await caches.open(cacheName);
+
+  try {
+    const networkResponse = await fetch(request);
+
+    // Solo cacheamos respuestas exitosas
+    if (networkResponse.ok) {
+      cache.put(request, networkResponse.clone());
+    }
+
+    return networkResponse;
+  } catch {
+    const pathname = new URL(request.url).pathname;
+
+    // Sin red — intentamos servir desde cache
+    const cachedResponse = await cache.match(request);
+
+    if (cachedResponse) {
+      return cachedResponse;
+    }
+
+    // Si tampoco hay cache, devolvemos una respuesta de error amigable
+    if (isAPIRoute(pathname) || request.headers.get("accept")?.includes("application/json")) {
+      return new Response(
+        JSON.stringify({ error: "Sin conexión", offline: true }),
+        {
+          status: 503,
+          headers: { "Content-Type": "application/json" },
+        }
+      );
+    }
+
+    // Para páginas HTML: deep links /app/* caen al shell cacheado de /app
+    // (el usuario sigue dentro de la app offline); el resto, a la landing.
+    const fallbackPath = pathname.startsWith("/app") ? "/app" : "/";
+    const staticCache = await caches.open(STATIC_CACHE_NAME);
+    const fallback =
+      (await cache.match(fallbackPath)) ||
+      (await staticCache.match(fallbackPath)) ||
+      (await staticCache.match("/"));
+    return fallback || new Response("Sin conexión", { status: 503 });
+  }
+}
+
+/**
+ * Cache-first: sirve desde cache, actualiza en background.
+ * Ideal para íconos, fuentes y assets que no cambian.
+ */
+async function cacheFirstStrategy(request, cacheName) {
+  const cache = await caches.open(cacheName);
+  const cachedResponse = await cache.match(request);
+
+  if (cachedResponse) {
+    // Actualiza el cache en background (stale-while-revalidate)
+    fetch(request)
+      .then((networkResponse) => {
+        if (networkResponse.ok) cache.put(request, networkResponse);
+      })
+      .catch(() => { }); // silencia errores de red en background
+
+    return cachedResponse;
+  }
+
+  // No está en cache — buscamos en la red y cacheamos
+  try {
+    const networkResponse = await fetch(request);
+    if (networkResponse.ok) {
+      cache.put(request, networkResponse.clone());
+    }
+    return networkResponse;
+  } catch {
+    return new Response("Asset no disponible offline", { status: 503 });
+  }
+}
+
+// ─── HELPERS ──────────────────────────────────────────────────────────────────
+
+function isAPIRoute(pathname) {
+  return pathname.startsWith("/api/");
+}
+
+function isStaticAsset(pathname) {
+  return (
+    pathname.startsWith("/_next/static/") ||
+    pathname.match(/\.(png|jpg|jpeg|svg|ico|woff2?|css|js)$/)
+  );
+}
