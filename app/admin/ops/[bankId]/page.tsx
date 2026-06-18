@@ -131,6 +131,9 @@ export default function BankReview() {
             onToggle={() => setExpanded(expanded === r.id ? null : r.id)}
             onDone={(msg) => { setSuccess(msg); setError(""); setExpanded(null); load(); }}
             onError={(msg) => { setError(msg); setSuccess(""); }}
+            onCategoryCreated={(id, label, emoji) => {
+              setCategories((prev) => [...prev, { id, label, emoji }]);
+            }}
           />
         ))
       )}
@@ -141,11 +144,12 @@ export default function BankReview() {
 const CARD_TYPE_LABEL = (t: string) => (t === "credit" ? "Crédito" : t === "debit" ? "Débito" : "Prepago");
 
 function ReviewRow({
-  row, merchants, categories, cards, expanded, onToggle, onDone, onError,
+  row, merchants, categories, cards, expanded, onToggle, onDone, onError, onCategoryCreated,
 }: {
   row: Staged; merchants: Merchant[]; categories: Category[]; cards: Card[];
   expanded: boolean; onToggle: () => void;
   onDone: (msg: string) => void; onError: (msg: string) => void;
+  onCategoryCreated: (id: string, label: string, emoji: string) => void;
 }) {
   const isNewCandidate = !row.merchant_id;
   const [mode, setMode] = useState<"existing" | "new">(isNewCandidate ? "new" : "existing");
@@ -171,6 +175,35 @@ function ReviewRow({
   const [cardIds, setCardIds] = useState<string[]>([]);
   const [stackable, setStackable] = useState(row.stackable ?? false);
   const [busy, setBusy] = useState(false);
+
+  // Mini-form de nueva categoría inline
+  const [showNewCat, setShowNewCat] = useState(false);
+  const [newCatId, setNewCatId] = useState("");
+  const [newCatLabel, setNewCatLabel] = useState("");
+  const [newCatEmoji, setNewCatEmoji] = useState("");
+  const [savingCat, setSavingCat] = useState(false);
+  const [catError, setCatError] = useState("");
+
+  async function createCategory() {
+    if (!newCatId.trim() || !newCatLabel.trim() || !newCatEmoji.trim()) {
+      setCatError("Todos los campos son requeridos"); return;
+    }
+    setSavingCat(true); setCatError("");
+    try {
+      const res = await fetch("/api/admin/data/categories", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ id: newCatId.trim(), label: newCatLabel.trim(), emoji: newCatEmoji.trim() }),
+      });
+      const data = await res.json();
+      if (!res.ok) { setCatError(data.error ?? "Error"); return; }
+      onCategoryCreated(newCatId.trim(), newCatLabel.trim(), newCatEmoji.trim());
+      setNmCat(newCatId.trim());
+      setShowNewCat(false);
+      setNewCatId(""); setNewCatLabel(""); setNewCatEmoji("");
+    } catch { setCatError("Error de red"); }
+    finally { setSavingCat(false); }
+  }
 
   function toggleCardType(t: string) {
     setCardTypes((prev) => prev.includes(t) ? prev.filter((x) => x !== t) : [...prev, t]);
@@ -371,10 +404,34 @@ function ReviewRow({
               </div>
               <div className="admin-form-row">
                 <label className="admin-label">Categoría</label>
-                <select className="admin-input" value={nmCat} onChange={(e) => setNmCat(e.target.value)}>
-                  <option value="">— Seleccionar —</option>
-                  {categories.map((c) => <option key={c.id} value={c.id}>{c.emoji} {c.label}</option>)}
-                </select>
+                <div style={{ display: "flex", gap: 6, alignItems: "center" }}>
+                  <select className="admin-input" value={nmCat} onChange={(e) => setNmCat(e.target.value)}>
+                    <option value="">— Seleccionar —</option>
+                    {categories.map((c) => <option key={c.id} value={c.id}>{c.emoji} {c.label}</option>)}
+                  </select>
+                  <button
+                    className="admin-btn admin-btn-ghost admin-btn-sm"
+                    onClick={() => { setShowNewCat((v) => !v); setCatError(""); }}
+                    title="Crear nueva categoría"
+                    style={{ flexShrink: 0 }}
+                  >+</button>
+                </div>
+                {showNewCat && (
+                  <div style={{ marginTop: 8, padding: 10, border: "1px dashed var(--line)", borderRadius: 8, background: "var(--bg-2)" }}>
+                    <div style={{ display: "flex", gap: 6, flexWrap: "wrap", marginBottom: 6 }}>
+                      <input className="admin-input" style={{ width: 120 }} placeholder="id (slug)" value={newCatId} onChange={(e) => setNewCatId(e.target.value)} />
+                      <input className="admin-input" style={{ flex: 1, minWidth: 120 }} placeholder="Etiqueta" value={newCatLabel} onChange={(e) => setNewCatLabel(e.target.value)} />
+                      <input className="admin-input" style={{ width: 56, fontSize: 18 }} placeholder="🏷️" value={newCatEmoji} onChange={(e) => setNewCatEmoji(e.target.value)} />
+                    </div>
+                    {catError && <p style={{ fontSize: 11, color: "var(--red)", marginBottom: 6 }}>{catError}</p>}
+                    <div style={{ display: "flex", gap: 6 }}>
+                      <button className="admin-btn admin-btn-primary admin-btn-sm" onClick={createCategory} disabled={savingCat}>
+                        {savingCat ? "Creando…" : "Crear"}
+                      </button>
+                      <button className="admin-btn admin-btn-ghost admin-btn-sm" onClick={() => { setShowNewCat(false); setCatError(""); }}>Cancelar</button>
+                    </div>
+                  </div>
+                )}
               </div>
             </div>
           )}

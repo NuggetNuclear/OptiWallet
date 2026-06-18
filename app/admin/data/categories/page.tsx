@@ -12,7 +12,9 @@ export default function CategoriesPage() {
   const [cats,    setCats]    = useState<Category[]>([]);
   const [loading, setLoading] = useState(true);
   const [form,    setForm]    = useState<Category | null>(null);
+  const [origId,  setOrigId]  = useState("");
   const [isNew,   setIsNew]   = useState(false);
+  const [cascade, setCascade] = useState(true);
   const [saving,  setSaving]  = useState(false);
   const [error,   setError]   = useState("");
   const [success, setSuccess] = useState("");
@@ -27,23 +29,31 @@ export default function CategoriesPage() {
   }
   useEffect(() => { (async () => { await load(); })(); }, []);
 
-  function openNew()             { setForm({ ...EMPTY }); setIsNew(true);  setError(""); setSuccess(""); }
-  function openEdit(c: Category) { setForm({ ...c });     setIsNew(false); setError(""); setSuccess(""); }
+  function openNew()             { setForm({ ...EMPTY }); setOrigId(""); setIsNew(true);  setCascade(true); setError(""); setSuccess(""); }
+  function openEdit(c: Category) { setForm({ ...c });    setOrigId(c.id); setIsNew(false); setCascade(true); setError(""); setSuccess(""); }
 
   async function save() {
     if (!form) return;
     setError(""); setSuccess(""); setSaving(true);
     try {
       const method = isNew ? "POST" : "PATCH";
-      const url    = isNew ? "/api/admin/data/categories" : `/api/admin/data/categories/${form.id}`;
-      const res    = await fetch(url, {
+      const url    = isNew ? "/api/admin/data/categories" : `/api/admin/data/categories/${origId}`;
+      const payload = isNew
+        ? form
+        : { label: form.label, emoji: form.emoji, ...(form.id !== origId ? { new_id: form.id, cascade } : {}) };
+      const res = await fetch(url, {
         method,
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(form),
+        body: JSON.stringify(payload),
       });
       const data = await res.json();
       if (!res.ok) { setError(data.error ?? "Error"); return; }
-      setSuccess(isNew ? "Categoría creada" : "Cambios guardados");
+      const renamed = !isNew && form.id !== origId;
+      setSuccess(
+        isNew ? "Categoría creada" :
+        renamed ? `ID renombrada${data.merchants_updated ? ` · ${data.merchants_updated} comercio(s) actualizados` : ""}` :
+        "Cambios guardados"
+      );
       setForm(null); load();
     } catch { setError("Error de red"); } finally { setSaving(false); }
   }
@@ -87,13 +97,11 @@ export default function CategoriesPage() {
         <div className="admin-card" style={{ marginBottom: 24 }}>
           <p className="admin-card-title">{isNew ? "Nueva categoría" : `Editar: ${form.id}`}</p>
           <div className="admin-form-grid">
-            {isNew && (
-              <div className="admin-form-row">
-                <label className="admin-label">ID (slug)</label>
-                <input className="admin-input" value={form.id}
-                  onChange={(e) => setForm({ ...form, id: e.target.value })} placeholder="comida-rapida" />
-              </div>
-            )}
+            <div className="admin-form-row">
+              <label className="admin-label">ID (slug){!isNew && origId !== form.id && <span style={{ color: "var(--lime)", fontFamily: "var(--font-jetbrains)", fontSize: 10, marginLeft: 6 }}>← cambiado</span>}</label>
+              <input className="admin-input" value={form.id}
+                onChange={(e) => setForm({ ...form, id: e.target.value })} placeholder="comida-rapida" />
+            </div>
             <div className="admin-form-row">
               <label className="admin-label">Etiqueta</label>
               <input className="admin-input" value={form.label}
@@ -105,6 +113,15 @@ export default function CategoriesPage() {
                 onChange={(e) => setForm({ ...form, emoji: e.target.value })} placeholder="🍔" style={{ fontSize: 20 }} />
             </div>
           </div>
+          {!isNew && form.id !== origId && (
+            <label className="admin-check-row" style={{ marginBottom: 16 }}>
+              <input type="checkbox" checked={cascade} onChange={(e) => setCascade(e.target.checked)} />
+              Propagar cambio de ID en cascade
+              <span style={{ fontSize: 11, color: "var(--ink-dim)", fontFamily: "var(--font-jetbrains)" }}>
+                {" "}(actualiza category_id en todos los comercios vinculados)
+              </span>
+            </label>
+          )}
           <div className="admin-form-actions">
             <button className="admin-btn admin-btn-primary" onClick={save} disabled={saving}>
               {saving ? "Guardando…" : "Guardar"}

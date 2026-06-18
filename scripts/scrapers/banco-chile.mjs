@@ -199,7 +199,7 @@ function normalizeEntry(e) {
       code: null,
       conditions: cond,
       category_path: m.category || "",
-      source: `https://sitiospublicos.bancochile.cl/personas/${m.category || ""}`.replace(/\/+$/, ""),
+      source: `https://sitiospublicos.bancochile.cl/personas/beneficios/detalle/${m.slug || slugify(name)}`,
       verified_at: new Date().toISOString().slice(0, 10),
     },
   };

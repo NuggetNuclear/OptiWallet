@@ -4,29 +4,24 @@ import { embed, generateJSON, aiAvailable, aiProvider } from "./provider";
 /**
  * Resolución de comercios asistida por IA.
  *
- * `rankMerchants` — el trabajo principal es MATCHING, no generación: embebemos
- * los nombres de los ~500 comercios existentes una vez (cache), embebemos el
- * nombre scrapeado y rankeamos por similitud coseno. Rápido, barato, estable.
+ * `rankMerchants` — prefiltra con tokens a los 20 candidatos más probables y
+ * luego re-rankea con embeddings (coseno). Así solo necesita ~21 requests de
+ * embedding por query en vez de embeber el corpus completo (~500 req).
  *
- * `suggestCategory` — para crear un comercio nuevo, una sola llamada generativa
- * elige la categoría más probable de la lista. Best-effort: si falla, null.
+ * `suggestCategory` — una sola llamada generativa elige la categoría más
+ * probable. Best-effort: si falla devuelve null.
  *
- * Ambas degradan con gracia: si no hay backend de IA (sin GEMINI_API_KEY, Ollama
- * caído), `rankMerchants` cae a matching por tokens para que la UI nunca se
- * quede sin sugerencias.
+ * Ambas degradan con gracia si no hay IA: quedan en matching por tokens.
  */
 
 export type MerchantLite = { id: string; name: string; aliases: string[]; category_id?: string };
 export type CategoryLite = { id: string; label: string };
 export type Suggestion = { id: string; name: string; score: number };
 
-// ── Cache de embeddings del corpus (módulo, vive lo que viva el server) ────────
-let cache: { key: string; ids: string[]; vecs: number[][] } | null = null;
+// Si embeddings falla (404, timeout), no reintentamos hasta el próximo reinicio.
+let embedUnavailable = false;
 
-function corpusKey(merchants: MerchantLite[]): string {
-  // Cambia si cambia el conjunto de comercios → invalida la cache.
-  return `${merchants.length}:${merchants.map((m) => m.id).join(",")}`;
-}
+const PREFILTER_N = 20; // candidatos por tokens antes de embeber
 
 function cosine(a: number[], b: number[]): number {
   let dot = 0, na = 0, nb = 0;
@@ -39,8 +34,8 @@ function norm(s: string): string[] {
     .replace(/[^a-z0-9]+/g, " ").trim().split(/\s+/).filter(Boolean);
 }
 
-/** Fallback determinista por solape de tokens (sin IA). */
-function tokenRank(name: string, merchants: MerchantLite[]): Suggestion[] {
+/** Prefiltra por solape de tokens. Devuelve los top-N candidatos. */
+function tokenRank(name: string, merchants: MerchantLite[], n = 5): Suggestion[] {
   const target = new Set(norm(name));
   if (target.size === 0) return [];
   return merchants
@@ -51,37 +46,42 @@ function tokenRank(name: string, merchants: MerchantLite[]): Suggestion[] {
     })
     .filter((x) => x.score > 0)
     .sort((a, b) => b.score - a.score)
-    .slice(0, 5);
+    .slice(0, n);
 }
 
 export type RankResult = { provider: string; candidates: Suggestion[] };
 
-/** Top-5 comercios existentes más parecidos al nombre dado. */
+/**
+ * Top-5 comercios más parecidos al nombre dado.
+ * Flujo: tokens (prefilter top-20) → embeddings (re-rank) → top-5.
+ * Si embeddings no está disponible, devuelve directo los top-5 por tokens.
+ */
 export async function rankMerchants(name: string, merchants: MerchantLite[]): Promise<RankResult> {
   if (!name.trim() || merchants.length === 0) return { provider: "none", candidates: [] };
 
-  if (!aiAvailable()) {
-    return { provider: "tokens", candidates: tokenRank(name, merchants) };
+  // Prefilter por tokens siempre — reduce el corpus antes de llamar a la IA
+  const tokenCands = tokenRank(name, merchants, PREFILTER_N);
+
+  if (!aiAvailable() || embedUnavailable || tokenCands.length === 0) {
+    return { provider: "tokens", candidates: tokenCands.slice(0, 5) };
   }
 
   try {
-    const key = corpusKey(merchants);
-    if (!cache || cache.key !== key) {
-      const vecs = await embed(merchants.map((m) =>
-        [m.name, ...m.aliases].join(" ")
-      ));
-      cache = { key, ids: merchants.map((m) => m.id), vecs };
-    }
-    const [q] = await embed([name]);
-    const byId = new Map(merchants.map((m) => [m.id, m]));
-    const ranked = cache.ids
-      .map((id, i) => ({ id, name: byId.get(id)?.name ?? id, score: cosine(q, cache!.vecs[i]) }))
+    // Embeber solo los candidatos preseleccionados + la query (~21 requests max)
+    const candidateMerchants = tokenCands.map((c) => merchants.find((m) => m.id === c.id)!);
+    const texts = [name, ...candidateMerchants.map((m) => [m.name, ...m.aliases].join(" "))];
+    const vecs = await embed(texts);
+    const [qVec, ...corpusVecs] = vecs;
+    const ranked = candidateMerchants
+      .map((m, i) => ({ id: m.id, name: m.name, score: cosine(qVec, corpusVecs[i]) }))
       .sort((a, b) => b.score - a.score)
       .slice(0, 5);
     return { provider: aiProvider(), candidates: ranked };
   } catch (err) {
-    console.warn("rankMerchants AI falló, fallback a tokens:", err instanceof Error ? err.message : err);
-    return { provider: "tokens-fallback", candidates: tokenRank(name, merchants) };
+    const msg = err instanceof Error ? err.message : String(err);
+    if (msg.includes("HTTP 404") || msg.includes("AbortError")) embedUnavailable = true;
+    console.warn("rankMerchants AI falló, fallback a tokens:", msg);
+    return { provider: "tokens-fallback", candidates: tokenCands.slice(0, 5) };
   }
 }
 

@@ -30,7 +30,18 @@ const BANKS = [
 ];
 
 const CARDS = [
-  { id: "bchile-debit", bank_id: "banco-chile", name: "Débito Banco de Chile", type: "debit" },
+  { id: "bchile-mastercard-credito-black", bank_id: "banco-chile", name: "Mastercard Black", type: "credit" },
+  { id: "bchile-mastercard-credito-dorada", bank_id: "banco-chile", name: "Mastercard Dorada", type: "credit" },
+  { id: "bchile-mastercard-credito-platinum", bank_id: "banco-chile", name: "Mastercard Platinum", type: "credit" },
+  { id: "bchile-visa-credito-gold", bank_id: "banco-chile", name: "Visa Gold", type: "credit" },
+  { id: "bchile-visa-credito-infinite", bank_id: "banco-chile", name: "Visa Infinite", type: "credit" },
+  { id: "bchile-visa-credito-platinum", bank_id: "banco-chile", name: "Visa Platinum", type: "credit" },
+  { id: "bchile-visa-credito-signature", bank_id: "banco-chile", name: "Visa Signature", type: "credit" },
+  { id: "bchile-visa-cuenta-fan", bank_id: "banco-chile", name: "Débito Visa Fan", type: "debit" },
+  { id: "bchile-visa-debito-bch", bank_id: "banco-chile", name: "Débito Visa", type: "debit" },
+  { id: "bchile-visa-debito-infinite", bank_id: "banco-chile", name: "Débito Visa Infinite", type: "debit" },
+  { id: "bchile-visa-debito-signature", bank_id: "banco-chile", name: "Débito Visa Signature", type: "debit" },
+  { id: "bchile-visa-fan-credito", bank_id: "banco-chile", name: "Fan Crédito", type: "credit" },
   { id: "bci-aa-infinite", bank_id: "bci", name: "AAdvantage® Visa Infinite", type: "credit" },
   { id: "bci-aa-master", bank_id: "bci", name: "AAdvantage® Mastercard Black", type: "credit" },
   { id: "bci-debit", bank_id: "bci", name: "Bci Visa Débito", type: "debit" },
