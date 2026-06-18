@@ -78,7 +78,11 @@ export default function RootLayout({
         <StandaloneCookieSync />
         {PLAUSIBLE_SRC && (
           <>
-            <Script src={PLAUSIBLE_SRC} strategy="afterInteractive" />
+            <Script
+              src={PLAUSIBLE_SRC}
+              strategy="afterInteractive"
+              data-exclude="/admin/**, /admin"
+            />
             <Script id="plausible-init" strategy="afterInteractive">
               {`window.plausible=window.plausible||function(){(plausible.q=plausible.q||[]).push(arguments)},plausible.init=plausible.init||function(i){plausible.o=i||{}};plausible.init()`}
             </Script>

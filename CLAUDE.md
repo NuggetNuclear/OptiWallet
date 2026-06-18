@@ -10,6 +10,7 @@ npm run build                # Production build
 npm run lint                 # ESLint (flat config)
 npm test                     # All unit tests
 npm run test:watch           # Tests in watch mode
+npm run test:coverage        # All unit tests + native coverage report
 node --test tests/validate.test.ts  # Single test file
 
 npm run db:schema            # Apply schema.sql to Neon DB (idempotent, non-destructive)
@@ -80,6 +81,10 @@ When the PWA is installed and opened, it must land on `/app`, not the marketing 
 1. **`StandaloneCookieSync`** (root layout, runs on every page) — detects standalone mode via `matchMedia("(display-mode: standalone)")` + `navigator.standalone`, sets/clears the `ow_standalone=1` cookie. Also acts as self-repair for Android where the PWA and Chrome share cookies.
 2. **`proxy.ts`** (Edge middleware, matcher `/`) — if `ow_standalone=1` exists, redirects to `/app` server-side with no flash.
 3. **`StandaloneRedirect`** (landing page, client-side) — fallback for first visit (cookie not yet set) and offline (SW serves cached landing without middleware).
+
+### Shared constants (`lib/constants.ts`)
+
+`BANK_INFO` is the single source of truth for bank brand colors and abbreviated display names used across the UI. Both `RecommendationCard` (gradient color) and `WalletSetup` (icon badge) read from here — adding a new bank requires editing only this file.
 
 ### Recommendations engine
 

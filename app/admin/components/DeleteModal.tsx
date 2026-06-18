@@ -1,6 +1,7 @@
 "use client";
 
-import { useEffect, useRef } from "react";
+import { useRef } from "react";
+import { useModalKeyboard } from "@/lib/hooks/use-modal-keyboard";
 
 interface Dep { id: string; name?: string }
 
@@ -16,30 +17,7 @@ export function DeleteModal({ title, deps, onConfirm, onCancel, loading }: Delet
   const hasDeps = deps?.some((d) => d.items.length > 0);
   const modalRef   = useRef<HTMLDivElement>(null);
   const confirmRef = useRef<HTMLButtonElement>(null);
-
-  // Close on Escape and move focus into the dialog on open (basic a11y).
-  useEffect(() => {
-    confirmRef.current?.focus();
-    function onKey(e: KeyboardEvent) {
-      if (e.key === "Escape" && !loading) onCancel();
-      // Rudimentary focus trap: keep Tab cycling within the modal.
-      if (e.key === "Tab" && modalRef.current) {
-        const focusable = modalRef.current.querySelectorAll<HTMLElement>(
-          'button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])',
-        );
-        if (focusable.length === 0) return;
-        const first = focusable[0];
-        const last  = focusable[focusable.length - 1];
-        if (e.shiftKey && document.activeElement === first) {
-          e.preventDefault(); last.focus();
-        } else if (!e.shiftKey && document.activeElement === last) {
-          e.preventDefault(); first.focus();
-        }
-      }
-    }
-    document.addEventListener("keydown", onKey);
-    return () => document.removeEventListener("keydown", onKey);
-  }, [onCancel, loading]);
+  useModalKeyboard(modalRef, confirmRef, onCancel, loading);
 
   return (
     <div className="admin-modal-overlay" onClick={() => !loading && onCancel()}>

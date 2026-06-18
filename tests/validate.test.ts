@@ -4,9 +4,11 @@ import {
   isValidId,
   areValidIds,
   isValidCardTypes,
+  isValidCardIds,
   isValidDaysOfWeek,
   isNonNegativeIntOrNull,
   isValidDateOrNull,
+  isValidDiscountConfig,
 } from "../lib/validate.ts";
 
 // IDs validos: [A-Za-z0-9_.-]{1,64}
@@ -66,6 +68,24 @@ describe("isValidCardTypes — writes de promociones", () => {
   it("null -> false", () => strictEqual(isValidCardTypes(null), false));
 });
 
+describe("isValidCardIds — restriccion de tarjeta unica", () => {
+  it("array vacio -> true (no restringida a tarjetas especificas)", () => {
+    strictEqual(isValidCardIds([]), true);
+  });
+  it("ids validos -> true", () => {
+    strictEqual(isValidCardIds(["bci-credit", "santander-visa.2026"]), true);
+  });
+  it("un id invalido (caracteres peligrosos) -> false", () => {
+    strictEqual(isValidCardIds(["bci-credit", "drop;table"]), false);
+  });
+  it("elemento no-string (numero) -> false", () => {
+    strictEqual(isValidCardIds(["bci-credit", 123]), false);
+  });
+  it("id vacio -> false", () => strictEqual(isValidCardIds([""]), false));
+  it("no-array -> false", () => strictEqual(isValidCardIds("bci-credit"), false));
+  it("null -> false", () => strictEqual(isValidCardIds(null), false));
+});
+
 describe("isValidDaysOfWeek — 0-6", () => {
   it("array vacio -> true", () => strictEqual(isValidDaysOfWeek([]), true));
   it("[0..6] -> true", () => strictEqual(isValidDaysOfWeek([0, 1, 2, 3, 4, 5, 6]), true));
@@ -92,4 +112,46 @@ describe("isValidDateOrNull — fechas de promociones", () => {
   it("9999-99-99 -> false", () => strictEqual(isValidDateOrNull("9999-99-99"), false));
   it("formato malo -> false", () => strictEqual(isValidDateOrNull("31/12/2026"), false));
   it("numero -> false", () => strictEqual(isValidDateOrNull(20261231), false));
+});
+
+describe("isValidDiscountConfig — XOR porcentaje vs por-unidad", () => {
+  it("solo porcentaje valido (1-100) -> true", () => {
+    strictEqual(isValidDiscountConfig({ discount: 15 }), true);
+  });
+  it("porcentaje en el borde 1 -> true", () => {
+    strictEqual(isValidDiscountConfig({ discount: 1 }), true);
+  });
+  it("porcentaje en el borde 100 -> true", () => {
+    strictEqual(isValidDiscountConfig({ discount: 100 }), true);
+  });
+  it("porcentaje 0 (fuera de rango) -> false", () => {
+    strictEqual(isValidDiscountConfig({ discount: 0 }), false);
+  });
+  it("porcentaje 101 (fuera de rango) -> false", () => {
+    strictEqual(isValidDiscountConfig({ discount: 101 }), false);
+  });
+  it("solo por-unidad valido (liter) -> true", () => {
+    strictEqual(isValidDiscountConfig({ discount_per_unit: 100, discount_unit: "liter" }), true);
+  });
+  it("por-unidad con unidad desconocida -> false", () => {
+    strictEqual(isValidDiscountConfig({ discount_per_unit: 100, discount_unit: "kg" }), false);
+  });
+  it("por-unidad con valor 0 -> false (debe ser > 0)", () => {
+    strictEqual(isValidDiscountConfig({ discount_per_unit: 0, discount_unit: "liter" }), false);
+  });
+  it("por-unidad sin unidad -> false", () => {
+    strictEqual(isValidDiscountConfig({ discount_per_unit: 100 }), false);
+  });
+  it("por-unidad decimal -> false (debe ser entero)", () => {
+    strictEqual(isValidDiscountConfig({ discount_per_unit: 10.5, discount_unit: "liter" }), false);
+  });
+  it("ambos a la vez -> false (no es exclusivo)", () => {
+    strictEqual(
+      isValidDiscountConfig({ discount: 15, discount_per_unit: 100, discount_unit: "liter" }),
+      false
+    );
+  });
+  it("ninguno -> false (al menos uno requerido)", () => {
+    strictEqual(isValidDiscountConfig({}), false);
+  });
 });

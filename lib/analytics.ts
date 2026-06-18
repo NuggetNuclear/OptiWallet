@@ -23,6 +23,11 @@ declare global {
 export function trackEvent(event: string, props?: EventProps): void {
   if (typeof window === "undefined") return;
   try {
+    if (window.location?.pathname?.startsWith("/admin")) return;
+  } catch {
+    // location might not be defined in tests, do not throw
+  }
+  try {
     window.plausible?.(event, props ? { props } : undefined);
   } catch {
     // analytics jamás debe romper la app
@@ -46,4 +51,16 @@ export const events = {
     trackEvent("Install Instructions Viewed", { platform }),
   merchantViewed: (merchantId: string) =>
     trackEvent("Merchant Viewed", { merchant: merchantId }),
+  promotionViewed: (props: {
+    promotionId: string;
+    merchantId: string;
+    bankId: string;
+    location: "winner" | "alternative" | "list";
+  }) => trackEvent("Promotion Viewed", props),
+  promotionClicked: (props: {
+    promotionId: string;
+    merchantId: string;
+    bankId: string;
+    location: "winner" | "alternative" | "list";
+  }) => trackEvent("Promotion Clicked", props),
 } as const;

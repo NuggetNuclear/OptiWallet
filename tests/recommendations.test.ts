@@ -2,6 +2,8 @@ import { describe, it } from "node:test";
 import { strictEqual, deepStrictEqual } from "node:assert";
 import {
   calculateSavings,
+  calculateSavingsPerUnit,
+  calculateSavingsForRec,
   rankRecommendations,
   calculateStackedSavings,
 } from "../lib/recommendations.ts";
@@ -91,6 +93,95 @@ describe("calculateSavings — logica core", () => {
   });
 });
 
+// ───────────────────────── calculateSavingsPerUnit ───────────────────────────
+// Promos de "descuento fijo por litro" (bencineras: $X/L al pagar con app).
+
+describe("calculateSavingsPerUnit — descuento por litro", () => {
+  it("0 litros -> ahorro 0", () => strictEqual(calculateSavingsPerUnit(0, 100, null), 0));
+  it("litros negativos -> ahorro 0", () => strictEqual(calculateSavingsPerUnit(-5, 100, null), 0));
+
+  it("sin tope: ahorro = litros * descuento/L", () => {
+    // 40 L a $120/L = 4.800
+    strictEqual(calculateSavingsPerUnit(40, 120, null), 4800);
+  });
+
+  it("aplica el tope cuando el ahorro lo supera", () => {
+    // 100 L a $150/L = 15.000 -> tope 10.000
+    strictEqual(calculateSavingsPerUnit(100, 150, 10000), 10000);
+  });
+
+  it("no aplica el tope si el ahorro calculado es menor", () => {
+    // 20 L a $100/L = 2.000 < tope 5.000
+    strictEqual(calculateSavingsPerUnit(20, 100, 5000), 2000);
+  });
+
+  it("tope 0 -> ahorro 0 aunque haya descuento por litro", () => {
+    strictEqual(calculateSavingsPerUnit(50, 100, 0), 0);
+  });
+
+  it("redondea litros fraccionarios (33.3 L a $90/L = 2997)", () => {
+    strictEqual(calculateSavingsPerUnit(33.3, 90, null), 2997);
+  });
+});
+
+// ─────────────────────────── calculateSavingsForRec ──────────────────────────
+// Despacha entre promo por-litro (units) y porcentaje (amount) segun los campos.
+
+describe("calculateSavingsForRec — despacho por tipo de promo", () => {
+  it("promo por-litro: usa units e ignora amount", () => {
+    const r = rec({ promotion_id: "copec", discount: null, discount_per_unit: 100, discount_unit: "liter" });
+    // 30 L * $100/L = 3.000
+    strictEqual(calculateSavingsForRec(r, 50000, 30), 3000);
+  });
+
+  it("promo por-litro sin units -> 0", () => {
+    const r = rec({ promotion_id: "copec", discount: null, discount_per_unit: 100, discount_unit: "liter" });
+    strictEqual(calculateSavingsForRec(r, 50000), 0);
+  });
+
+  it("promo por-litro con units 0 -> 0", () => {
+    const r = rec({ promotion_id: "copec", discount: null, discount_per_unit: 100, discount_unit: "liter" });
+    strictEqual(calculateSavingsForRec(r, 50000, 0), 0);
+  });
+
+  it("promo por-litro respeta el tope", () => {
+    const r = rec({ promotion_id: "copec", discount: null, discount_per_unit: 200, discount_unit: "liter", cap: 5000 });
+    // 50 L * $200 = 10.000 -> tope 5.000
+    strictEqual(calculateSavingsForRec(r, 0, 50), 5000);
+  });
+
+  it("promo porcentaje: usa amount", () => {
+    const r = rec({ promotion_id: "banco", discount: 15 });
+    strictEqual(calculateSavingsForRec(r, 100000), 15000);
+  });
+
+  it("promo porcentaje sin amount -> 0", () => {
+    const r = rec({ promotion_id: "banco", discount: 15 });
+    strictEqual(calculateSavingsForRec(r), 0);
+  });
+
+  it("promo porcentaje con amount 0 -> 0", () => {
+    const r = rec({ promotion_id: "banco", discount: 15 });
+    strictEqual(calculateSavingsForRec(r, 0), 0);
+  });
+
+  it("promo porcentaje respeta min_purchase", () => {
+    const r = rec({ promotion_id: "banco", discount: 50, min_purchase: 100000 });
+    strictEqual(calculateSavingsForRec(r, 50000), 0);
+  });
+
+  it("promo sin discount ni discount_per_unit -> 0 (sin tipo)", () => {
+    const r = rec({ promotion_id: "rara", discount: null, discount_per_unit: null, discount_unit: null });
+    strictEqual(calculateSavingsForRec(r, 100000, 50), 0);
+  });
+
+  it("discount_per_unit presente pero unit != liter -> cae a la rama de porcentaje", () => {
+    // discount_unit desconocido: no entra en la rama por-litro; usa discount si existe
+    const r = rec({ promotion_id: "hibrida", discount: 10, discount_per_unit: 100, discount_unit: "kg" });
+    strictEqual(calculateSavingsForRec(r, 100000), 10000);
+  });
+});
+
 // ─────────────────────────── rankRecommendations ─────────────────────────────
 
 describe("rankRecommendations — excluyentes", () => {
@@ -160,6 +251,42 @@ describe("rankRecommendations — excluyentes", () => {
   });
 });
 
+describe("rankRecommendations — contexto por litros y promos mixtas", () => {
+  const litro100 = rec({ promotion_id: "l-100", discount: null, discount_per_unit: 100, discount_unit: "liter" });
+  const litro150 = rec({ promotion_id: "l-150", discount: null, discount_per_unit: 150, discount_unit: "liter" });
+
+  it("sin contexto: ordena promos por-litro por mayor descuento/L", () => {
+    const result = rankRecommendations([litro100, litro150]);
+    strictEqual(result[0].promotion_id, "l-150");
+    strictEqual(result[1].promotion_id, "l-100");
+  });
+
+  it("con litros: ordena por ahorro real en CLP", () => {
+    // 40 L: l-150 -> 6.000 ; l-100 -> 4.000
+    const result = rankRecommendations([litro100, litro150], undefined, 40);
+    strictEqual(result[0].promotion_id, "l-150");
+    strictEqual(result[1].promotion_id, "l-100");
+  });
+
+  it("litros activan el contexto aunque amount sea undefined", () => {
+    const pct = rec({ promotion_id: "pct-50", discount: 50 });
+    // Con 40 L: pct-50 sin amount -> 0 ; l-100 -> 4.000. Gana l-100
+    const result = rankRecommendations([pct, litro100], undefined, 40);
+    strictEqual(result[0].promotion_id, "l-100");
+    strictEqual(result[1].promotion_id, "pct-50");
+  });
+
+  it("desempate por valor bruto cuando el ahorro CLP empata", () => {
+    // 10 L: l-150 -> 1.500 con tope 1.500 ; l-100 sin tope -> 1.000. distinto, no empata.
+    // Forzamos empate con tope comun:
+    const a = rec({ promotion_id: "a", discount: null, discount_per_unit: 100, discount_unit: "liter", cap: 1000 });
+    const b = rec({ promotion_id: "b", discount: null, discount_per_unit: 150, discount_unit: "liter", cap: 1000 });
+    // 20 L: ambas topan en 1.000 -> empate -> gana mayor descuento/L (b)
+    const result = rankRecommendations([a, b], undefined, 20);
+    strictEqual(result[0].promotion_id, "b");
+  });
+});
+
 // ─────────────────────────── calculateStackedSavings ─────────────────────────
 
 describe("calculateStackedSavings — apilables", () => {
@@ -226,5 +353,21 @@ describe("calculateStackedSavings — apilables", () => {
     const primerOriginal = promos[0].promotion_id;
     calculateStackedSavings(promos, 20000);
     strictEqual(promos[0].promotion_id, primerOriginal);
+  });
+
+  it("ignora promos no apilables (stackable=false)", () => {
+    const noStack = rec({ promotion_id: "no-stack", discount: 30, stackable: false });
+    deepStrictEqual(calculateStackedSavings([noStack], 20000), { totalSavings: 0, breakdown: [] });
+  });
+
+  it("promo por-litro no reduce el monto base de las de porcentaje", () => {
+    // banco 20% sobre 20.000 = 4.000 (remanente 16.000).
+    // litro $100/L * 30 L = 3.000, NO descuenta del monto base (es combustible).
+    const litro = rec({ promotion_id: "litro", discount: null, discount_per_unit: 100, discount_unit: "liter", stackable: true });
+    const result = calculateStackedSavings([banco, litro], 20000, 30);
+    strictEqual(result.totalSavings, 7000);
+    strictEqual(result.breakdown.length, 2);
+    const litroEntry = result.breakdown.find((b) => b.promotionId === "litro");
+    deepStrictEqual(litroEntry, { promotionId: "litro", savings: 3000 });
   });
 });

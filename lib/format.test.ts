@@ -9,6 +9,7 @@ import {
   formatCLP,
   daysOfWeekLabel,
   modalityLabel,
+  formatDiscount,
 } from "./format.ts";
 
 // new Date(anio, mesBase0, dia) usa hora local, nunca UTC.
@@ -179,5 +180,27 @@ describe("modalityLabel — etiqueta de modalidad", () => {
   });
   it("presencial -> Presencial", () => {
     strictEqual(modalityLabel("presencial"), "Presencial");
+  });
+});
+
+// ─────────────────────────────── formatDiscount ──────────────────────────────
+
+describe("formatDiscount — porcentaje vs por-litro", () => {
+  it("porcentaje -> 'N%'", () => {
+    strictEqual(formatDiscount(15, null, null), "15%");
+  });
+  it("por-litro -> '$N/L' con separador de miles", () => {
+    strictEqual(formatDiscount(null, 100, "liter"), "$100/L");
+    strictEqual(formatDiscount(null, 1000, "liter"), "$1.000/L");
+  });
+  it("por-litro tiene prioridad cuando hay unidad liter", () => {
+    // discount presente pero discountPerUnit + unit liter ganan
+    strictEqual(formatDiscount(20, 150, "liter"), "$150/L");
+  });
+  it("unidad desconocida -> cae al formato porcentaje", () => {
+    strictEqual(formatDiscount(20, 100, "kg"), "20%");
+  });
+  it("discountPerUnit null -> formato porcentaje", () => {
+    strictEqual(formatDiscount(30, null, "liter"), "30%");
   });
 });

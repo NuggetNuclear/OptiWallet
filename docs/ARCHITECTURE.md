@@ -430,6 +430,15 @@ Hook genérico `useApiQuery`:
 
 Hooks expuestos: `useBanks`, `useCards`, `useCategories`, `useMerchants`, `useRecommendations`, `usePromotions`, `useMerchantFromApi`.
 
+### Hook de accesibilidad para modales (`lib/hooks/use-modal-keyboard.ts`)
+
+`useModalKeyboard(modalRef, initialFocusRef, onCancel, loading?)` encapsula los dos comportamientos de teclado estándar en los modales del admin:
+
+- **Escape** cierra el modal (salvo cuando `loading` es `true`).
+- **Tab** cicla el foco dentro de `modalRef` (focus trap básico).
+
+Se usa en `ConfirmModal` y `DeleteModal`. Evita duplicar el mismo bloque `useEffect` en ambos componentes.
+
 ### API client (`lib/api-client.ts`)
 
 Capa de fetch tipada que convierte los endpoints en funciones async:
@@ -458,15 +467,19 @@ RootLayout (app/layout.tsx)
 │   │
 │   ├── WalletSetup (onboarding, si initiallyEmpty)
 │   │   ├── TopBar (variant="plain")
+│   │   ├── SkeletonCard × 4   [mientras cargan bancos/tarjetas]
 │   │   ├── BankRow × N (expandible → CardRow × N)
 │   │   └── BottomDock (CTA flotante)
 │   │
 │   ├── Home view (default)
 │   │   ├── Header (TopBar + logo + search + wallet)
 │   │   ├── DayPicker (selector horizontal de días)
-│   │   ├── TodaysFeed (FeedRow × N)
+│   │   ├── TodaysFeed
+│   │   │   ├── SkeletonCard × 3   [mientras cargan recomendaciones]
+│   │   │   └── FeedRow × N
 │   │   ├── MerchantSearch
 │   │   │   ├── CategoryChip × N
+│   │   │   ├── SkeletonCard × 3   [mientras cargan comercios]
 │   │   │   └── MerchantRow × N
 │   │   └── Footer (disclaimer)
 │   │
@@ -589,6 +602,19 @@ Todas las páginas bajo `/blog`, `/contacto`, `/cookies`, `/prensa`, `/privacida
 - Muchas usan el componente `ComingSoon` como placeholder (beta).
 
 `ComingSoon` renderiza un card con ícono, título, descripción y link de contacto (`mailto:hola@optiwallet.cl`).
+
+---
+
+## Constantes compartidas (`lib/constants.ts`)
+
+`BANK_INFO` es el mapa centralizado de metadatos de bancos que necesitan múltiples componentes:
+
+```typescript
+BANK_INFO[bankId].color   // color hex de la marca — usado en RecommendationCard (gradiente) y WalletSetup (ícono)
+BANK_INFO[bankId].letter  // abreviatura de 2-3 letras — usada en WalletSetup (ícono de banco)
+```
+
+Antes de esta extracción, el mismo mapa existía como constante local en `RecommendationCard.tsx` (`BANK_COLORS`) y como objeto dentro del render de `BankRow` en `WalletSetup.tsx` (`BANK_DISPLAY`). Mantenerlos separados era una fuente de desincronización silenciosa: agregar un banco nuevo requería actualizar dos archivos. Ahora hay un único punto de edición.
 
 ---
 
