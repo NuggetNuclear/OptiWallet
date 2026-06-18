@@ -2,6 +2,7 @@ import { sql } from "@/lib/db";
 import { requireAdmin, clientIp } from "@/lib/admin-guard";
 import { logAdminAction } from "@/lib/admin-log";
 import { isValidId } from "@/lib/validate";
+import { MERCHANT_NAME_MAX_LENGTH } from "@/lib/staging";
 import { NextRequest, NextResponse } from "next/server";
 
 const NO_CACHE = { "Cache-Control": "no-store" };
@@ -39,7 +40,8 @@ export async function POST(req: NextRequest) {
     const { id, name, category_id, aliases } = body ?? {};
 
     if (!id || !isValidId(id)) return NextResponse.json({ error: "ID inválido" }, { status: 400, headers: NO_CACHE });
-    if (!name || typeof name !== "string") return NextResponse.json({ error: "name requerido" }, { status: 400, headers: NO_CACHE });
+    if (!name || typeof name !== "string" || !name.trim()) return NextResponse.json({ error: "name requerido" }, { status: 400, headers: NO_CACHE });
+    if (name.trim().length > MERCHANT_NAME_MAX_LENGTH) return NextResponse.json({ error: `El nombre del comercio no puede superar ${MERCHANT_NAME_MAX_LENGTH} caracteres` }, { status: 400, headers: NO_CACHE });
     if (!category_id || !isValidId(category_id)) return NextResponse.json({ error: "category_id inválido" }, { status: 400, headers: NO_CACHE });
 
     const aliasArray = Array.isArray(aliases) ? aliases.filter((a: unknown) => typeof a === "string") : [];

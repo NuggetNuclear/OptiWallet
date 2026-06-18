@@ -103,3 +103,71 @@ export async function suggestCategory(name: string, categories: CategoryLite[]):
     return null;
   }
 }
+
+export type NewCategorySuggestion = { id: string; label: string; emoji: string };
+export type ClassificationResult = {
+  merchant_name: string;
+  category_id: string;
+  new_category: NewCategorySuggestion | null;
+};
+export type BatchResponse = {
+  classifications: ClassificationResult[];
+};
+
+/**
+ * Clasifica de forma masiva (en batches) una lista de comercios.
+ * Si un comercio no encaja en las existentes, sugiere la creación de una nueva categoría.
+ */
+export async function suggestCategoriesBatch(
+  names: string[],
+  categories: CategoryLite[]
+): Promise<ClassificationResult[]> {
+  if (!aiAvailable() || names.length === 0 || categories.length === 0) return [];
+
+  const chunkSize = 40; // Batches de a 40 para un balance óptimo de tokens y precisión
+  const results: ClassificationResult[] = [];
+
+  const totalChunks = Math.ceil(names.length / chunkSize);
+  for (let i = 0; i < names.length; i += chunkSize) {
+    const chunk = names.slice(i, i + chunkSize);
+    const chunkIdx = Math.floor(i / chunkSize) + 1;
+    console.log(`[AI Provider] Clasificando lote ${chunkIdx}/${totalChunks} (${chunk.length} comercios)...`);
+    try {
+      const list = categories.map((c) => `${c.id} = ${c.label}`).join("\n");
+      const prompt =
+        `Eres un clasificador de comercios chilenos. Dada una lista de comercios, ` +
+        `clasifica cada uno en la categoría MÁS adecuada de la lista de categorías existentes.\n` +
+        `Si un comercio no encaja en ninguna categoría existente, puedes sugerir crear una categoría nueva ` +
+        `definiendo un id (slug en minúsculas), label y un emoji representativo.\n\n` +
+        `Categorías existentes:\n${list}\n\n` +
+        `Comercios a clasificar:\n${chunk.map((n, idx) => `${idx + 1}. "${n}"`).join("\n")}\n\n` +
+        `Responde estrictamente un objeto JSON con la estructura:\n` +
+        `{\n` +
+        `  "classifications": [\n` +
+        `    {\n` +
+        `      "merchant_name": "Nombre original del comercio (debe coincidir exactamente con el texto de la lista)",\n` +
+        `      "category_id": "id_de_categoria_existente_o_id_de_la_nueva_categoria",\n` +
+        `      "new_category": null // o {"id": "slug-nueva-categoria", "label": "Nombre de la categoría", "emoji": "🍔"} si se debe crear\n` +
+        `    }\n` +
+        `  ]\n` +
+        `}`;
+
+      const out = await generateJSON<BatchResponse>(prompt);
+      if (out && Array.isArray(out.classifications)) {
+        console.log(`[AI Provider] Lote ${chunkIdx}/${totalChunks} clasificado con éxito. Recibidas ${out.classifications.length} respuestas.`);
+        results.push(...out.classifications);
+      } else {
+        console.warn(`[AI Provider] Lote ${chunkIdx}/${totalChunks} no retornó clasificaciones válidas.`);
+      }
+
+      // Si no es Gemini (por ej. Groq free tier con 6,000 TPM / 30 RPM), espaciamos las llamadas
+      if (aiProvider() !== "gemini" && i + chunkSize < names.length) {
+        await new Promise((resolve) => setTimeout(resolve, 2500));
+      }
+    } catch (err) {
+      console.warn(`[AI Provider] suggestCategoriesBatch falló en el chunk ${i}-${i + chunkSize}:`, err);
+    }
+  }
+
+  return results;
+}

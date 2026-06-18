@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { useParams } from "next/navigation";
 import { AdminShell } from "../../components/AdminShell";
+import { ConfirmModal } from "../../components/ConfirmModal";
 
 interface Staged {
   id: number;
@@ -38,6 +39,7 @@ const WARN_LABEL: Record<string, string> = {
   sin_fecha_termino: "Sin fecha de término",
   sin_tipo_tarjeta: "Sin tipo de tarjeta",
   descuento_ambiguo: "Descuento ambiguo",
+  nombre_muy_largo: `⚠️ Nombre >40 chars`,
 };
 
 function slugify(s: string) {
@@ -73,6 +75,8 @@ export default function BankReview() {
   const [expanded, setExpanded] = useState<number | null>(null);
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
+  const [bulkApproving, setBulkApproving] = useState(false);
+  const [confirmStep, setConfirmStep] = useState<"confirm_all" | "confirm_new_merchants" | null>(null);
 
   async function load() {
     setLoading(true);
@@ -90,6 +94,48 @@ export default function BankReview() {
   }
   useEffect(() => { (async () => { await load(); })(); }, [bankId, status]); // eslint-disable-line react-hooks/exhaustive-deps
 
+  function handleApproveAll() {
+    setConfirmStep("confirm_all");
+  }
+
+  function handleConfirmStep1() {
+    setConfirmStep("confirm_new_merchants");
+  }
+
+  async function handleConfirmStep2() {
+    setConfirmStep(null);
+    setBulkApproving(true);
+    setError("");
+    setSuccess("");
+    try {
+      const res = await fetch(`/api/admin/ops/${bankId}/approve-all`, {
+        method: "POST",
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        setError(data.error ?? "Error al auto-aprobar el backlog.");
+        return;
+      }
+      let msg = `Se aprobaron ${data.approvedCount} promociones.`;
+      if (data.createdMerchantsCount > 0) {
+        msg += ` Se crearon ${data.createdMerchantsCount} comercios nuevos.`;
+      }
+      if (data.createdCategoriesCount > 0) {
+        msg += ` Se crearon ${data.createdCategoriesCount} categorías nuevas.`;
+      }
+      if (data.errors && data.errors.length > 0) {
+        msg += ` (Se omitieron ${data.errors.length} filas por errores de validación, ver consola).`;
+        console.warn("Errores durante auto-aprobación:", data.errors);
+      }
+      setSuccess(msg);
+      load();
+    } catch (err) {
+      setError("Error de red al intentar auto-aprobar.");
+    } finally {
+      setBulkApproving(false);
+    }
+  }
+
   return (
     <AdminShell>
       <div className="admin-header">
@@ -103,16 +149,28 @@ export default function BankReview() {
       {error && <div className="admin-error">{error}</div>}
       {success && <div className="admin-success">{success}</div>}
 
-      <div className="admin-toolbar" style={{ display: "flex", gap: 8, marginBottom: 16 }}>
-        {["pending", "approved", "rejected"].map((s) => (
+      <div className="admin-toolbar" style={{ display: "flex", gap: 8, marginBottom: 16, justifyContent: "space-between", alignItems: "center", flexWrap: "wrap" }}>
+        <div style={{ display: "flex", gap: 8 }}>
+          {["pending", "approved", "rejected"].map((s) => (
+            <button
+              key={s}
+              className={`admin-btn admin-btn-sm ${status === s ? "admin-btn-primary" : "admin-btn-ghost"}`}
+              onClick={() => { setStatus(s); setExpanded(null); }}
+            >
+              {s === "pending" ? "Pendientes" : s === "approved" ? "Aprobadas" : "Rechazadas"}
+            </button>
+          ))}
+        </div>
+        {status === "pending" && rows.length > 0 && !loading && (
           <button
-            key={s}
-            className={`admin-btn admin-btn-sm ${status === s ? "admin-btn-primary" : "admin-btn-ghost"}`}
-            onClick={() => { setStatus(s); setExpanded(null); }}
+            className="admin-btn admin-btn-sm admin-btn-primary"
+            style={{ backgroundColor: "var(--lime)", color: "#000" }}
+            onClick={handleApproveAll}
+            disabled={bulkApproving}
           >
-            {s === "pending" ? "Pendientes" : s === "approved" ? "Aprobadas" : "Rechazadas"}
+            {bulkApproving ? "Aprobando todo..." : "⚡ Auto-aprobar backlog"}
           </button>
-        ))}
+        )}
       </div>
 
       {loading ? (
@@ -136,6 +194,25 @@ export default function BankReview() {
             }}
           />
         ))
+      )}
+
+      {confirmStep === "confirm_all" && (
+        <ConfirmModal
+          title="Auto-aprobar todo el backlog"
+          description={`¿Estás seguro de que quieres auto-aprobar todas las promociones pendientes para el banco "${bankId}"?`}
+          confirmText="Continuar"
+          onConfirm={handleConfirmStep1}
+          onCancel={() => setConfirmStep(null)}
+        />
+      )}
+      {confirmStep === "confirm_new_merchants" && (
+        <ConfirmModal
+          title="Confirmación de comercios nuevos"
+          description="¡Atención! Este proceso creará comercios y categorías nuevas de forma automática en la base de datos para aquellas promociones que no estén mapeadas previamente. ¿Confirmas esta acción definitiva?"
+          confirmText="Sí, auto-aprobar todo"
+          onConfirm={handleConfirmStep2}
+          onCancel={() => setConfirmStep(null)}
+        />
       )}
     </AdminShell>
   );

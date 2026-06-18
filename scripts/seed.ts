@@ -74,6 +74,19 @@ const CARDS = [
   { id: "tenpo-prepaid", bank_id: "tenpo", name: "Tenpo Prepago", type: "prepaid" },
 ];
 
+const CATEGORIES = [
+  { id: "supermercados", label: "Supermercados", emoji: "🛒" },
+  { id: "combustible", label: "Combustible", emoji: "⛽" },
+  { id: "restaurantes", label: "Restaurantes y Cafés", emoji: "🍽️" },
+  { id: "comida-rapida", label: "Comida Rápida", emoji: "🍔" },
+  { id: "farmacias", label: "Farmacias y Salud", emoji: "💊" },
+  { id: "tiendas", label: "Tiendas y Vestuario", emoji: "🛍️" },
+  { id: "viajes", label: "Viajes y Turismo", emoji: "✈️" },
+  { id: "servicios", label: "Servicios y Cuentas", emoji: "💳" },
+  { id: "entretencion", label: "Entretención y Cine", emoji: "🎬" },
+  { id: "otros", label: "Otros", emoji: "🏷️" }
+];
+
 async function reset() {
   console.log("🗑️  Dropeando tablas…");
   for (const table of ["promo_staging", "scraper_runs", "promotions", "cards", "merchants", "merchant_categories", "banks"]) {
@@ -89,7 +102,14 @@ async function reset() {
 }
 
 async function seed() {
-  console.log("🌱 Insertando bancos y tarjetas…");
+  console.log("🌱 Insertando categorías, bancos y tarjetas…");
+
+  for (const cat of CATEGORIES) {
+    await sql.query(
+      `INSERT INTO merchant_categories (id, label, emoji) VALUES ($1, $2, $3)`,
+      [cat.id, cat.label, cat.emoji]
+    );
+  }
 
   for (const b of BANKS) {
     await sql.query(

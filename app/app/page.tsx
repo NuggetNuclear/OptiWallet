@@ -115,7 +115,7 @@ function HomeContent() {
               ? formatDate(today)
               : formatDate(effectiveDate)}
           </div>
-          <h1 className="mt-2 font-serif text-[32px] font-normal leading-[0.98] tracking-[-0.03em] text-ink sm:text-[52px]">
+          <h1 className="mt-2 font-serif text-[26px] font-normal leading-[1.0] tracking-[-0.03em] text-ink sm:text-[40px]">
             Promociones con<br />
             <em className="font-light text-lime">
               tus tarjetas

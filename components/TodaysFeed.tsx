@@ -113,7 +113,7 @@ function FeedRow({ rec, onClick }: { rec: ApiRecommendation; onClick: () => void
         </div>
       </div>
       <div className="ml-3 text-right">
-        <div className="font-serif text-[28px] font-semibold leading-none text-lime">
+        <div className="font-serif text-[22px] font-semibold leading-none text-lime">
           {formatDiscount(rec.discount, rec.discount_per_unit, rec.discount_unit)}
         </div>
       </div>

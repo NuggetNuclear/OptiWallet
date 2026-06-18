@@ -14,7 +14,9 @@ export type AuditAction =
   | "password_change"
   | "import"
   | "approve"
-  | "reject";
+  | "reject"
+  | "maintenance_on"
+  | "maintenance_off";
 
 export type AuditEntity =
   | "bank"
@@ -25,7 +27,8 @@ export type AuditEntity =
   | "admin_user"
   | "auth"
   | "scraper_run"
-  | "promo_staging";
+  | "promo_staging"
+  | "app_settings";
 
 export async function logAdminAction(
   session: AdminSessionPayload,

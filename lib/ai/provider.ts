@@ -37,10 +37,52 @@ const GROQ_GEN = process.env.GROQ_GEN_MODEL ?? "llama-3.1-8b-instant";
 const EMBED_BATCH = 96; // límite conservador por request
 const AI_TIMEOUT_MS = 8000; // 8 s — falla rápido antes de caer al fallback
 
-function fetchWithTimeout(url: string, init: RequestInit, ms = AI_TIMEOUT_MS): Promise<Response> {
-  const ctrl = new AbortController();
-  const timer = setTimeout(() => ctrl.abort(), ms);
-  return fetch(url, { ...init, signal: ctrl.signal }).finally(() => clearTimeout(timer));
+async function fetchWithTimeout(
+  url: string,
+  init: RequestInit,
+  ms = AI_TIMEOUT_MS,
+  maxRetries = 4
+): Promise<Response> {
+  let attempt = 0;
+  while (true) {
+    attempt++;
+    const ctrl = new AbortController();
+    const timer = setTimeout(() => ctrl.abort(), ms);
+    try {
+      const res = await fetch(url, { ...init, signal: ctrl.signal }).finally(() => clearTimeout(timer));
+      
+      if (res.status === 429 && attempt <= maxRetries) {
+        const retryAfterHeader = res.headers.get("retry-after") ?? res.headers.get("x-ratelimit-reset");
+        let delayMs = 6000; // 6 segundos por defecto para Groq free tier
+        if (retryAfterHeader) {
+          const parsed = parseFloat(retryAfterHeader);
+          if (!isNaN(parsed)) {
+            // Groq o APIs de LLMs pueden responder en segundos
+            delayMs = parsed * 1000;
+          }
+        } else {
+          delayMs = attempt * 8000; // backoff progresivo (8s, 16s, 24s...)
+        }
+        
+        // Agregar un pequeño margen extra de seguridad para asegurar que el límite de ventana de Groq se limpie
+        delayMs += 500;
+        
+        console.warn(`[AI Provider] HTTP 429 Rate Limit en ${url}. Reintentando ${attempt}/${maxRetries} en ${Math.round(delayMs)}ms...`);
+        await new Promise((resolve) => setTimeout(resolve, delayMs));
+        continue;
+      }
+      
+      return res;
+    } catch (err) {
+      if (attempt > maxRetries) throw err;
+      const isAbort = err instanceof Error && err.name === "AbortError";
+      console.warn(
+        `[AI Provider] Intento ${attempt}/${maxRetries} falló (${isAbort ? "Timeout" : "Error de red"}). ` +
+        `Reintentando en ${attempt * 2000}ms...`
+      );
+      await new Promise((resolve) => setTimeout(resolve, attempt * 2000));
+    }
+  }
 }
 
 export function aiProvider(): string {
