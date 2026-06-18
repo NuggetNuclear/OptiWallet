@@ -73,6 +73,10 @@ CREATE TABLE IF NOT EXISTS admin_users (
 -- todas sus sesiones vigentes de inmediato. Idempotente: ADD COLUMN IF NOT
 -- EXISTS permite correr este schema sobre una DB ya existente sin perder datos.
 ALTER TABLE admin_users ADD COLUMN IF NOT EXISTS token_version INTEGER NOT NULL DEFAULT 0;
+ALTER TABLE admin_users ADD COLUMN IF NOT EXISTS is_root BOOLEAN NOT NULL DEFAULT false;
+-- First admin ever created (lowest created_at) is always the root bootstrapped via CLI.
+UPDATE admin_users SET is_root = true
+  WHERE created_at = (SELECT MIN(created_at) FROM admin_users) AND NOT is_root;
 
 -- Color de marca para bancos. Idempotente.
 ALTER TABLE banks ADD COLUMN IF NOT EXISTS color TEXT;

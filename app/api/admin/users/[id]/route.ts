@@ -103,11 +103,11 @@ export async function DELETE(req: NextRequest, { params }: Params) {
       return NextResponse.json({ error: "No puedes eliminar el último administrador" }, { status: 400, headers: NO_CACHE });
     }
 
-    const emailRow = await sql`SELECT email FROM admin_users WHERE id = ${id}`;
+    const emailRow = await sql`SELECT email, is_root FROM admin_users WHERE id = ${id}`;
     if (!emailRow.length) {
       return NextResponse.json({ error: "No encontrado" }, { status: 404, headers: NO_CACHE });
     }
-    if (emailRow[0].email === "gabriel.gonzalez3@mail.udp.cl") {
+    if ((emailRow[0] as { is_root: boolean }).is_root) {
       return NextResponse.json({ error: "Este administrador está protegido y no puede ser eliminado" }, { status: 400, headers: NO_CACHE });
     }
 

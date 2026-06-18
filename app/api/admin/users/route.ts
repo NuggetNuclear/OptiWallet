@@ -20,7 +20,7 @@ export async function GET(req: NextRequest) {
   }
   try {
     const rows = await sql`
-      SELECT id, email, totp_enabled, created_at, last_login_at
+      SELECT id, email, totp_enabled, is_root, created_at, last_login_at
       FROM admin_users
       ORDER BY created_at ASC
     `;
