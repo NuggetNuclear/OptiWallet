@@ -120,18 +120,24 @@ export type BatchResponse = {
  */
 export async function suggestCategoriesBatch(
   names: string[],
-  categories: CategoryLite[]
+  categories: CategoryLite[],
+  onProgress?: (msg: string, level?: "info" | "warn" | "error") => void
 ): Promise<ClassificationResult[]> {
   if (!aiAvailable() || names.length === 0 || categories.length === 0) return [];
 
-  const chunkSize = 40; // Batches de a 40 para un balance óptimo de tokens y precisión
+  const log = (msg: string, level: "info" | "warn" | "error" = "info") => {
+    console.log(msg);
+    onProgress?.(msg, level);
+  };
+
+  const chunkSize = 40;
   const results: ClassificationResult[] = [];
 
   const totalChunks = Math.ceil(names.length / chunkSize);
   for (let i = 0; i < names.length; i += chunkSize) {
     const chunk = names.slice(i, i + chunkSize);
     const chunkIdx = Math.floor(i / chunkSize) + 1;
-    console.log(`[AI Provider] Clasificando lote ${chunkIdx}/${totalChunks} (${chunk.length} comercios)...`);
+    log(`[AI] Clasificando lote ${chunkIdx}/${totalChunks} (${chunk.length} comercios)…`);
     try {
       const list = categories.map((c) => `${c.id} = ${c.label}`).join("\n");
       const prompt =
@@ -154,18 +160,17 @@ export async function suggestCategoriesBatch(
 
       const out = await generateJSON<BatchResponse>(prompt);
       if (out && Array.isArray(out.classifications)) {
-        console.log(`[AI Provider] Lote ${chunkIdx}/${totalChunks} clasificado con éxito. Recibidas ${out.classifications.length} respuestas.`);
+        log(`[AI] Lote ${chunkIdx}/${totalChunks} clasificado. ${out.classifications.length} respuestas recibidas.`);
         results.push(...out.classifications);
       } else {
-        console.warn(`[AI Provider] Lote ${chunkIdx}/${totalChunks} no retornó clasificaciones válidas.`);
+        log(`[AI] Lote ${chunkIdx}/${totalChunks} no retornó clasificaciones válidas.`, "warn");
       }
 
-      // Si no es Gemini (por ej. Groq free tier con 6,000 TPM / 30 RPM), espaciamos las llamadas
       if (aiProvider() !== "gemini" && i + chunkSize < names.length) {
         await new Promise((resolve) => setTimeout(resolve, 2500));
       }
     } catch (err) {
-      console.warn(`[AI Provider] suggestCategoriesBatch falló en el chunk ${i}-${i + chunkSize}:`, err);
+      log(`[AI] Error en lote ${chunkIdx}/${totalChunks}: ${err instanceof Error ? err.message : String(err)}`, "error");
     }
   }
 

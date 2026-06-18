@@ -97,8 +97,8 @@ async function main() {
   const id     = slugify(email);
 
   await db`
-    INSERT INTO admin_users (id, email, password_hash, totp_secret, totp_enabled)
-    VALUES (${id}, ${email}, ${hash}, ${encryptSecret(secret)}, false)
+    INSERT INTO admin_users (id, email, password_hash, totp_secret, totp_enabled, is_root)
+    VALUES (${id}, ${email}, ${hash}, ${encryptSecret(secret)}, false, true)
   `;
 
   const qr = await QRCode.toString(uri, { type: "terminal", small: true });

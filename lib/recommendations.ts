@@ -68,11 +68,20 @@ export function calculateSavingsPerUnit(
 }
 
 /**
+ * Campos mínimos que `calculateSavingsForRec` necesita para calcular el ahorro.
+ * Acepta un ApiRecommendation completo o cualquier objeto con estos 5 campos.
+ */
+export type SavingsInput = Pick<
+  ApiRecommendation,
+  "discount" | "discount_per_unit" | "discount_unit" | "cap" | "min_purchase"
+>;
+
+/**
  * Calcula el ahorro de una recomendación dado el contexto del usuario.
  * Usa `units` para promos de tipo por-litro, `amount` para las de porcentaje.
  */
 export function calculateSavingsForRec(
-  rec: ApiRecommendation,
+  rec: SavingsInput,
   amount?: number,
   units?: number
 ): number {

@@ -75,20 +75,11 @@ export function RecommendationCard({ recommendation, amount, units, compact, onC
   const savings = !belowMinimum
     ? calculateSavingsForRec(
         {
-          promotion_id: promotion.id,
           discount: promotion.discount,
           discount_per_unit: promotion.discount_per_unit ?? null,
           discount_unit: promotion.discount_unit ?? null,
-          stackable: promotion.stackable ?? false,
           cap: promotion.cap,
           min_purchase: minPurchase,
-          // los demás campos no son necesarios para el cálculo
-          days_of_week: [], start_date: null, end_date: null,
-          modality: "", code: null, conditions: null, source: "",
-          verified_at: "", merchant_id: "", merchant_name: "",
-          category_id: "", category_label: "", emoji: "",
-          card_id: "", card_name: "", card_type: "", bank_id: "",
-          popularity_prior: 0.5,
         },
         amount,
         units

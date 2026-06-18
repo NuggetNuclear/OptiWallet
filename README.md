@@ -139,11 +139,27 @@ OptiWallet/
 │   ├── blog/                     # Páginas internas — usan InnerPageLayout
 │   ├── contacto/
 │   ├── cookies/
+│   ├── mantencion/page.tsx       # Pantalla de mantenimiento (proxy.ts redirige aquí)
 │   ├── prensa/
 │   ├── privacidad/
 │   ├── roadmap/
 │   ├── sobre-nosotros/
-│   └── terminos/
+│   ├── terminos/
+│   ├── admin/                    # Panel de administración → docs/ADMIN.md
+│   │   ├── components/           #   AdminNav, AdminShell, ConfirmModal, DeleteModal
+│   │   ├── login/                #   Login dos fases: contraseña → TOTP
+│   │   ├── totp-setup/           #   Enrolamiento TOTP (primer login)
+│   │   ├── data/                 #   CRUD de banks, cards, categories, merchants, promotions
+│   │   ├── ops/                  #   Import scraper, staging review, suggest merchant
+│   │   ├── audit/                #   Visor de audit log
+│   │   └── users/                #   CRUD de admins
+│   └── api/admin/                # API admin autenticada → docs/ADMIN.md
+│       ├── auth/                 #   login, verify-totp, logout, me
+│       ├── data/                 #   CRUD + deps de las 5 entidades
+│       ├── ops/                  #   Import, staging, suggest-merchant, approve
+│       ├── maintenance/          #   Toggle modo mantenimiento
+│       ├── audit/                #   Consulta audit log
+│       └── users/                #   CRUD admin users + TOTP setup
 │
 ├── components/
 │   ├── layout/                   # Primitivas de layout — dueñas de los safe-areas iOS
@@ -182,13 +198,26 @@ OptiWallet/
 │       │                         #   useCategories, useMerchants, useRecommendations,
 │       │                         #   usePromotions, useMerchantFromApi)
 │       ├── use-today.ts          # "Hoy" auto-refrescante + effectiveDateFor + parseDiaParam (US-DL)
-│       └── use-service-worker.ts # Registro del SW (solo producción, post-load, updatefound listener)
+│       └── use-service-worker.ts # Registro del SW + banner de actualización (pill glassmorphism)
+│
+├── lib/
+│   ├── admin-guard.ts            # Verificación de sesión admin (HMAC-SHA256) + rate limiting
+│   ├── admin-log.ts              # Audit logging de acciones admin
+│   ├── maintenance.ts            # Modo mantenimiento (cache 30s en memoria, fail-open)
+│   ├── staging.ts                # Normalización scraper → staging, fingerprint, promoId
+│   └── ai/
+│       ├── provider.ts           # Abstracción IA: Gemini / Groq / off (graceful degradation)
+│       └── merchant-suggest.ts   # Ranking + sugerencia de categoría asistidos por IA
 │
 ├── scripts/                      # Tooling de base de datos
-│   ├── schema.sql                # DDL PostgreSQL — fuente de verdad del schema (5 tablas + 4 índices)
+│   ├── schema.sql                # DDL PostgreSQL — fuente de verdad del schema
 │   ├── apply-schema.ts           # Aplica schema.sql a Neon (npm run db:schema)
 │   ├── seed.ts                   # Reset destructivo + datos mock (npm run db:seed)
-│   └── compute-merchant-popularity.ts  # Popularidad de comercios vía Google Places (npm run popularity:compute)
+│   ├── gen-seed.ts               # Generador de seed data con IA (npm run db:gen-seed)
+│   ├── create-admin.ts           # Crea un admin en la DB (npm run admin:create)
+│   ├── encrypt-totp.ts           # Migra TOTP secrets a AES-GCM (npm run admin:encrypt-totp)
+│   ├── compute-merchant-popularity.ts  # Popularidad de comercios vía Google Places
+│   └── scrapers/                 # Scrapers por banco → docs/SCRAPING.md
 │
 ├── public/
 │   ├── manifest.json             # PWA manifest (standalone, portrait, es-CL, start_url: /app)
@@ -202,6 +231,8 @@ OptiWallet/
 ├── docs/                         # Documentación técnica detallada
 │   ├── ARCHITECTURE.md           # Arquitectura, routing, PWA, SW, data layer, componentes
 │   ├── API.md                    # Referencia de los 8 endpoints
+│   ├── ADMIN.md                  # Panel admin: auth, CRUD, operaciones, audit
+│   ├── SCRAPING.md               # Pipeline de scraping: scrapers → staging → review
 │   └── SECURITY.md               # Postura de seguridad + recomendaciones
 │
 ├── instrumentation.ts            # Hook de instrumentación Next — carga Sentry por runtime (US-ERR)
@@ -259,11 +290,17 @@ Todos los datos viven en **Neon PostgreSQL** — no hay archivos de datos estát
 
 | Tabla | Contenido |
 |---|---|
-| `banks` | Bancos e instituciones; `available` indica si tiene promos cargadas |
+| `banks` | Bancos e instituciones; `available` indica si tiene promos cargadas; `color` para identidad visual |
 | `cards` | Productos de tarjeta por banco (`credit` / `debit` / `prepaid`) |
 | `merchant_categories` | Categorías de comercios con emoji |
-| `merchants` | Comercios con aliases para búsqueda fuzzy. Lleva además las señales de popularidad del cold-start del ranking (`places_rating`, `places_ratings_total`, `places_branches`, `popularity_prior` 0–1, `merchant_tier` 1–5, `popularity_updated_at`), pobladas por `npm run popularity:compute`. No se exponen en la API pública. |
-| `promotions` | Promociones con días, topes, monto mínimo de compra, fechas, modalidad y trazabilidad (`source`, `verified_at`). Índices en `merchant_id`, `bank_id`, `active` y `days_of_week` (GIN). La API filtra promos vencidas por `end_date`. |
+| `merchants` | Comercios con aliases para búsqueda fuzzy. Lleva además las señales de popularidad del cold-start del ranking (`places_rating`, `places_ratings_total`, `places_branches`, `popularity_prior` 0–1, `merchant_tier` 1–5, `popularity_updated_at`), pobladas por `npm run popularity:compute`. |
+| `promotions` | Promociones con días, topes, monto mínimo, fechas, modalidad, `card_ids` ("tarjeta única"), `discount_per_unit`/`discount_unit` ($X/L), `stackable`, y trazabilidad (`source`, `verified_at`). Índices en `merchant_id`, `bank_id`, `active`, `days_of_week` (GIN) y `card_ids` (GIN). |
+| `admin_users` | Admins con password_hash, TOTP (AES-GCM at rest), token_version |
+| `admin_login_attempts` | Rate limiting per-IP para login admin |
+| `admin_audit_log` | Log de acciones admin (acción, entidad, IP, timestamp) |
+| `scraper_runs` | Registro de importaciones del scraper por banco |
+| `promo_staging` | Promos scrapeadas en revisión (pending → approved/rejected) |
+| `app_settings` | Key-value de config global (ej. `maintenance_mode`) |
 
 **Convenciones de datos:**
 
@@ -339,7 +376,7 @@ Tokens definidos en `globals.css` bajo `@theme {}` (Tailwind 4 CSS-first):
 - **Instalación guiada**: `InstallModal` en la landing — popup in-page con tabs Android/iOS, autodetección de plataforma y soporte de `beforeinstallprompt` (instalación con un toque en Android Chrome).
 - **Redirección standalone**: la PWA instalada abre directo en `/app` (ver Arquitectura).
 - Root layout: `appleWebApp: { capable: true, statusBarStyle: "black-translucent" }`.
-- Viewport: no-scale (`userScalable: false`, `viewportFit: cover`).
+- Viewport: `viewportFit: cover` (sin `maximumScale` ni `userScalable: false` — bloquear el zoom rompe accesibilidad e iOS lo ignora).
 - Íconos: `icon-192.png`, `icon-512.png`, `icon-maskable.png`.
 
 ---
@@ -348,7 +385,7 @@ Tokens definidos en `globals.css` bajo `@theme {}` (Tailwind 4 CSS-first):
 
 - Cobertura de bancos y comercios parcial — los bancos sin promos cargadas aparecen como "próximamente".
 - Sin cuentas ni sync — la wallet es `localStorage` only.
-- Soporte offline básico: el SW sirve cache cuando no hay red, pero no hay UI de "estás offline" ni banner de actualización de versión (planificado).
+- Soporte offline básico: el SW sirve cache cuando no hay red, pero no hay UI de "estás offline" dedicada (el banner de actualización ya funciona).
 - Varias páginas internas son placeholders (`ComingSoon`) — inventario completo en [`TODO.md`](TODO.md).
 - **Sentry** y **Plausible** están integrados y se activan por env var: `NEXT_PUBLIC_SENTRY_DSN` (DSN del proyecto) y `NEXT_PUBLIC_PLAUSIBLE_SRC` (el `src` del snippet v2 de Plausible). Sin la var respectiva, cada uno queda inerte. Walkthrough de claves en [`docs/ADMIN.md`](docs/ADMIN.md#inventario-y-rotación-de-claves).
 - Sin rate limiting en la API (mitigado por cache de edge; recomendación: Vercel WAF — ver `docs/SECURITY.md`).

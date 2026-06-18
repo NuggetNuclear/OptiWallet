@@ -68,7 +68,7 @@ Todos los endpoints responden con `Cache-Control` para el CDN de Vercel:
 
 | Tipo | `s-maxage` | `stale-while-revalidate` |
 |---|---|---|
-| Datos estables (banks, cards, categories) | 300s (5 min) | 600s (10 min) |
+| Datos estables (banks, cards, categories) | 60s (1 min) | 120s (2 min) |
 | Datos dinámicos (merchants, promos, recs, stats) | 60s (1 min) | 300s (5 min) |
 
 ---
@@ -91,13 +91,15 @@ Ninguno.
     "id": "bci",
     "name": "BCI",
     "short_name": "BCI",
-    "available": true
+    "available": true,
+    "color": "#0033A0"
   },
   {
     "id": "consorcio",
     "name": "Consorcio",
     "short_name": null,
-    "available": false
+    "available": false,
+    "color": null
   }
 ]
 ```
@@ -108,15 +110,16 @@ Ninguno.
 | `name` | `string` | Nombre completo |
 | `short_name` | `string \| null` | Nombre corto (opcional) |
 | `available` | `boolean` | `false` = próximamente, sin promos cargadas |
+| `color` | `string \| null` | Color de marca en hexadecimal (ej. `"#0033A0"`) |
 
 **Orden:** bancos disponibles primero (`available DESC`), luego alfabético (`name ASC`).
 
-**Cache:** `s-maxage=300, stale-while-revalidate=600`
+**Cache:** `s-maxage=60, stale-while-revalidate=120`
 
 ### SQL
 
 ```sql
-SELECT id, name, short_name, available
+SELECT id, name, short_name, available, color
 FROM banks
 ORDER BY available DESC, name ASC
 ```
@@ -159,11 +162,11 @@ Retorna tarjetas (productos de crédito/débito), opcionalmente filtradas por ba
 | `id` | `string` | Slug único de la tarjeta |
 | `bank_id` | `string` | FK al banco |
 | `name` | `string` | Nombre del producto (ej: "Santander Black") |
-| `type` | `"credit" \| "debit"` | Tipo de tarjeta |
+| `type` | `"credit" \| "debit" \| "prepaid"` | Tipo de tarjeta |
 
 **Orden:** `bank_id`, `type`, `name`.
 
-**Cache:** `s-maxage=300, stale-while-revalidate=600`
+**Cache:** `s-maxage=60, stale-while-revalidate=120`
 
 ### Errores
 
@@ -211,7 +214,7 @@ Ninguno.
 
 **Orden:** alfabético por `label`.
 
-**Cache:** `s-maxage=300, stale-while-revalidate=600`
+**Cache:** `s-maxage=60, stale-while-revalidate=120`
 
 ### SQL
 
@@ -248,7 +251,8 @@ Búsqueda fuzzy de comercios por nombre/aliases, con filtro opcional por categor
     "category_id": "comida-rapida",
     "aliases": ["papa jones", "papajohns"],
     "category_label": "Comida Rápida",
-    "emoji": "🍔"
+    "emoji": "🍔",
+    "popularity_prior": 0.72
   }
 ]
 ```
@@ -261,6 +265,7 @@ Búsqueda fuzzy de comercios por nombre/aliases, con filtro opcional por categor
 | `aliases` | `string[]` | Nombres alternativos para búsqueda fuzzy |
 | `category_label` | `string` | Nombre de la categoría (JOIN) |
 | `emoji` | `string` | Emoji de la categoría (JOIN) |
+| `popularity_prior` | `number` | Prior de popularidad 0–1 (cold-start del ranking). Default 0.5 si aún no se ha computado. |
 
 **Límite:** máximo 50 resultados.
 
@@ -367,9 +372,14 @@ Retorna todas las promociones **activas y vigentes** de un comercio, con el nomb
 |---|---|---|
 | `id` | `string` | Slug de la promoción |
 | `bank_id` | `string` | FK al banco |
-| `card_types` | `string[]` | Tipos aplicables: `["credit"]`, `["debit"]`, `["credit","debit"]` |
+| `card_types` | `string[]` | Tipos aplicables: `["credit"]`, `["debit"]`, `["credit","debit"]`, `["prepaid"]` |
+| `card_ids` | `string[]` | IDs de tarjetas específicas. Vacío = aplica por `card_types` (sin restricción). Con valores = solo esas tarjetas exactas ("tarjeta única"). |
+| `card_names` | `string[]` | Nombres de esas tarjetas específicas (derivado server-side). Vacío si no hay restricción. |
 | `merchant_id` | `string` | FK al comercio |
-| `discount` | `number` | Porcentaje de descuento (1–100) |
+| `discount` | `number \| null` | Porcentaje de descuento (1–100). `null` si la promo usa `discount_per_unit`. |
+| `discount_per_unit` | `number \| null` | Descuento fijo en CLP por unidad (ej. $100/L). `null` si usa `discount`. |
+| `discount_unit` | `string \| null` | Unidad del descuento por unidad (actualmente solo `"liter"`). `null` si usa `discount`. |
+| `stackable` | `boolean` | Si la promo puede combinarse (apilarse) con otras simultáneamente. |
 | `cap` | `number \| null` | Tope de descuento en CLP. `null` = sin tope |
 | `min_purchase` | `number \| null` | Monto mínimo de compra en CLP. `null` = sin mínimo |
 | `days_of_week` | `number[]` | Días aplicables. `0`=dom … `6`=sáb. `[]` = todos los días |
@@ -444,7 +454,10 @@ Retorna todas las promociones **activas y vigentes** de un comercio, con el nomb
 | Campo | Tipo | Descripción |
 |---|---|---|
 | `promotion_id` | `string` | ID de la promoción |
-| `discount` | `number` | Porcentaje de descuento |
+| `discount` | `number \| null` | Porcentaje de descuento. `null` si usa `discount_per_unit`. |
+| `discount_per_unit` | `number \| null` | Descuento fijo en CLP por unidad (ej. $100/L). |
+| `discount_unit` | `string \| null` | Unidad del descuento por unidad (`"liter"`). |
+| `stackable` | `boolean` | Si la promo puede apilarse con otras. |
 | `cap` | `number \| null` | Tope en CLP |
 | `min_purchase` | `number \| null` | Monto mínimo de compra en CLP |
 | `days_of_week` | `number[]` | Días aplicables |
@@ -457,19 +470,22 @@ Retorna todas las promociones **activas y vigentes** de un comercio, con el nomb
 | `verified_at` | `string` | Última verificación |
 | `merchant_id` | `string` | ID del comercio |
 | `merchant_name` | `string` | Nombre del comercio |
+| `popularity_prior` | `number` | Prior de popularidad 0–1 del comercio (cold-start del ranking). |
 | `category_id` | `string` | ID de la categoría |
 | `category_label` | `string` | Nombre de la categoría |
 | `emoji` | `string` | Emoji de la categoría |
 | `card_id` | `string` | ID de la tarjeta del usuario |
 | `card_name` | `string` | Nombre de la tarjeta |
-| `card_type` | `string` | Tipo (`credit` / `debit`) |
+| `card_type` | `string` | Tipo (`credit` / `debit` / `prepaid`) |
 | `bank_id` | `string` | ID del banco |
 
 **Orden:** mayor descuento primero (`discount DESC`).
 
 **Lógica de match:** una promo aparece si:
 1. La tarjeta pertenece al mismo banco que la promo (`c.bank_id = p.bank_id`)
-2. El tipo de tarjeta es compatible (`c.type = ANY(p.card_types)`)
+2. Matching de tarjeta (doble rama):
+   - Si la promo tiene `card_ids` (≥ 1) → aplica **solo** a esas tarjetas exactas ("tarjeta única", ej. "solo Mastercard Black"), ignorando `card_types`.
+   - Si `card_ids` está vacío → aplica a cualquier tarjeta del banco cuyo `type` esté en `card_types` (comportamiento estándar).
 3. La promo está activa (`p.active = true`)
 4. El día de la semana coincide (`dayOfWeek ∈ days_of_week`, o `days_of_week` vacío = todos)
 5. La fecha está dentro del rango de vigencia (si `start_date`/`end_date` existen)
