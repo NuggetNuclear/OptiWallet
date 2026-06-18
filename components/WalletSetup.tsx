@@ -3,6 +3,8 @@
 import { useState } from "react";
 import { useBanks, useCards } from "@/lib/hooks/use-api";
 import type { ApiBank, ApiCard } from "@/lib/api-client";
+import { BANK_INFO } from "@/lib/constants";
+import { SkeletonCard } from "./SkeletonCard";
 import { TopBar } from "./layout/TopBar";
 import { BottomDock } from "./layout/BottomDock";
 import { BackButton } from "./layout/BackButton";
@@ -94,15 +96,7 @@ export function WalletSetup({
         <div className="mt-10 space-y-3">
           {loading
             ? Array.from({ length: 4 }).map((_, i) => (
-                <div key={i} className="animate-pulse rounded-2xl border border-line bg-bg-2 p-4">
-                  <div className="flex items-center gap-3">
-                    <div className="h-10 w-10 rounded-xl bg-bg-3" />
-                    <div className="flex-1 space-y-2">
-                      <div className="h-4 w-28 rounded bg-bg-3" />
-                      <div className="h-3 w-20 rounded bg-bg-3" />
-                    </div>
-                  </div>
-                </div>
+                <SkeletonCard key={i} iconSize={10} />
               ))
             : banks.map((bank) => (
                 <BankRow
@@ -174,28 +168,9 @@ function BankRow({
 }) {
   const hasSelected = cards.some((c) => selectedCardIds.includes(c.id));
 
-  // Unique abbreviations and brand-inspired colors per bank.
-  // Fallback: first 2 chars of name + neutral bg.
-  const BANK_DISPLAY: Record<string, { letter: string; bg: string }> = {
-    "bice":          { letter: "BI",  bg: "#003087" },
-    "falabella":     { letter: "FB",  bg: "#8CC63F" },
-    "ripley":        { letter: "RP",  bg: "#6B2D8B" },
-    "santander":     { letter: "SA",  bg: "#EC0000" },
-    "security":      { letter: "SE",  bg: "#1A3D6D" },
-    "bco-chile":     { letter: "BC",  bg: "#003A70" },
-    "bci":           { letter: "BCI", bg: "#0033A0" },
-    "banco-estado":  { letter: "BE",  bg: "#002D72" },
-    "itau":          { letter: "IU",  bg: "#FF6600" },
-    "mach":          { letter: "MA",  bg: "#6C5CE7" },
-    "mercado-pago":  { letter: "MP",  bg: "#009EE3" },
-    "scotiabank":    { letter: "SB",  bg: "#EC1C24" },
-    "tenpo":         { letter: "TP",  bg: "#00C389" },
-    "coopeuch":      { letter: "CO",  bg: "#E4002B" },
-  };
-
-  const display = BANK_DISPLAY[bank.id];
-  const iconLetter = display?.letter ?? bank.name.slice(0, 2).toUpperCase();
-  const iconBg = hasSelected ? undefined : (bank.color ?? display?.bg);
+  const info = BANK_INFO[bank.id];
+  const iconLetter = info?.letter ?? bank.name.slice(0, 2).toUpperCase();
+  const iconBg = hasSelected ? undefined : (bank.color ?? info?.color);
 
   return (
     <div

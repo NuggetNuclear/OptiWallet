@@ -2,6 +2,7 @@
 
 import { formatCLP, formatDiscount, modalityLabel } from "@/lib/format";
 import { calculateSavingsForRec } from "@/lib/recommendations";
+import { BANK_INFO } from "@/lib/constants";
 
 interface RecommendationCardProps {
   recommendation: {
@@ -46,23 +47,6 @@ function getMinPurchase(promotion: RecommendationCardProps["recommendation"]["pr
   if (!match) return null;
   return parseInt(match[1].replace(/\./g, ""), 10) || null;
 }
-
-const BANK_COLORS: Record<string, string> = {
-  "bice":          "#003087",
-  "falabella":     "#8CC63F",
-  "ripley":        "#6B2D8B",
-  "santander":     "#EC0000",
-  "security":      "#1A3D6D",
-  "bco-chile":     "#003A70",
-  "bci":           "#0033A0",
-  "banco-estado":  "#002D72",
-  "itau":          "#FF6600",
-  "mach":          "#6C5CE7",
-  "mercado-pago":  "#009EE3",
-  "scotiabank":    "#EC1C24",
-  "tenpo":         "#00C389",
-  "coopeuch":      "#E4002B",
-};
 
 export function RecommendationCard({ recommendation, amount, units, compact, onClick }: RecommendationCardProps) {
   const { promotion, card, merchant, bankName } = recommendation;
@@ -174,7 +158,7 @@ export function RecommendationCard({ recommendation, amount, units, compact, onC
     </>
   );
 
-  const bankColor = BANK_COLORS[card.bankId] ?? "#1a1f1c";
+  const bankColor = BANK_INFO[card.bankId]?.color ?? "#1a1f1c";
   const className = `relative overflow-hidden rounded-[24px] p-5 text-white transition-transform active:scale-[0.99] sm:rounded-[28px] sm:p-6 ${
     compact ? "sm:p-5" : ""
   }`;

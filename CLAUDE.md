@@ -81,6 +81,10 @@ When the PWA is installed and opened, it must land on `/app`, not the marketing 
 2. **`proxy.ts`** (Edge middleware, matcher `/`) — if `ow_standalone=1` exists, redirects to `/app` server-side with no flash.
 3. **`StandaloneRedirect`** (landing page, client-side) — fallback for first visit (cookie not yet set) and offline (SW serves cached landing without middleware).
 
+### Shared constants (`lib/constants.ts`)
+
+`BANK_INFO` is the single source of truth for bank brand colors and abbreviated display names used across the UI. Both `RecommendationCard` (gradient color) and `WalletSetup` (icon badge) read from here — adding a new bank requires editing only this file.
+
 ### Recommendations engine
 
 `GET /api/recommendations` is the core product endpoint. It JOINs promotions × cards × merchants, filtering by `card.id IN cardIds`, date range, and `dayOfWeek ∈ days_of_week`. Business logic for savings calculation and ranking lives in `lib/recommendations.ts` as pure functions:
