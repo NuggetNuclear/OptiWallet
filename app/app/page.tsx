@@ -43,6 +43,7 @@ function HomeContent() {
 
   const [onboardingComplete, setOnboardingComplete] = useState(false);
   const [transitionDone, setTransitionDone] = useState(false);
+  const [isSearchOpen, setIsSearchOpen] = useState(false);
   const searchRef = useRef<MerchantSearchHandle>(null);
 
   // Orden de ambos listados (feed de promos + búsqueda de comercios). El sort es
@@ -103,8 +104,7 @@ function HomeContent() {
       <Header
         onOpenWallet={() => router.push("/app/wallet")}
         onSearchClick={() => {
-          document.getElementById('search-section')?.scrollIntoView({ behavior: 'smooth' });
-          searchRef.current?.focusInput();
+          setIsSearchOpen(true);
         }}
         cardCount={cardIds.length}
       />
@@ -179,24 +179,7 @@ function HomeContent() {
           />
         </section>
 
-        {/* Separador editorial */}
-        <div className="mt-12 flex items-center gap-4">
-          <span className="font-mono text-[10px] uppercase tracking-[0.2em] text-ink-dim">
-            — Buscar comercio
-          </span>
-          <div className="dashed-line flex-1" />
-        </div>
 
-        {/* Search */}
-        <section id="search-section" className="mt-5" style={{ scrollMarginTop: "calc(var(--safe-top) + 72px)" }}>
-          <MerchantSearch
-            ref={searchRef}
-            sortBy={sortBy}
-            onSelect={(id) => {
-              router.push(`/app/comercio/${encodeURIComponent(id)}${diaQuery}`);
-            }}
-          />
-        </section>
 
         {/* Footer / disclaimer */}
         <footer className="mt-16 border-t border-line pt-8">
@@ -215,6 +198,23 @@ function HomeContent() {
           </p>
         </footer>
       </main>
+
+      {isSearchOpen && (
+        <div
+          className="fixed inset-0 z-50 overflow-y-auto bg-bg/98 backdrop-blur-xl px-5 pb-10"
+          style={{ paddingTop: "calc(var(--safe-top) + 20px)" }}
+        >
+          <MerchantSearch
+            ref={searchRef}
+            sortBy={sortBy}
+            onClose={() => setIsSearchOpen(false)}
+            onSelect={(id) => {
+              setIsSearchOpen(false);
+              router.push(`/app/comercio/${encodeURIComponent(id)}${diaQuery}`);
+            }}
+          />
+        </div>
+      )}
     </div>
   );
 }

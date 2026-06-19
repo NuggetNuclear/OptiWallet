@@ -1,6 +1,6 @@
 "use client";
 
-import { forwardRef, useImperativeHandle, useMemo, useRef, useState } from "react";
+import { useEffect, forwardRef, useImperativeHandle, useMemo, useRef, useState } from "react";
 import { useMerchants, useCategories } from "@/lib/hooks/use-api";
 import { SkeletonCard } from "./SkeletonCard";
 import type { ApiMerchant } from "@/lib/api-client";
@@ -8,6 +8,7 @@ import type { ApiMerchant } from "@/lib/api-client";
 interface MerchantSearchProps {
   onSelect: (merchantId: string) => void;
   sortBy: "name" | "popularity" | "discount";
+  onClose?: () => void;
 }
 
 export interface MerchantSearchHandle {
@@ -15,7 +16,7 @@ export interface MerchantSearchHandle {
 }
 
 export const MerchantSearch = forwardRef<MerchantSearchHandle, MerchantSearchProps>(
-  function MerchantSearch({ onSelect, sortBy }, ref) {
+  function MerchantSearch({ onSelect, sortBy, onClose }, ref) {
   const [query, setQuery] = useState("");
   const [categoryFilter, setCategoryFilter] = useState<string | null>(null);
   const inputRef = useRef<HTMLInputElement>(null);
@@ -23,6 +24,15 @@ export const MerchantSearch = forwardRef<MerchantSearchHandle, MerchantSearchPro
   useImperativeHandle(ref, () => ({
     focusInput: () => inputRef.current?.focus({ preventScroll: true }),
   }));
+
+  useEffect(() => {
+    if (onClose) {
+      const timer = setTimeout(() => {
+        inputRef.current?.focus({ preventScroll: true });
+      }, 50);
+      return () => clearTimeout(timer);
+    }
+  }, [onClose]);
 
   const { data: merchants, loading: merchantsLoading } = useMerchants(query, categoryFilter);
   const { data: categories, loading: categoriesLoading } = useCategories();
@@ -59,39 +69,61 @@ export const MerchantSearch = forwardRef<MerchantSearchHandle, MerchantSearchPro
 
   return (
     <div>
-      {/* Search input */}
-      <div className="relative">
-        <svg
-          width="16"
-          height="16"
-          viewBox="0 0 24 24"
-          fill="none"
-          stroke="currentColor"
-          strokeWidth="2"
-          className="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 text-ink-dim"
-        >
-          <circle cx="11" cy="11" r="8" />
-          <path d="m21 21-4.35-4.35" />
-        </svg>
-        <input
-          ref={inputRef}
-          type="search"
-          value={query}
-          onChange={(e) => setQuery(e.target.value)}
-          placeholder="Buscar comercio..."
-          className="w-full rounded-2xl border border-line bg-bg-2 py-3.5 pl-11 pr-4 text-[16px] text-ink placeholder:text-ink-dim focus:border-lime focus:outline-none"
-        />
-        {query && (
+      {/* Search input row */}
+      <div className="flex items-center gap-3">
+        {onClose && (
           <button
-            onClick={() => setQuery("")}
-            className="absolute right-3 top-1/2 -translate-y-1/2 rounded-full bg-bg-3 p-1 text-ink-dim transition-colors hover:text-ink"
-            aria-label="Limpiar búsqueda"
+            onClick={onClose}
+            className="flex h-[52px] w-[52px] shrink-0 items-center justify-center rounded-2xl border border-line bg-bg-2 text-ink transition-colors hover:border-lime hover:text-lime"
+            aria-label="Cerrar búsqueda"
           >
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
-              <path d="M18 6 6 18M6 6l12 12" />
+            <svg
+              width="20"
+              height="20"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="2"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+            >
+              <path d="M19 12H5M12 19l-7-7 7-7" />
             </svg>
           </button>
         )}
+        <div className="relative flex-1">
+          <svg
+            width="16"
+            height="16"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="2"
+            className="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 text-ink-dim"
+          >
+            <circle cx="11" cy="11" r="8" />
+            <path d="m21 21-4.35-4.35" />
+          </svg>
+          <input
+            ref={inputRef}
+            type="search"
+            value={query}
+            onChange={(e) => setQuery(e.target.value)}
+            placeholder="Buscar comercio..."
+            className="w-full rounded-2xl border border-line bg-bg-2 py-3.5 pl-11 pr-4 text-[16px] text-ink placeholder:text-ink-dim focus:border-lime focus:outline-none"
+          />
+          {query && (
+            <button
+              onClick={() => setQuery("")}
+              className="absolute right-3 top-1/2 -translate-y-1/2 rounded-full bg-bg-3 p-1 text-ink-dim transition-colors hover:text-ink"
+              aria-label="Limpiar búsqueda"
+            >
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
+                <path d="M18 6 6 18M6 6l12 12" />
+              </svg>
+            </button>
+          )}
+        </div>
       </div>
 
       {/* Category chips — solo en modo filtro/búsqueda */}
