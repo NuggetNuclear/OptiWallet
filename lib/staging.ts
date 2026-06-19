@@ -136,8 +136,8 @@ export function normalizeRow(
     min_purchase: r.min_purchase ?? null,
     days_of_week: r.days_of_week ?? [],
     card_types: r.card_types ?? [],
-    card_ids: [], // los slugs granulares del banco no mapean a cards reales; ver source_cards
-    source_cards: r._source_cards ?? r.card_ids ?? [],
+    card_ids: r.card_ids ?? [],   // IDs reales del DB (ej. itau-legend, bchile-visa-credito-infinite)
+    source_cards: r._source_cards ?? [],
     modality: r.modality ?? null,
     start_date: r.start_date ?? null,
     end_date: r.end_date ?? null,

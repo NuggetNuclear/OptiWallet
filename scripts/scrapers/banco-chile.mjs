@@ -323,33 +323,41 @@ function loadCookie() {
 }
 
 /**
- * Fetch all entries of a given CMS type, handling pagination.
+ * Fetch de todos los beneficios del CMS (paginado). Retorna entries crudos
+ * listos para parseEntries().
  *
- * @param {string} type    CMS content type (e.g. "beneficios")
- * @param {object} [opts]  Options
- * @param {string} [opts.cookie]  Imperva cookie string to use. When omitted,
- *                                falls back to env/file (CLI usage).
- * @param {boolean} [opts.silent] Suppress console.log output (server-side usage).
+ * cookie  — Imperva cookie string. Si se omite, carga desde BCH_COOKIE o
+ *           .bch-cookie.txt (uso CLI). Pásala explícita desde el servidor.
+ * opts.silent  — suprime console.log
+ * opts.onLog(msg, level?) — callback por línea de progreso (útil para SSE)
  */
-export async function fetchAll(type, opts = {}) {
+export async function fetchAll(cookie, opts = {}) {
+  const log = (msg, level = "info") => {
+    if (opts.onLog) opts.onLog(msg, level);
+    else if (!opts.silent) console.log("  " + msg);
+  };
+
+  const resolvedCookie = cookie ?? loadCookie();
+
   const headers = {
     Accept: "application/json, text/plain, */*",
     "Accept-Language": "es-CL,es;q=0.9",
     "User-Agent": UA,
     Referer: "https://sitiospublicos.bancochile.cl/personas/beneficios/categoria",
   };
-  const cookie = opts.cookie ?? loadCookie();
-  if (cookie) {
-    headers.Cookie = cookie;
-    if (!opts.silent) console.log(`  (cookie cargada: ${cookie.length} chars)`);
+  if (resolvedCookie) {
+    headers.Cookie = resolvedCookie;
+    log(`Cookie cargada (${resolvedCookie.length} chars)`);
   } else {
-    if (!opts.silent) console.log("  (sin cookie — probando directo; si falla, ver .bch-cookie.txt)");
+    log("Sin cookie — probando directo; si falla, ver .bch-cookie.txt");
   }
+
   let page = 1;
   let out = [];
   let total = Infinity;
+  log("Leyendo catálogo del CMS...");
   while (out.length < total) {
-    const url = `${BASE}/${type}/entries?page=${page}&per_page=100`;
+    const url = `${BASE}/beneficios/entries?page=${page}&per_page=100`;
     let r;
     try {
       r = await fetch(url, { headers });
@@ -358,7 +366,6 @@ export async function fetchAll(type, opts = {}) {
       throw new Error(impervaHelp(`No se pudo conectar a ${url}\n  causa: ${cause}`));
     }
     if (!r.ok) {
-      // Expose whether this is an anti-bot block for the caller to handle.
       const error = new Error(impervaHelp(`HTTP ${r.status} en ${url}`));
       /** @type {any} */ (error).statusCode = r.status;
       throw error;
@@ -366,36 +373,31 @@ export async function fetchAll(type, opts = {}) {
     const j = await r.json();
     out = out.concat(j.entries || []);
     total = j.meta?.total_entries ?? out.length;
+    log(`Página ${page}: ${out.length}/${total === Infinity ? "?" : total} entries`);
     if (!j.entries || j.entries.length === 0) break;
     page++;
     if (page > 50) break; // guard
   }
+  log(`${out.length} entries obtenidos`, "success");
   return out;
 }
 
 async function main() {
-  console.log("Fetch beneficios...");
-  const entries = await fetchAll("beneficios");
-  console.log(`  ${entries.length} entries`);
+  const entries = await fetchAll(undefined);
 
   const { clean, edges } = parseEntries(entries);
-  const edgeTotal = Object.values(edges).reduce((a, v) => a + v.length, 0);
-  const resolved = clean.filter((c) => c._merchant_resolved).length;
-  const edgeCounts = Object.fromEntries(
-    Object.entries(edges).map(([k, v]) => [k, v.length])
-  );
+  const edgeTotal  = Object.values(edges).reduce((a, v) => a + v.length, 0);
+  const resolved   = clean.filter((c) => c._merchant_resolved).length;
+  const edgeCounts = Object.fromEntries(Object.entries(edges).map(([k, v]) => [k, v.length]));
 
   mkdirSync(OUT_DIR, { recursive: true });
   writeFileSync(join(OUT_DIR, "banco-chile.clean.json"), JSON.stringify(clean, null, 2));
-  // Casos borde: se quedan en out/ para manejar mas adelante (NO se importan).
   writeFileSync(join(OUT_DIR, "banco-chile.edges.json"), JSON.stringify(edges, null, 2));
-  // Archivo combinado para SUBIR al panel admin (/admin/ops/import).
   writeFileSync(
     join(OUT_DIR, "banco-chile.import.json"),
     JSON.stringify(
       { bank_id: BANK_ID, generated_at: new Date().toISOString(), edge_counts: edgeCounts, clean },
-      null,
-      2
+      null, 2
     )
   );
 
@@ -406,6 +408,7 @@ async function main() {
   for (const [k, v] of Object.entries(edges).sort((a, b) => b[1].length - a[1].length))
     console.log(`  - ${k.padEnd(24)} ${v.length}`);
   console.log(`\nEscrito en ${OUT_DIR}/`);
+  console.log("Sube out/banco-chile.import.json en /admin/ops/import");
 }
 
 // Ejecutar solo si se corre directamente (no al importar parseEntries).

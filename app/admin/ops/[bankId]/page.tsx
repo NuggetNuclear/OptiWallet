@@ -215,7 +215,7 @@ export default function BankReview() {
               onClick={() => setConfirmStep("confirm_reject_all")}
               disabled={bulkApproving || discarding}
             >
-              {discarding ? "Descartando…" : "✕ Descartar todo"}
+              {discarding ? "Descartando…" : "Descartar todo"}
             </button>
             <button
               className="admin-btn admin-btn-sm admin-btn-primary"
@@ -223,7 +223,7 @@ export default function BankReview() {
               onClick={handleApproveAll}
               disabled={bulkApproving || discarding}
             >
-              {bulkApproving ? "Aprobando…" : "⚡ Auto-aprobar backlog"}
+              {bulkApproving ? "Aprobando…" : "Auto-aprobar backlog"}
             </button>
           </div>
         )}

@@ -9,71 +9,6 @@ import { NextRequest, NextResponse } from "next/server";
 
 const NO_CACHE = { "Cache-Control": "no-store" };
 
-// ── Banco de Chile CMS fetch logic ──────────────────────────────────────────
-// Mirrors the fetch layer of scripts/scrapers/banco-chile.mjs but runs
-// server-side within the Next.js runtime. The parse layer (parseEntries) is
-// imported dynamically from the .mjs file since it's a pure function with no
-// Node filesystem dependencies.
-
-const BCH_BASE =
-  "https://sitiospublicos.bancochile.cl/api/content/spaces/personas/types";
-const UA =
-  "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 " +
-  "(KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36";
-
-/**
- * Fetch all entries of a CMS content type with pagination.
- * Throws with `statusCode` property on Imperva/anti-bot blocks.
- */
-async function fetchCMSEntries(
-  type: string,
-  cookie?: string,
-): Promise<unknown[]> {
-  const headers: Record<string, string> = {
-    Accept: "application/json, text/plain, */*",
-    "Accept-Language": "es-CL,es;q=0.9",
-    "User-Agent": UA,
-    Referer:
-      "https://sitiospublicos.bancochile.cl/personas/beneficios/categoria",
-  };
-  if (cookie) headers.Cookie = cookie;
-
-  let page = 1;
-  let out: unknown[] = [];
-  let total = Infinity;
-  while (out.length < total) {
-    const url = `${BCH_BASE}/${type}/entries?page=${page}&per_page=100`;
-    let r: Response;
-    try {
-      r = await fetch(url, { headers });
-    } catch (err: unknown) {
-      const cause =
-        (err as { cause?: { code?: string; message?: string } }).cause?.code ??
-        (err as { cause?: { message?: string } }).cause?.message ??
-        (err as Error).message ??
-        "desconocida";
-      const error = new Error(`No se pudo conectar a ${url} — causa: ${cause}`);
-      (error as unknown as { statusCode: number }).statusCode = 0;
-      throw error;
-    }
-    if (!r.ok) {
-      const error = new Error(`HTTP ${r.status} en ${url}`);
-      (error as unknown as { statusCode: number }).statusCode = r.status;
-      throw error;
-    }
-    const j = (await r.json()) as {
-      entries?: unknown[];
-      meta?: { total_entries?: number };
-    };
-    out = out.concat(j.entries || []);
-    total = j.meta?.total_entries ?? out.length;
-    if (!j.entries || j.entries.length === 0) break;
-    page++;
-    if (page > 50) break; // guard
-  }
-  return out;
-}
-
 /**
  * Map of bank_id → scraper functions.
  * Each bank that supports auto-fetch must provide fetchAll + parseEntries.
@@ -85,25 +20,30 @@ async function fetchCMSEntries(
  * at runtime.
  */
 async function loadScraper(bankId: string) {
+  // Helper: bypass webpack/turbopack static analysis for runtime-only .mjs imports.
+  const dynamicImport = new Function("p", "return import(p)") as (
+    p: string,
+  ) => Promise<Record<string, unknown>>;
+
   if (bankId === "banco-chile") {
     const scraperPath = join(process.cwd(), "scripts/scrapers/banco-chile.mjs");
-    // Bypass webpack/turbopack static analysis — this is a runtime-only import
-    // of a pure-JS module that lives outside app/. The bundler can't resolve it
-    // statically (and doesn't need to — it's never bundled, just loaded at runtime).
-    const dynamicImport = new Function("p", "return import(p)") as (p: string) => Promise<Record<string, unknown>>;
     const mod = (await dynamicImport(pathToFileURL(scraperPath).href)) as {
+      fetchAll: (
+        cookie: string | undefined,
+        opts: { silent: boolean },
+      ) => Promise<unknown[]>;
       parseEntries: (
         entries: unknown[],
-      ) => {
-        clean: ScrapedRow[];
-        edges: Record<string, unknown[]>;
-      };
+      ) => { clean: ScrapedRow[]; edges: Record<string, unknown[]> };
     };
     return {
-      fetchAll: (cookie?: string) => fetchCMSEntries("beneficios", cookie),
+      fetchAll: (cookie?: string) => mod.fetchAll(cookie, { silent: true }),
       parseEntries: mod.parseEntries,
     };
   }
+
+  // BCI and Itaú require local scripts — cannot run server-side on Vercel.
+  // Run locally: node scripts/scrapers/bci.mjs → upload out/bci.import.json
   return null;
 }
 

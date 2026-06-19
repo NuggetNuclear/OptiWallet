@@ -224,7 +224,10 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ ban
           errors.push(`Promo #${row.id} (${row.merchant_name}): Descuento inválido.`);
           continue;
         }
-        if (!isValidCardTypes(card_types)) {
+        // card_types puede ser [] (aplica a cualquier tarjeta) — isValidCardTypes
+        // requiere array no vacío, así que validamos manualmente aquí.
+        const VALID_TYPES = new Set(["credit", "debit", "prepaid"]);
+        if (!Array.isArray(card_types) || card_types.some((t) => !VALID_TYPES.has(t as string))) {
           errors.push(`Promo #${row.id} (${row.merchant_name}): Tipo de tarjetas inválido.`);
           continue;
         }

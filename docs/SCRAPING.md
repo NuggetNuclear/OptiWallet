@@ -66,13 +66,74 @@ Al importar se calcula un `fingerprint` estable (banco + comercio + descuento +
 días + modalidad). Filas con fingerprint ya `pending`/`approved` se omiten — un
 re-fetch del mismo mes no duplica el backlog.
 
-## Anti-bot (Banco de Chile)
+## Anti-bot y estrategia de fetch por banco
+
+### Banco de Chile
 
 `sitiospublicos.bancochile.cl` está detrás de Imperva/Incapsula: un fetch desde
 datacenter/CI recibe 307→cookie-challenge y luego 403 con reto JS. Por eso el
 scraper corre **local** (IP residencial suele pasar) o con `BCH_COOKIE`, o el
 fetch se hace dentro de un navegador y se alimenta a `parseEntries()`. Por eso
 también el import es **subir un archivo**, no un fetch del servidor.
+
+El panel admin soporta auto-fetch servidor para este banco vía
+`POST /api/admin/ops/fetch` (con campo cookie opcional si Imperva bloquea).
+
+### Itaú (`scripts/scrapers/itau.mjs`)
+
+`itaubeneficios.cl` es un sitio WordPress con HTML estático — no requiere
+Playwright ni anti-bot especial. El scraper usa `fetch` nativo y hace dos pasadas:
+
+1. **Catálogo maestro** (`/beneficios/beneficios-y-descuentos/`) — extrae la
+   lista de comercios con sus URLs, categoría y tarjeta tentativa.
+2. **Ficha de cada comercio** — confirma descuento, tarjeta, extrae fechas y tope.
+   Pausa cortés de 0.6–1.4 s entre requests.
+
+Con ~100–200 comercios esto tarda **2–4 minutos** — demasiado para la función
+serverless de Vercel (60 s). El auto-fetch desde el panel admin está disponible
+**solo en entorno local** (Next.js dev o servidor propio); en Vercel, usa el
+flujo estándar: **correr localmente → subir JSON**.
+
+```bash
+node scripts/scrapers/itau.mjs
+# → out/itau.import.json  (sube en /admin/ops/import)
+```
+
+Mapeo de tarjetas: Legend, Black, Blue → `credit`; Signature → `itau-black`
+(mismo tier, sin slug propio en la DB). Débito detectado por texto.
+
+Días de semana: categorías `lunes-gourmet`…`sabado-gourmet` → `days_of_week`
+automático. El resto de categorías → `[]` (todos los días).
+
+### BCI (`scripts/scrapers/bci.mjs`)
+
+`bci.cl/beneficios/beneficios-bci` es una SPA (Angular/React): los datos se
+cargan via API interna. El scraper usa **Playwright** para interceptar las
+respuestas JSON en tiempo real.
+
+Setup (una sola vez):
+```bash
+npm install playwright --save-dev
+npx playwright install chromium
+```
+
+Uso:
+```bash
+node scripts/scrapers/bci.mjs
+# → out/bci.import.json  (sube en /admin/ops/import)
+# → out/bci-raw.json     (respuestas crudas, útil para debugging)
+```
+
+**No soporta auto-fetch desde el panel admin** (Playwright no puede correr en
+Vercel). Flujo obligatorio: local → subir JSON.
+
+Si el scraper captura items pero `discount`/`card_types` quedan vacíos, revisar
+`out/bci-raw.json` para ver los nombres reales de los campos de la API, luego
+ajustar los `pick()` en `normalizeEntry()` dentro de `bci.mjs`. El bloque
+`FIELD MAPPINGS` del código está marcado para eso.
+
+Mapeo de tarjetas: patrón regex sobre el nombre de tarjeta → `card_types` +
+`card_ids`. Ver `BCI_CARD_PATTERNS` en el scraper.
 
 ## Casos borde (para el final)
 

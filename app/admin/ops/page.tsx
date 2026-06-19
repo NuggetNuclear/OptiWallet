@@ -3,8 +3,16 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { AdminShell } from "../components/AdminShell";
-
 // ── Types ───────────────────────────────────────────────────────────────────
+
+interface FetchConfig {
+  /** Muestra modal de confirmación con pasos antes de iniciar el fetch. */
+  walkthrough?: {
+    steps: string[];
+    warning?: string;
+    estimatedTime?: string;
+  };
+}
 
 interface BankRow {
   id: string;
@@ -29,7 +37,7 @@ interface MaintenanceStatus {
 }
 interface FetchResult {
   run_id: number;
-  raw_entries: number;
+  raw_entries?: number; // solo presente en el endpoint JSON (Banco de Chile)
   total: number;
   imported: number;
   skipped: number;
@@ -160,7 +168,7 @@ function MaintenancePanel() {
             onClick={() => toggle(true)}
             disabled={busy || loading || totpCode.length !== 6}
           >
-            {busy ? "Activando…" : "⚠️ Activar mantenimiento"}
+            {busy ? "Activando…" : "Activar mantenimiento"}
           </button>
         ) : (
           <button
@@ -168,7 +176,7 @@ function MaintenancePanel() {
             onClick={() => toggle(false)}
             disabled={busy || loading || totpCode.length !== 6}
           >
-            {busy ? "Desactivando…" : "✓ Desactivar mantenimiento"}
+            {busy ? "Desactivando…" : "Desactivar mantenimiento"}
           </button>
         )}
         <span style={{ fontSize: 11, color: "var(--ink-dim)", fontFamily: "var(--font-jetbrains)" }}>
@@ -181,8 +189,15 @@ function MaintenancePanel() {
 
 // ── Fetch Button + Cookie Modal ─────────────────────────────────────────────
 
-function FetchButton({ bankId, bankName, onFetched }: { bankId: string; bankName: string; onFetched: () => void }) {
-  const [state, setState] = useState<"idle" | "fetching" | "cookie" | "success" | "error">("idle");
+function FetchButton({
+  bankId, bankName, config = {}, onFetched,
+}: {
+  bankId: string;
+  bankName: string;
+  config?: FetchConfig;
+  onFetched: () => void;
+}) {
+  const [state, setState] = useState<"idle" | "confirm" | "fetching" | "cookie" | "success" | "error">("idle");
   const [cookieValue, setCookieValue] = useState("");
   const [instructions, setInstructions] = useState<string[]>([]);
   const [result, setResult] = useState<FetchResult | null>(null);
@@ -237,14 +252,109 @@ function FetchButton({ bankId, bankName, onFetched }: { bankId: string; bankName
 
   // ── Inline button (default state) ──
   if (state === "idle") {
+    const hasWalkthrough = !!config.walkthrough;
     return (
-      <button
-        className="admin-btn admin-btn-ghost admin-btn-sm"
-        onClick={() => doFetch()}
-        title={`Fetch automático desde ${bankName}`}
-      >
-        ⚡ Fetch
-      </button>
+      <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+        {config.walkthrough?.estimatedTime && (
+          <span style={{ fontSize: 10, color: "var(--ink-dim)", fontFamily: "var(--font-jetbrains)" }}>
+            ~{config.walkthrough.estimatedTime}
+          </span>
+        )}
+        <button
+          className="admin-btn admin-btn-ghost admin-btn-sm"
+          onClick={() => hasWalkthrough ? setState("confirm") : doFetch()}
+          title={`Fetch automático desde ${bankName}`}
+        >
+          Fetch
+        </button>
+      </div>
+    );
+  }
+
+  // ── Pre-confirm walkthrough modal ──
+  if (state === "confirm" && config.walkthrough) {
+    const wt = config.walkthrough;
+    return (
+      <>
+        <div className="admin-modal-overlay" onClick={(e) => { if (e.target === e.currentTarget) reset(); }}>
+          <div className="admin-modal" style={{ width: 520 }}>
+            <p className="admin-modal-title">Fetch automático — {bankName}</p>
+
+            <p style={{ fontSize: 13, color: "var(--ink-dim)", marginBottom: 14 }}>
+              El scraper hará lo siguiente:
+            </p>
+
+            <div style={{
+              background: "var(--bg-3, rgba(245,241,232,0.04))",
+              borderRadius: 8,
+              padding: "12px 14px",
+              marginBottom: 14,
+              fontSize: 12,
+              color: "var(--ink-dim)",
+              lineHeight: 1.9,
+            }}>
+              {wt.steps.map((step, i) => (
+                <div key={i} style={{ display: "flex", gap: 8 }}>
+                  <span style={{ color: "var(--lime)", fontWeight: 700, fontFamily: "var(--font-jetbrains)", flexShrink: 0 }}>
+                    {i + 1}.
+                  </span>
+                  <span>{step}</span>
+                </div>
+              ))}
+            </div>
+
+            {(wt.warning || wt.estimatedTime) && (
+              <div style={{
+                display: "flex", flexDirection: "column", gap: 6,
+                background: "rgba(214,120,70,0.07)",
+                border: "1px solid rgba(214,120,70,0.25)",
+                borderRadius: 7,
+                padding: "10px 13px",
+                marginBottom: 18,
+                fontSize: 12,
+              }}>
+                {wt.estimatedTime && (
+                  <div style={{ display: "flex", gap: 6, alignItems: "center" }}>
+                    <span style={{ color: "var(--copper)" }}>⏱</span>
+                    <span>
+                      <strong style={{ color: "var(--ink)" }}>Tiempo estimado:</strong>{" "}
+                      <span style={{ fontFamily: "var(--font-jetbrains)", color: "var(--copper)" }}>
+                        {wt.estimatedTime}
+                      </span>
+                      {" — no cerrar la pestaña mientras dura el proceso."}
+                    </span>
+                  </div>
+                )}
+                {wt.warning && (
+                  <div style={{ display: "flex", gap: 6, alignItems: "flex-start" }}>
+                    <span style={{ color: "var(--copper)", flexShrink: 0 }}>⚠</span>
+                    <span style={{ color: "var(--ink-dim)" }}>{wt.warning}</span>
+                  </div>
+                )}
+              </div>
+            )}
+
+            {error && <div className="admin-error" style={{ marginBottom: 10 }}>{error}</div>}
+
+            <div className="admin-form-actions">
+              <button
+                className="admin-btn admin-btn-primary"
+                onClick={() => { setState("idle"); doFetch(); }}
+              >
+                Iniciar fetch
+              </button>
+              <button className="admin-btn admin-btn-ghost" onClick={reset}>
+                Cancelar
+              </button>
+            </div>
+          </div>
+        </div>
+
+        {/* Keep a visible placeholder in the table row */}
+        <button className="admin-btn admin-btn-ghost admin-btn-sm" disabled>
+          ⚡ Fetch
+        </button>
+      </>
     );
   }
 
@@ -253,7 +363,9 @@ function FetchButton({ bankId, bankName, onFetched }: { bankId: string; bankName
     return (
       <button className="admin-btn admin-btn-ghost admin-btn-sm" disabled style={{ gap: 6 }}>
         <span className="admin-spinner" style={{ width: 12, height: 12, borderWidth: 1.5 }} aria-hidden="true" />
-        Scrapeando…
+        {config.walkthrough?.estimatedTime
+          ? `Scrapeando… (~${config.walkthrough.estimatedTime})`
+          : "Scrapeando…"}
       </button>
     );
   }
@@ -353,7 +465,7 @@ function FetchButton({ bankId, bankName, onFetched }: { bankId: string; bankName
                 onClick={handleCookieSubmit}
                 disabled={!cookieValue.trim() || state !== "cookie"}
               >
-                ⚡ Reintentar con cookie
+                Reintentar con cookie
               </button>
               <button className="admin-btn admin-btn-ghost" onClick={reset}>
                 Cancelar
@@ -380,8 +492,19 @@ function FetchButton({ bankId, bankName, onFetched }: { bankId: string; bankName
 
 // ── Scrapers disponibles ────────────────────────────────────────────────────
 
-/** Bancos que tienen scraper configurado y soportan auto-fetch. */
-const FETCHABLE_BANKS = new Set(["banco-chile"]);
+/**
+ * Bancos con scraper configurado en fetch/route.ts → soportan auto-fetch
+ * desde el panel. La config de cada uno controla el UX (walkthrough, tiempo).
+ */
+const FETCHABLE_BANKS: Record<string, FetchConfig> = {
+  "banco-chile": {},
+};
+
+/**
+ * Bancos que solo tienen scraper local (no se pueden ejecutar desde el panel).
+ * Muestra un badge informativo en vez de un botón de fetch.
+ */
+const SCRIPT_ONLY_BANKS = new Set(["bci", "itau"]);
 
 // ── Ops Center ──────────────────────────────────────────────────────────────
 
@@ -461,13 +584,22 @@ export default function OpsCenter() {
                   <td className="admin-cell-dim" style={{ fontSize: 11 }}>{b.last_edges ?? "—"}</td>
                   <td>
                     <div className="admin-actions">
-                      {FETCHABLE_BANKS.has(b.id) && (
+                      {b.id in FETCHABLE_BANKS ? (
                         <FetchButton
                           bankId={b.id}
                           bankName={b.name}
+                          config={FETCHABLE_BANKS[b.id]}
                           onFetched={loadOverview}
                         />
-                      )}
+                      ) : SCRIPT_ONLY_BANKS.has(b.id) ? (
+                        <span
+                          className="admin-badge admin-badge-dim"
+                          title="Corre el script local y sube el JSON"
+                          style={{ cursor: "default", fontSize: 10 }}
+                        >
+                          script local
+                        </span>
+                      ) : null}
                       <Link href={`/admin/ops/${b.id}`} className="admin-btn admin-btn-ghost admin-btn-sm">
                         Revisar →
                       </Link>

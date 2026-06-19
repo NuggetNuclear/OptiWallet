@@ -203,7 +203,9 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ ban
             if (!isValidDiscountConfig({ discount, discount_per_unit, discount_unit })) {
               errors.push(`#${row.id} (${row.merchant_name}): descuento inválido`); continue;
             }
-            if (!isValidCardTypes(card_types)) {
+            // card_types puede ser [] (aplica a cualquier tarjeta)
+            const VALID_TYPES = new Set(["credit", "debit", "prepaid"]);
+            if (!Array.isArray(card_types) || card_types.some((t) => !VALID_TYPES.has(t as string))) {
               errors.push(`#${row.id} (${row.merchant_name}): tipo de tarjetas inválido`); continue;
             }
             if (!["presencial", "online", "both"].includes(modality)) {
