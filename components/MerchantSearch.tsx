@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { forwardRef, useImperativeHandle, useMemo, useRef, useState } from "react";
 import { useMerchants, useCategories } from "@/lib/hooks/use-api";
 import { SkeletonCard } from "./SkeletonCard";
 import type { ApiMerchant } from "@/lib/api-client";
@@ -10,17 +10,23 @@ interface MerchantSearchProps {
   sortBy: "name" | "popularity" | "discount";
 }
 
-export function MerchantSearch({ onSelect, sortBy }: MerchantSearchProps) {
+export interface MerchantSearchHandle {
+  focusInput: () => void;
+}
+
+export const MerchantSearch = forwardRef<MerchantSearchHandle, MerchantSearchProps>(
+  function MerchantSearch({ onSelect, sortBy }, ref) {
   const [query, setQuery] = useState("");
   const [categoryFilter, setCategoryFilter] = useState<string | null>(null);
+  const inputRef = useRef<HTMLInputElement>(null);
+
+  useImperativeHandle(ref, () => ({
+    focusInput: () => inputRef.current?.focus({ preventScroll: true }),
+  }));
 
   const { data: merchants, loading: merchantsLoading } = useMerchants(query, categoryFilter);
   const { data: categories, loading: categoriesLoading } = useCategories();
 
-  // Orden client-side: la respuesta de /api/merchants viene cacheada (s-maxage=60),
-  // así que el select no debe re-pegarle al server.
-  // - popularity: prior desc y alfabético como desempate.
-  // - name / discount: alfabético puro.
   const sortedMerchants = useMemo(() => {
     const copy = [...merchants];
     copy.sort((a, b) => {
@@ -32,10 +38,24 @@ export function MerchantSearch({ onSelect, sortBy }: MerchantSearchProps) {
     return copy;
   }, [merchants, sortBy]);
 
-  // Los conteos por categoría vienen del servidor (/api/categories): la
-  // lista de búsqueda está limitada a 50 resultados y contarla en el
-  // cliente daría conteos incorrectos con más comercios.
   const categoryStats = categories.filter((c) => c.merchant_count > 0);
+
+  // Modo browse: sin query ni filtro activo → agrupar por categoría
+  const isBrowse = query === "" && categoryFilter === null;
+
+  const byCategory = useMemo(() => {
+    if (!isBrowse) return null;
+    const map = new Map<string, { label: string; emoji?: string; merchants: ApiMerchant[] }>();
+    for (const cat of categoryStats) {
+      map.set(cat.id, { label: cat.label, emoji: cat.emoji, merchants: [] });
+    }
+    for (const m of sortedMerchants) {
+      const bucket = map.get(m.category_id ?? "");
+      if (bucket) bucket.merchants.push(m);
+    }
+    // Filtrar categorías vacías y ordenar por count desc
+    return Array.from(map.values()).filter((c) => c.merchants.length > 0);
+  }, [isBrowse, sortedMerchants, categoryStats]);
 
   return (
     <div>
@@ -54,6 +74,7 @@ export function MerchantSearch({ onSelect, sortBy }: MerchantSearchProps) {
           <path d="m21 21-4.35-4.35" />
         </svg>
         <input
+          ref={inputRef}
           type="search"
           value={query}
           onChange={(e) => setQuery(e.target.value)}
@@ -73,62 +94,110 @@ export function MerchantSearch({ onSelect, sortBy }: MerchantSearchProps) {
         )}
       </div>
 
-      {/* Category chips */}
-      <div className="no-scrollbar mt-4 -mx-5 flex gap-2 overflow-x-auto px-5 pb-1">
-        <CategoryChip
-          label="Todos"
-          active={categoryFilter === null}
-          onClick={() => setCategoryFilter(null)}
-        />
-        {categoriesLoading
-          ? Array.from({ length: 4 }).map((_, i) => (
-              <div key={i} className="h-9 w-24 shrink-0 animate-pulse rounded-full bg-bg-3" />
-            ))
-          : categoryStats.map((cat) => (
-              <CategoryChip
-                key={cat.id}
-                label={cat.label}
-                emoji={cat.emoji}
-                active={categoryFilter === cat.id}
-                count={cat.merchant_count}
-                onClick={() =>
-                  setCategoryFilter(categoryFilter === cat.id ? null : cat.id)
-                }
-              />
-            ))}
-      </div>
+      {/* Category chips — solo en modo filtro/búsqueda */}
+      {!isBrowse && (
+        <div className="no-scrollbar mt-4 -mx-5 flex gap-2 overflow-x-auto px-5 pb-1">
+          <CategoryChip
+            label="Todos"
+            active={categoryFilter === null}
+            onClick={() => setCategoryFilter(null)}
+          />
+          {categoriesLoading
+            ? Array.from({ length: 4 }).map((_, i) => (
+                <div key={i} className="h-9 w-24 shrink-0 animate-pulse rounded-full bg-bg-3" />
+              ))
+            : categoryStats.map((cat) => (
+                <CategoryChip
+                  key={cat.id}
+                  label={cat.label}
+                  emoji={cat.emoji}
+                  active={categoryFilter === cat.id}
+                  count={cat.merchant_count}
+                  onClick={() =>
+                    setCategoryFilter(categoryFilter === cat.id ? null : cat.id)
+                  }
+                />
+              ))}
+        </div>
+      )}
 
-      {/* Results */}
-      <div className="mt-5 space-y-2">
-        {merchantsLoading ? (
-          Array.from({ length: 3 }).map((_, i) => <SkeletonCard key={i} />)
-        ) : sortedMerchants.length === 0 ? (
-          <div className="rounded-2xl border border-dashed border-line bg-bg-2/40 p-8 text-center">
-            <div className="font-mono text-[10px] uppercase tracking-widest text-ink-dim">
-              Sin resultados
+      {/* Modo browse: secciones por categoría */}
+      {isBrowse && (
+        <div className="mt-5 space-y-6">
+          {merchantsLoading || categoriesLoading ? (
+            Array.from({ length: 3 }).map((_, i) => <SkeletonCard key={i} />)
+          ) : byCategory && byCategory.length > 0 ? (
+            byCategory.map((cat) => (
+              <div key={cat.label}>
+                {/* Cabecera de categoría */}
+                <button
+                  onClick={() => setCategoryFilter(
+                    categoryStats.find((c) => c.label === cat.label)?.id ?? null
+                  )}
+                  className="group mb-3 flex w-full items-center justify-between"
+                >
+                  <div className="flex items-center gap-2">
+                    {cat.emoji && <span className="text-base">{cat.emoji}</span>}
+                    <span className="font-mono text-[11px] uppercase tracking-[0.15em] text-ink-dim group-hover:text-ink transition-colors">
+                      {cat.label}
+                    </span>
+                  </div>
+                  <span className="font-mono text-[10px] text-ink-dim group-hover:text-lime transition-colors">
+                    ver todos →
+                  </span>
+                </button>
+                <div className="space-y-2">
+                  {cat.merchants.map((merchant) => (
+                    <MerchantRow
+                      key={merchant.id}
+                      merchant={merchant}
+                      onClick={() => onSelect(merchant.id)}
+                    />
+                  ))}
+                </div>
+              </div>
+            ))
+          ) : (
+            <div className="rounded-2xl border border-dashed border-line bg-bg-2/40 p-8 text-center">
+              <div className="mt-2 text-sm text-ink">No hay comercios disponibles.</div>
             </div>
-            <div className="mt-2 text-sm text-ink">
-              {query
-                ? `No encontramos "${query}".`
-                : "No hay comercios en esta categoría."}
+          )}
+        </div>
+      )}
+
+      {/* Modo búsqueda/filtro: lista plana */}
+      {!isBrowse && (
+        <div className="mt-5 space-y-2">
+          {merchantsLoading ? (
+            Array.from({ length: 3 }).map((_, i) => <SkeletonCard key={i} />)
+          ) : sortedMerchants.length === 0 ? (
+            <div className="rounded-2xl border border-dashed border-line bg-bg-2/40 p-8 text-center">
+              <div className="font-mono text-[10px] uppercase tracking-widest text-ink-dim">
+                Sin resultados
+              </div>
+              <div className="mt-2 text-sm text-ink">
+                {query
+                  ? `No encontramos "${query}".`
+                  : "No hay comercios en esta categoría."}
+              </div>
+              <div className="mt-1 text-xs text-ink-dim">
+                Puede que aún no cubramos ese comercio.
+              </div>
             </div>
-            <div className="mt-1 text-xs text-ink-dim">
-              Puede que aún no cubramos ese comercio.
-            </div>
-          </div>
-        ) : (
-          sortedMerchants.map((merchant) => (
-            <MerchantRow
-              key={merchant.id}
-              merchant={merchant}
-              onClick={() => onSelect(merchant.id)}
-            />
-          ))
-        )}
-      </div>
+          ) : (
+            sortedMerchants.map((merchant) => (
+              <MerchantRow
+                key={merchant.id}
+                merchant={merchant}
+                onClick={() => onSelect(merchant.id)}
+              />
+            ))
+          )}
+        </div>
+      )}
     </div>
   );
-}
+});
 
 function CategoryChip({
   label,

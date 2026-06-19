@@ -14,10 +14,10 @@ import { useWallet } from "@/lib/use-wallet";
 import { Header } from "@/components/Header";
 import { DayPicker } from "@/components/DayPicker";
 import { TodaysFeed } from "@/components/TodaysFeed";
-import { MerchantSearch } from "@/components/MerchantSearch";
+import { MerchantSearch, type MerchantSearchHandle } from "@/components/MerchantSearch";
 import { WalletSetup } from "@/components/WalletSetup";
 import { PageTransition } from "@/components/PageTransition";
-import { formatDate, formatDayOfWeek } from "@/lib/format";
+import { formatDate } from "@/lib/format";
 import { useToday, effectiveDateFor, parseDiaParam } from "@/lib/hooks/use-today";
 import { events } from "@/lib/analytics";
 
@@ -43,6 +43,7 @@ function HomeContent() {
 
   const [onboardingComplete, setOnboardingComplete] = useState(false);
   const [transitionDone, setTransitionDone] = useState(false);
+  const searchRef = useRef<MerchantSearchHandle>(null);
 
   // Orden de ambos listados (feed de promos + búsqueda de comercios). El sort es
   // client-side (las respuestas vienen cacheadas), así que el select no re-fetchea.
@@ -103,6 +104,7 @@ function HomeContent() {
         onOpenWallet={() => router.push("/app/wallet")}
         onSearchClick={() => {
           document.getElementById('search-section')?.scrollIntoView({ behavior: 'smooth' });
+          searchRef.current?.focusInput();
         }}
         cardCount={cardIds.length}
       />
@@ -186,8 +188,9 @@ function HomeContent() {
         </div>
 
         {/* Search */}
-        <section id="search-section" className="mt-5">
+        <section id="search-section" className="mt-5" style={{ scrollMarginTop: "calc(var(--safe-top) + 72px)" }}>
           <MerchantSearch
+            ref={searchRef}
             sortBy={sortBy}
             onSelect={(id) => {
               router.push(`/app/comercio/${encodeURIComponent(id)}${diaQuery}`);

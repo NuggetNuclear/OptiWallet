@@ -1,10 +1,12 @@
 "use client";
 
-import { useMemo } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useRecommendations } from "@/lib/hooks/use-api";
 import { formatCLP, modalityLabel, formatDiscount } from "@/lib/format";
 import { SkeletonCard } from "./SkeletonCard";
 import type { ApiRecommendation } from "@/lib/api-client";
+
+const PAGE_SIZE = 15;
 
 interface TodaysFeedProps {
   cardIds: string[];
@@ -22,12 +24,10 @@ export function TodaysFeed({
   sortBy,
 }: TodaysFeedProps) {
   const { data: recs, loading } = useRecommendations(cardIds, date);
+  const [visibleCount, setVisibleCount] = useState(PAGE_SIZE);
+  const sentinelRef = useRef<HTMLDivElement>(null);
 
   // Agrupar por merchant y quedarnos con la mejor promo por comercio.
-  // Orden client-side (la respuesta viene cacheada s-maxage=60):
-  // - name: alfabético por nombre del comercio, descuento como desempate.
-  // - popularity: prior del comercio desc, descuento como desempate.
-  // - discount: descuento desc, nombre como desempate.
   const byMerchant = useMemo(() => {
     const map = new Map<string, ApiRecommendation>();
     for (const rec of recs) {
@@ -46,10 +46,33 @@ export function TodaysFeed({
       if (sortBy === "popularity") {
         return b.popularity_prior - a.popularity_prior || disc(b) - disc(a) || a.merchant_name.localeCompare(b.merchant_name);
       }
-      // sortBy === "discount"
       return disc(b) - disc(a) || a.merchant_name.localeCompare(b.merchant_name);
     });
   }, [recs, sortBy]);
+
+  // Resetear paginación cuando cambia el orden o el día (en render phase para evitar loops/efectos)
+  const currentKey = `${date.getTime()}-${sortBy}`;
+  const [prevKey, setPrevKey] = useState(currentKey);
+  if (currentKey !== prevKey) {
+    setPrevKey(currentKey);
+    setVisibleCount(PAGE_SIZE);
+  }
+
+  // IntersectionObserver: carga más items al llegar al sentinel
+  const loadMore = useCallback(() => {
+    setVisibleCount((n) => Math.min(n + PAGE_SIZE, byMerchant.length));
+  }, [byMerchant.length]);
+
+  useEffect(() => {
+    const sentinel = sentinelRef.current;
+    if (!sentinel) return;
+    const observer = new IntersectionObserver(
+      (entries) => { if (entries[0].isIntersecting) loadMore(); },
+      { rootMargin: "200px" },
+    );
+    observer.observe(sentinel);
+    return () => observer.disconnect();
+  }, [loadMore]);
 
   if (loading) {
     return (
@@ -72,15 +95,37 @@ export function TodaysFeed({
     );
   }
 
+  const visible = byMerchant.slice(0, visibleCount);
+  const hasMore = visibleCount < byMerchant.length;
+
   return (
     <div className="grid gap-2">
-      {byMerchant.map((rec) => (
+      {visible.map((rec) => (
         <FeedRow
           key={rec.merchant_id}
           rec={rec}
           onClick={() => onMerchantClick(rec.merchant_id)}
         />
       ))}
+      {/* Sentinel para IntersectionObserver */}
+      {hasMore && (
+        <div ref={sentinelRef} className="py-2 text-center">
+          <div className="inline-flex gap-1">
+            {[0, 1, 2].map((i) => (
+              <div
+                key={i}
+                className="h-1 w-1 rounded-full bg-ink-dim opacity-40 animate-pulse"
+                style={{ animationDelay: `${i * 150}ms` }}
+              />
+            ))}
+          </div>
+        </div>
+      )}
+      {!hasMore && byMerchant.length > PAGE_SIZE && (
+        <p className="py-2 text-center font-mono text-[10px] uppercase tracking-widest text-ink-dim">
+          {byMerchant.length} promociones · fin
+        </p>
+      )}
     </div>
   );
 }
