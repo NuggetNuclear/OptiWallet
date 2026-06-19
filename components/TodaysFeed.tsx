@@ -142,9 +142,16 @@ function FeedRow({ rec, onClick }: { rec: ApiRecommendation; onClick: () => void
         </div>
         <div className="min-w-0">
           <div className="truncate font-medium text-ink">{rec.merchant_name}</div>
-          <div className="mt-0.5 truncate text-xs text-ink-dim">
-            {rec.card_name} · {modalityLabel(rec.modality as "presencial" | "online" | "both")}
-            {rec.cap && <> · tope {formatCLP(rec.cap)}</>}
+          <div className="mt-0.5 flex flex-wrap items-center gap-x-1.5 overflow-hidden max-h-4 text-xs text-ink-dim min-w-0">
+            <span className="truncate min-w-0 flex-shrink">{rec.card_name}</span>
+            <span className="flex items-center gap-x-1.5 before:content-['·'] before:text-ink-dim/50 shrink-0">
+              {modalityLabel(rec.modality as "presencial" | "online" | "both")}
+            </span>
+            {rec.cap && (
+              <span className="flex items-center gap-x-1.5 before:content-['·'] before:text-ink-dim/50 shrink-0">
+                tope {formatCLP(rec.cap)}
+              </span>
+            )}
           </div>
         </div>
       </div>

@@ -368,9 +368,16 @@ function PromoRow({
               })()}
             </span>
           </div>
-          <div className="mt-1 text-xs text-ink-dim">
-            {daysOfWeekLabel(promo.days_of_week)} · {modalityLabel(promo.modality as "presencial" | "online" | "both")}
-            {promo.cap && <> · Tope {formatCLP(promo.cap)}</>}
+          <div className="mt-1 flex flex-wrap items-center gap-x-1.5 overflow-hidden max-h-4 text-xs text-ink-dim min-w-0">
+            <span className="truncate min-w-0 flex-shrink">{daysOfWeekLabel(promo.days_of_week)}</span>
+            <span className="flex items-center gap-x-1.5 before:content-['·'] before:text-ink-dim/50 shrink-0">
+              {modalityLabel(promo.modality as "presencial" | "online" | "both")}
+            </span>
+            {promo.cap && (
+              <span className="flex items-center gap-x-1.5 before:content-['·'] before:text-ink-dim/50 shrink-0">
+                Tope {formatCLP(promo.cap)}
+              </span>
+            )}
           </div>
           {promo.code && (
             <div className="mt-1.5">
