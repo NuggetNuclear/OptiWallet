@@ -201,7 +201,7 @@ function HomeContent() {
 
       {isSearchOpen && (
         <div
-          className="fixed inset-0 z-50 overflow-y-auto bg-bg/98 backdrop-blur-xl px-5 pb-10"
+          className="fixed inset-0 z-50 overflow-y-auto overflow-x-hidden bg-bg/98 backdrop-blur-xl px-5 pb-10"
           style={{ paddingTop: "calc(var(--safe-top) + 20px)" }}
         >
           <MerchantSearch

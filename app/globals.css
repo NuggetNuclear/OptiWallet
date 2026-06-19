@@ -102,11 +102,13 @@ body {
   background: var(--bg);
   color: var(--ink);
   min-height: 100%;
+  overflow-x: hidden;
 }
 
 body {
   font-family: var(--font-sora), system-ui, sans-serif;
   position: relative;
+  overflow-x: hidden;
 }
 
 /* Grain global — el alma estética del producto */

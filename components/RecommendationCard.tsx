@@ -234,14 +234,15 @@ export function AlternativeCard({ recommendation }: { recommendation: Recommenda
     <div className="flex items-center justify-between rounded-2xl border border-line bg-bg-2 p-4 transition-colors hover:border-line-strong">
       <div className="min-w-0 flex-1">
         <div className="truncate font-medium text-ink">{bankName}</div>
-        <div className="mt-0.5 text-xs text-ink-dim">
-          {merchant.name} · {modalityLabel(promotion.modality as "presencial" | "online" | "both")}
+        <div className="mt-0.5 flex flex-wrap items-center gap-x-1.5 overflow-hidden max-h-4 text-xs text-ink-dim min-w-0">
+          <span className="truncate min-w-0 flex-shrink">{merchant.name}</span>
+          <span className="flex items-center gap-x-1.5 before:content-['·'] before:text-ink-dim/50 shrink-0">
+            {modalityLabel(promotion.modality as "presencial" | "online" | "both")}
+          </span>
           {promotion.code && (
-            <>
-              {" "}
-              ·{" "}
-              <span className="font-mono uppercase">{promotion.code}</span>
-            </>
+            <span className="flex items-center gap-x-1.5 before:content-['·'] before:text-ink-dim/50 shrink-0 font-mono uppercase">
+              {promotion.code}
+            </span>
           )}
         </div>
       </div>
