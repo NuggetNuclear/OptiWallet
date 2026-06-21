@@ -131,31 +131,29 @@ export function TodaysFeed({
 }
 
 function FeedRow({ rec, onClick }: { rec: ApiRecommendation; onClick: () => void }) {
+  const subtitle = [
+    rec.card_name,
+    modalityLabel(rec.modality as "presencial" | "online" | "both"),
+    rec.cap ? `tope ${formatCLP(rec.cap)}` : null,
+  ]
+    .filter(Boolean)
+    .join(" · ");
+
   return (
     <button
       onClick={onClick}
-      className="group flex w-full items-center justify-between rounded-2xl border border-line bg-bg-2 p-4 text-left transition-colors active:scale-[0.98] hover:border-lime"
+      className="group flex w-full min-w-0 items-center gap-3 overflow-hidden rounded-2xl border border-line bg-bg-2 p-4 text-left transition-colors active:scale-[0.98] hover:border-lime"
     >
-      <div className="flex min-w-0 flex-1 items-center gap-3">
-        <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-bg-3 text-xl">
-          {rec.emoji ?? "🛍️"}
-        </div>
-        <div className="min-w-0">
-          <div className="truncate font-medium text-ink">{rec.merchant_name}</div>
-          <div className="mt-0.5 flex flex-wrap items-center gap-x-1.5 overflow-hidden max-h-4 text-xs text-ink-dim min-w-0">
-            <span className="truncate min-w-0 flex-shrink">{rec.card_name}</span>
-            <span className="flex items-center gap-x-1.5 before:content-['·'] before:text-ink-dim/50 shrink-0">
-              {modalityLabel(rec.modality as "presencial" | "online" | "both")}
-            </span>
-            {rec.cap && (
-              <span className="flex items-center gap-x-1.5 before:content-['·'] before:text-ink-dim/50 shrink-0">
-                tope {formatCLP(rec.cap)}
-              </span>
-            )}
-          </div>
+      <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-bg-3 text-xl">
+        {rec.emoji ?? "🛍️"}
+      </div>
+      <div className="min-w-0 flex-1">
+        <div className="truncate font-medium text-ink">{rec.merchant_name}</div>
+        <div className="mt-0.5 truncate font-mono text-[10px] uppercase tracking-widest text-ink-dim">
+          {subtitle}
         </div>
       </div>
-      <div className="ml-3 shrink-0 text-right">
+      <div className="shrink-0 text-right">
         <div className="font-serif text-[22px] font-semibold leading-none text-lime">
           {formatDiscount(rec.discount, rec.discount_per_unit, rec.discount_unit)}
         </div>
