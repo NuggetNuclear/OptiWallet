@@ -136,7 +136,7 @@ function FeedRow({ rec, onClick }: { rec: ApiRecommendation; onClick: () => void
       onClick={onClick}
       className="group flex w-full items-center justify-between rounded-2xl border border-line bg-bg-2 p-4 text-left transition-colors active:scale-[0.98] hover:border-lime"
     >
-      <div className="flex min-w-0 items-center gap-3">
+      <div className="flex min-w-0 flex-1 items-center gap-3">
         <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-bg-3 text-xl">
           {rec.emoji ?? "🛍️"}
         </div>
@@ -155,7 +155,7 @@ function FeedRow({ rec, onClick }: { rec: ApiRecommendation; onClick: () => void
           </div>
         </div>
       </div>
-      <div className="ml-3 text-right">
+      <div className="ml-3 shrink-0 text-right">
         <div className="font-serif text-[22px] font-semibold leading-none text-lime">
           {formatDiscount(rec.discount, rec.discount_per_unit, rec.discount_unit)}
         </div>
