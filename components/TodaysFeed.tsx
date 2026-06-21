@@ -142,7 +142,7 @@ function FeedRow({ rec, onClick }: { rec: ApiRecommendation; onClick: () => void
   return (
     <button
       onClick={onClick}
-      className="group flex w-full items-center gap-3 rounded-2xl border border-line bg-bg-2 p-4 text-left transition-colors active:scale-[0.98] hover:border-lime"
+      className="group flex w-full min-w-0 items-center gap-3 overflow-hidden rounded-2xl border border-line bg-bg-2 p-4 text-left transition-colors active:scale-[0.98] hover:border-lime"
     >
       <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-bg-3 text-xl">
         {rec.emoji ?? "🛍️"}
