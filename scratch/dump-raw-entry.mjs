@@ -1,5 +1,4 @@
 import { readFileSync, existsSync } from "node:fs";
-import { join } from "node:path";
 
 const COOKIE_FILE = "d:/Code/OptiWallet/scripts/scrapers/.bch-cookie.txt";
 const url = "https://sitiospublicos.bancochile.cl/api/content/spaces/personas/types/beneficios/entries?page=1&per_page=1";

@@ -79,7 +79,12 @@ export default function AuditPage() {
   }
 
   useEffect(() => {
+    // Carga inicial al montar: fetch-on-mount intencional (no es estado
+    // derivado), así que silenciamos la regla de setState-en-efecto.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     loadLogs();
+    // loadLogs es estable (no depende de props/estado); omitirla es intencional.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   useEffect(() => {
@@ -88,6 +93,7 @@ export default function AuditPage() {
       loadLogs(true);
     }, refreshInterval * 1000);
     return () => clearInterval(timer);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [refreshInterval]);
 
   function handleManualRefresh() {

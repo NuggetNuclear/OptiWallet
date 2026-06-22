@@ -154,7 +154,7 @@ export async function POST(req: NextRequest) {
     const entriesToUpsert: { uuid: string; raw_json: unknown }[] = [];
 
     for (const e of entries) {
-      const uuid = (e as any)?.meta?.uuid;
+      const uuid = (e as { meta?: { uuid?: string } } | null)?.meta?.uuid;
       if (!uuid) {
         changedEntries.push(e);
         continue;

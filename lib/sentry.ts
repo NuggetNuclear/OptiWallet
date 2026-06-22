@@ -1,3 +1,4 @@
+import type { ErrorEvent } from "@sentry/nextjs";
 
 export const SENTRY_DSN = process.env.NEXT_PUBLIC_SENTRY_DSN;
 
@@ -9,7 +10,7 @@ export const sharedSentryOptions = {
   // Privacidad primero (coherente con la política de la app):
   // sin IP, sin headers identificables, sin cookies.
   sendDefaultPii: false,
-  beforeSend(event: any): any {
+  beforeSend(event: ErrorEvent): ErrorEvent | null {
     if (typeof window !== "undefined") {
       try {
         if (window.location.pathname.startsWith("/admin")) {

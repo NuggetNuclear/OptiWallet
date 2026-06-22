@@ -3,7 +3,6 @@ import { requireAdmin, clientIp } from "@/lib/admin-guard";
 import { logAdminAction } from "@/lib/admin-log";
 import {
   isValidId,
-  isValidCardTypes,
   isValidDaysOfWeek,
   isNonNegativeIntOrNull,
   isValidDateOrNull,
@@ -12,6 +11,38 @@ import {
 import { promoId, slugify } from "@/lib/staging";
 import { suggestCategoriesBatch } from "@/lib/ai/merchant-suggest";
 import { NextRequest } from "next/server";
+
+// Filas tal como vienen de las queries (sin ORM, así que las tipamos a mano).
+interface StagingRow {
+  id: number;
+  merchant_id: string | null;
+  merchant_name: string;
+  discount: number | null;
+  discount_per_unit: number | null;
+  discount_unit: string | null;
+  cap: number | null;
+  min_purchase: number | null;
+  days_of_week: number[];
+  card_types: string[];
+  modality: string | null;
+  start_date: unknown;
+  end_date: unknown;
+  stackable: boolean;
+  code: string | null;
+  conditions: string | null;
+  source: string | null;
+  fingerprint: string;
+}
+interface MerchantRow {
+  id: string;
+  name: string;
+  aliases: string[] | null;
+  category_id: string;
+}
+interface CategoryRow {
+  id: string;
+  label: string;
+}
 
 const SSE_HEADERS = {
   "Content-Type": "text/event-stream",
@@ -61,7 +92,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ ban
         const pendingRows = await sql`
           SELECT * FROM promo_staging
           WHERE bank_id = ${bankId} AND status = 'pending'
-        ` as any[];
+        ` as StagingRow[];
 
         log(`Se encontraron ${pendingRows.length} promociones pendientes.`);
 
@@ -71,8 +102,8 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ ban
           return;
         }
 
-        const dbMerchants = await sql`SELECT id, name, aliases, category_id FROM merchants` as any[];
-        const categories  = await sql`SELECT id, label FROM merchant_categories` as any[];
+        const dbMerchants = await sql`SELECT id, name, aliases, category_id FROM merchants` as MerchantRow[];
+        const categories  = await sql`SELECT id, label FROM merchant_categories` as CategoryRow[];
 
         if (categories.length === 0) {
           log("No existen categorías en la base de datos.", "error");
@@ -81,8 +112,8 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ ban
           return;
         }
 
-        const defaultCat = categories.find((c: any) => normString(c.label).includes("otro"))?.id
-          ?? categories.find((c: any) => normString(c.label).includes("comida"))?.id
+        const defaultCat = categories.find((c) => normString(c.label).includes("otro"))?.id
+          ?? categories.find((c) => normString(c.label).includes("comida"))?.id
           ?? categories[0].id;
 
         const localMerchants  = [...dbMerchants];
@@ -98,7 +129,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ ban
         for (const row of pendingRows) {
           if (!row.merchant_id) {
             const rowNorm = normString(row.merchant_name);
-            const found = localMerchants.find((m: any) => {
+            const found = localMerchants.find((m) => {
               if (normString(m.name) === rowNorm) return true;
               return Array.isArray(m.aliases) && m.aliases.some((a: string) => normString(a) === rowNorm);
             });
@@ -126,7 +157,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ ban
 
             if (newCatSuggestion?.id && newCatSuggestion.label) {
               const catSlug = slugify(newCatSuggestion.id);
-              if (!localCategories.some((c: any) => c.id === catSlug)) {
+              if (!localCategories.some((c) => c.id === catSlug)) {
                 log(`Nueva categoría: "${newCatSuggestion.label}" (${catSlug})`);
                 await sql`
                   INSERT INTO merchant_categories (id, label, emoji)
@@ -141,10 +172,10 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ ban
               catId = catSlug;
             }
 
-            if (!catId || !localCategories.some((c: any) => c.id === catId)) catId = defaultCat;
+            if (!catId || !localCategories.some((c) => c.id === catId)) catId = defaultCat;
 
             const newSlug = slugify(name);
-            if (!localMerchants.some((m: any) => m.id === newSlug)) {
+            if (!localMerchants.some((m) => m.id === newSlug)) {
               log(`Creando comercio: "${name}" → ${newSlug} [${catId}]`);
               await sql`
                 INSERT INTO merchants (id, name, category_id, aliases)
@@ -175,14 +206,14 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ ban
             let merchantId = row.merchant_id;
             if (!merchantId) {
               const rowNorm = normString(row.merchant_name);
-              const found = localMerchants.find((m: any) => {
+              const found = localMerchants.find((m) => {
                 if (normString(m.name) === rowNorm) return true;
                 return Array.isArray(m.aliases) && m.aliases.some((a: string) => normString(a) === rowNorm);
               });
               merchantId = found ? found.id : slugify(row.merchant_name);
             }
 
-            if (!localMerchants.some((m: any) => m.id === merchantId)) {
+            if (!localMerchants.some((m) => m.id === merchantId)) {
               errors.push(`#${row.id} (${row.merchant_name}): comercio '${merchantId}' no existe`);
               continue;
             }
