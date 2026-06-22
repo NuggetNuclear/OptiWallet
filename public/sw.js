@@ -10,9 +10,18 @@
 // que datos sensibles (lista de admins, audit log) nunca se cachean en
 // CacheStorage. El bump de versión purga cualquier respuesta admin que el SW
 // v2 hubiera cacheado ignorando `Cache-Control: no-store`.
-const CACHE_NAME = "optiwallet-v3";
-const STATIC_CACHE_NAME = "optiwallet-static-v3";
-const API_CACHE_NAME = "optiwallet-api-v3";
+// SW_VERSION lo reescribe `scripts/stamp-sw-version.ts` en cada build (corre
+// como `prebuild`): se reemplaza por el commit SHA del deploy. Esto cambia los
+// bytes de /sw.js en CADA deploy, que es lo único que hace que el browser
+// dispare `updatefound` → aparece el banner "nueva versión disponible".
+// En dev queda "dev" (da igual: el SW solo se registra en producción).
+const SW_VERSION = "dev";
+
+// Versionamos los caches con SW_VERSION para que cada deploy purgue los caches
+// viejos (en `activate`) y se reprecachee el shell con el código nuevo.
+const CACHE_NAME = `optiwallet-${SW_VERSION}`;
+const STATIC_CACHE_NAME = `optiwallet-static-${SW_VERSION}`;
+const API_CACHE_NAME = `optiwallet-api-${SW_VERSION}`;
 
 // Assets que cacheamos inmediatamente al instalar
 const PRECACHE_URLS = [

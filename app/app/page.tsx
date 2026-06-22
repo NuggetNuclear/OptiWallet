@@ -17,7 +17,7 @@ import { TodaysFeed } from "@/components/TodaysFeed";
 import { MerchantSearch, type MerchantSearchHandle } from "@/components/MerchantSearch";
 import { WalletSetup } from "@/components/WalletSetup";
 import { PageTransition } from "@/components/PageTransition";
-import { formatDate } from "@/lib/format";
+import { formatDate, formatDayOfWeek } from "@/lib/format";
 import { useToday, effectiveDateFor, parseDiaParam } from "@/lib/hooks/use-today";
 import { events } from "@/lib/analytics";
 
@@ -118,9 +118,12 @@ function HomeContent() {
               : formatDate(effectiveDate)}
           </div>
           <h1 className="mt-2 font-serif text-[26px] font-normal leading-[1.0] tracking-[-0.03em] text-ink sm:text-[40px]">
-            Promociones con<br />
+            ¿Con qué pagas<br />
             <em className="font-light text-lime">
-              tus tarjetas
+              {selectedDay === todayDow
+                ? "hoy"
+                : `el ${formatDayOfWeek(selectedDay).toLowerCase()}`}
+              ?
             </em>
           </h1>
         </section>

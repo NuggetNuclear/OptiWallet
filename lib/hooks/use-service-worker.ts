@@ -55,6 +55,16 @@ export function useServiceWorker(): UseServiceWorkerReturn {
             }
           });
         });
+
+        // En una PWA abierta, la navegación es client-side y el browser no
+        // vuelve a pedir /sw.js solo. Forzamos un chequeo cuando la tab vuelve
+        // a foco para que el banner aparezca sin tener que hacer hard-reload.
+        const checkForUpdate = () => {
+          if (document.visibilityState === "visible") {
+            registration.update().catch(() => {});
+          }
+        };
+        document.addEventListener("visibilitychange", checkForUpdate);
       } catch {
         // El registro del SW es best-effort: si falla, la app sigue funcionando
         // online sin offline-cache. No ruidamos la consola del usuario final.
