@@ -131,14 +131,6 @@ export function TodaysFeed({
 }
 
 function FeedRow({ rec, onClick }: { rec: ApiRecommendation; onClick: () => void }) {
-  const subtitle = [
-    rec.card_name,
-    modalityLabel(rec.modality as "presencial" | "online" | "both"),
-    rec.cap ? `tope ${formatCLP(rec.cap)}` : null,
-  ]
-    .filter(Boolean)
-    .join(" · ");
-
   return (
     <button
       onClick={onClick}
@@ -149,8 +141,19 @@ function FeedRow({ rec, onClick }: { rec: ApiRecommendation; onClick: () => void
       </div>
       <div className="min-w-0 flex-1">
         <div className="truncate font-medium text-ink">{rec.merchant_name}</div>
-        <div className="mt-0.5 truncate font-mono text-[10px] uppercase tracking-widest text-ink-dim">
-          {subtitle}
+        {/* Subtítulo dinámico: el nombre de la tarjeta se trunca con … y los chips
+            (modalidad, tope) que no caben en la línea simplemente se ocultan
+            (flex-wrap manda lo que sobra a una 2ª línea que max-h-4 recorta). */}
+        <div className="mt-0.5 flex max-h-4 flex-wrap items-center gap-x-1.5 overflow-hidden font-mono text-[10px] uppercase leading-4 tracking-widest text-ink-dim">
+          <span className="min-w-0 flex-shrink truncate">{rec.card_name}</span>
+          <span className="flex shrink-0 items-center gap-x-1.5 before:text-ink-dim/50 before:content-['·']">
+            {modalityLabel(rec.modality as "presencial" | "online" | "both")}
+          </span>
+          {rec.cap && (
+            <span className="flex shrink-0 items-center gap-x-1.5 before:text-ink-dim/50 before:content-['·']">
+              tope {formatCLP(rec.cap)}
+            </span>
+          )}
         </div>
       </div>
       <div className="shrink-0 text-right">

@@ -113,7 +113,7 @@ TOTP secrets are stored AES-256-GCM encrypted in the DB (`lib/admin-crypto.ts`).
 
 ### Service worker
 
-`public/sw.js` is plain JavaScript (no build step). Only registers in production (`NODE_ENV === "production"`). Cache name is versioned (`optiwallet-v2`) — bump the version in `sw.js` when changing precache contents. Strategies: network-first for API and HTML, cache-first with background revalidation for static assets. Offline fallback for `/app/*` deep links serves the cached `/app` shell.
+`public/sw.js` is plain JavaScript (no transpile). Only registers in production (`NODE_ENV === "production"`). Cache names derive from `SW_VERSION`, which `scripts/stamp-sw-version.ts` rewrites with the deploy's commit SHA on every build (wired as the `prebuild` npm lifecycle, so it runs before `next build` locally and on Vercel). This is what changes `/sw.js`'s bytes per deploy so the browser fires `updatefound` and the "nueva versión disponible" banner appears on every code change — and it also purges old caches + re-precaches the shell. The committed placeholder is `SW_VERSION = "dev"`; a local prod build stamps it (don't commit that — `git checkout public/sw.js`). Strategies: network-first for API and HTML, cache-first with background revalidation for static assets. Offline fallback for `/app/*` deep links serves the cached `/app` shell.
 
 ### `server-only` boundaries
 
