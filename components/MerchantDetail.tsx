@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { useRecommendations, usePromotions, useMerchantFromApi } from "@/lib/hooks/use-api";
 import { daysOfWeekLabel, formatCLP, modalityLabel, formatDiscount } from "@/lib/format";
-import { AlternativeCard, RecommendationCard } from "./RecommendationCard";
+import { GroupedAlternativeCard, RecommendationCard } from "./RecommendationCard";
 import { TopBar } from "./layout/TopBar";
 import { BackButton } from "./layout/BackButton";
 import type { ApiRecommendation, ApiPromotion } from "@/lib/api-client";
@@ -22,32 +22,35 @@ interface MerchantDetailProps {
 }
 
 /**
- * Adapt an ApiRecommendation into the shape expected by RecommendationCard.
+ * Adapt a group of ApiRecommendations into the shape expected by RecommendationCard.
  */
-function toRecCardShape(rec: ApiRecommendation, bankName: string) {
+function toGroupedRecCardShape(recs: ApiRecommendation[], bankName: string) {
+  if (recs.length === 0) return null;
+  const first = recs[0];
   return {
     promotion: {
-      id: rec.promotion_id,
-      discount: rec.discount,
-      discount_per_unit: rec.discount_per_unit,
-      discount_unit: rec.discount_unit,
-      stackable: rec.stackable,
-      cap: rec.cap,
-      min_purchase: rec.min_purchase,
-      modality: rec.modality,
-      code: rec.code,
-      conditions: rec.conditions,
-      source: rec.source,
+      id: first.promotion_id,
+      discount: first.discount,
+      discount_per_unit: first.discount_per_unit,
+      discount_unit: first.discount_unit,
+      stackable: first.stackable,
+      cap: first.cap,
+      min_purchase: first.min_purchase,
+      modality: first.modality,
+      code: first.code,
+      conditions: first.conditions,
+      source: first.source,
     },
-    card: {
-      name: rec.card_name,
-      type: rec.card_type,
-      bankId: rec.bank_id,
-    },
+    cards: recs.map((r) => ({
+      id: r.card_id,
+      name: r.card_name,
+      type: r.card_type,
+    })),
     merchant: {
-      id: rec.merchant_id,
-      name: rec.merchant_name,
+      id: first.merchant_id,
+      name: first.merchant_name,
     },
+    bankId: first.bank_id,
     bankName,
   };
 }
@@ -104,12 +107,34 @@ export function MerchantDetail({
     return rankRecommendations(applicableRecs, amount, units);
   }, [applicableRecs, amount, units]);
 
-  const winner = rankedRecs[0];
-  const alternatives = winner
-    ? rankedRecs.slice(1).filter(
-        (rec) => rec.promotion_id !== winner.promotion_id || rec.card_id !== winner.card_id
-      )
-    : [];
+  const winnerGroup = useMemo(() => {
+    if (rankedRecs.length === 0) return [];
+    const first = rankedRecs[0];
+    return rankedRecs.filter(
+      (r) => r.promotion_id === first.promotion_id && r.bank_id === first.bank_id
+    );
+  }, [rankedRecs]);
+
+  const winner = winnerGroup[0];
+
+  const remainingRecs = useMemo(() => {
+    if (winnerGroup.length === 0) return [];
+    const first = winnerGroup[0];
+    return rankedRecs.filter(
+      (r) => !(r.promotion_id === first.promotion_id && r.bank_id === first.bank_id)
+    );
+  }, [rankedRecs, winnerGroup]);
+
+  // Group alternatives by (bank_id, promotion_id)
+  const groupedAlternatives = useMemo(() => {
+    const map = new Map<string, ApiRecommendation[]>();
+    for (const rec of remainingRecs) {
+      const key = `${rec.bank_id}:${rec.promotion_id}`;
+      if (!map.has(key)) map.set(key, []);
+      map.get(key)!.push(rec);
+    }
+    return Array.from(map.values());
+  }, [remainingRecs]);
 
   const loading = merchantLoading || promosLoading || recsLoading;
 
@@ -243,29 +268,38 @@ export function MerchantDetail({
         </div>
 
         {/* Ganadora o estado vacío */}
-        {winner ? (
+        {winnerGroup.length > 0 ? (
           <>
             <div className="mt-8">
               <SectionLabel>🏆 Mejor opción ahora</SectionLabel>
               <div className="mt-3">
-                <RecommendationCard
-                  recommendation={toRecCardShape(winner, getBankName(winner.bank_id))}
-                  amount={amount}
-                  units={units}
-                />
+                {(() => {
+                  const shape = toGroupedRecCardShape(winnerGroup, getBankName(winnerGroup[0].bank_id));
+                  return shape ? (
+                    <RecommendationCard
+                      recommendation={shape}
+                      amount={amount}
+                      units={units}
+                    />
+                  ) : null;
+                })()}
               </div>
             </div>
 
-            {alternatives.length > 0 && (
+            {groupedAlternatives.length > 0 && (
               <div className="mt-8">
                 <SectionLabel>Otras opciones aplicables</SectionLabel>
                 <div className="mt-3 space-y-2">
-                  {alternatives.map((rec) => (
-                    <AlternativeCard
-                      key={`${rec.promotion_id}:${rec.card_id}`}
-                      recommendation={toRecCardShape(rec, getBankName(rec.bank_id))}
-                    />
-                  ))}
+                  {groupedAlternatives.map((recs) => {
+                    const first = recs[0];
+                    const shape = toGroupedRecCardShape(recs, getBankName(first.bank_id));
+                    return shape ? (
+                      <GroupedAlternativeCard
+                        key={`${first.promotion_id}:${first.bank_id}`}
+                        recommendation={shape}
+                      />
+                    ) : null;
+                  })}
                 </div>
               </div>
             )}

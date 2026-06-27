@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { formatCLP, formatDiscount, modalityLabel } from "@/lib/format";
 import { calculateSavingsForRec } from "@/lib/recommendations";
 import { BANK_INFO } from "@/lib/constants";
@@ -21,15 +21,16 @@ interface RecommendationCardProps {
       conditions?: string | null;
       source?: string | null;
     };
-    card: {
+    cards: Array<{
+      id: string;
       name: string;
       type: string;
-      bankId: string;
-    };
+    }>;
     merchant: {
       id?: string;
       name: string;
     };
+    bankId: string;
     bankName: string;
   };
   amount?: number;
@@ -52,17 +53,18 @@ function getMinPurchase(promotion: RecommendationCardProps["recommendation"]["pr
 }
 
 export function RecommendationCard({ recommendation, amount, units, compact, onClick }: RecommendationCardProps) {
-  const { promotion, card, merchant, bankName } = recommendation;
+  const { promotion, cards, merchant, bankName, bankId } = recommendation;
   const isPerUnit = promotion.discount_per_unit != null && promotion.discount_unit === "liter";
+  const [feedback, setFeedback] = useState<"up" | "down" | null>(null);
 
   useEffect(() => {
     events.promotionViewed({
       promotionId: promotion.id,
       merchantId: merchant.id || "",
-      bankId: card.bankId,
+      bankId: bankId,
       location: "winner",
     });
-  }, [promotion.id, merchant.id, card.bankId]);
+  }, [promotion.id, merchant.id, bankId]);
 
   const minPurchase = getMinPurchase(promotion);
   const belowMinimum = !isPerUnit && amount !== undefined && minPurchase !== null && amount < minPurchase;
@@ -82,6 +84,15 @@ export function RecommendationCard({ recommendation, amount, units, compact, onC
       )
     : null;
 
+  const cardTypes = Array.from(new Set(cards.map((c) => c.type)));
+  const cardTypesLabel = cardTypes
+    .map((t) => (t === "credit" ? "Crédito" : t === "debit" ? "Débito" : "Prepago"))
+    .join(" / ");
+
+  const cardNamesLabel = cards.length === 1 
+    ? cards[0].name 
+    : `Aplica con: ${cards.map((c) => c.name).join(", ")}`;
+
   const Inner = (
     <>
       {/* Glow decorativo interno */}
@@ -94,13 +105,13 @@ export function RecommendationCard({ recommendation, amount, units, compact, onC
         style={{ background: "radial-gradient(circle, rgba(0,0,0,0.3) 0%, transparent 70%)" }}
       />
 
-      <div className="relative">
+      <div className="relative z-10">
         <div className="flex items-center justify-between">
           <span className="font-mono text-[10px] uppercase tracking-[0.18em] text-white/70">
             {compact ? "Mejor opción" : "Paga con"}
           </span>
           <span className="rounded-full bg-white/10 px-2 py-0.5 font-mono text-[9px] uppercase tracking-widest text-white">
-            {card.type === "credit" ? "Crédito" : card.type === "debit" ? "Débito" : "Prepago"}
+            {cardTypesLabel}
           </span>
         </div>
 
@@ -108,7 +119,7 @@ export function RecommendationCard({ recommendation, amount, units, compact, onC
           {bankName}
         </div>
 
-        <div className="mt-1 break-words text-xs text-white/75">{card.name}</div>
+        <div className="mt-1 break-words text-xs text-white/75">{cardNamesLabel}</div>
 
         <div className="mt-5 flex flex-wrap items-baseline gap-x-2 gap-y-1">
           <span className="font-serif text-[40px] font-bold leading-none tracking-[-0.04em] text-white sm:text-[52px]">
@@ -152,33 +163,87 @@ export function RecommendationCard({ recommendation, amount, units, compact, onC
           </div>
         )}
 
-        {promotion.source && (
-          <a
-            href={promotion.source}
-            target="_blank"
-            rel="noopener noreferrer"
-            onClick={() => {
-              events.promotionClicked({
-                promotionId: promotion.id,
-                merchantId: merchant.id || "",
-                bankId: card.bankId,
-                location: "winner",
-              });
-            }}
-            className="mt-4 inline-flex items-center gap-1.5 rounded-full bg-white/15 px-3.5 py-2 font-mono text-[11px] uppercase tracking-wider text-white backdrop-blur-sm transition-all hover:bg-white/25 hover:scale-[1.02] active:scale-[0.98]"
-          >
-            Ver oferta
-            <svg width="12" height="12" viewBox="0 0 12 12" fill="none" className="opacity-70">
-              <path d="M3.5 1.5H10.5V8.5" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round" strokeLinejoin="round"/>
-              <path d="M10.5 1.5L1.5 10.5" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round" strokeLinejoin="round"/>
-            </svg>
-          </a>
-        )}
+        <div className="mt-4 flex items-center justify-between gap-4 flex-wrap">
+          {promotion.source ? (
+            <a
+              href={promotion.source}
+              target="_blank"
+              rel="noopener noreferrer"
+              onClick={(e) => {
+                e.stopPropagation();
+                events.promotionClicked({
+                  promotionId: promotion.id,
+                  merchantId: merchant.id || "",
+                  bankId: bankId,
+                  location: "winner",
+                });
+              }}
+              className="inline-flex items-center gap-1.5 rounded-full bg-white/15 px-3.5 py-2 font-mono text-[11px] uppercase tracking-wider text-white backdrop-blur-sm transition-all hover:bg-white/25 hover:scale-[1.02] active:scale-[0.98]"
+            >
+              Ver oferta
+              <svg width="12" height="12" viewBox="0 0 12 12" fill="none" className="opacity-70">
+                <path d="M3.5 1.5H10.5V8.5" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round" strokeLinejoin="round"/>
+                <path d="M10.5 1.5L1.5 10.5" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round" strokeLinejoin="round"/>
+              </svg>
+            </a>
+          ) : (
+            <div />
+          )}
+
+          {/* Feedback UI inside the card */}
+          <div className="flex items-center gap-2 bg-black/10 rounded-full px-3 py-1 border border-white/5">
+            <span className="font-mono text-[9px] uppercase tracking-wider text-white/60">
+              {feedback === null ? "¿Te sirvió?" : ""}
+            </span>
+            {feedback === null ? (
+              <div className="flex gap-1.5">
+                <button
+                  type="button"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setFeedback("up");
+                    events.promotionFeedback({
+                      promotionId: promotion.id,
+                      merchantId: merchant.id || "",
+                      bankId: bankId,
+                      feedback: "up",
+                    });
+                  }}
+                  className="hover:scale-110 active:scale-95 p-0.5 transition cursor-pointer"
+                  title="Sí, me sirvió"
+                >
+                  👍
+                </button>
+                <button
+                  type="button"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setFeedback("down");
+                    events.promotionFeedback({
+                      promotionId: promotion.id,
+                      merchantId: merchant.id || "",
+                      bankId: bankId,
+                      feedback: "down",
+                    });
+                  }}
+                  className="hover:scale-110 active:scale-95 p-0.5 transition cursor-pointer"
+                  title="No me sirvió"
+                >
+                  👎
+                </button>
+              </div>
+            ) : (
+              <span className="font-mono text-[10px] text-white/90">
+                {feedback === "up" ? "¡Gracias! 👍" : "Reportado 👎"}
+              </span>
+            )}
+          </div>
+        </div>
       </div>
     </>
   );
 
-  const bankColor = BANK_INFO[card.bankId]?.color ?? "#1a1f1c";
+  const bankColor = BANK_INFO[bankId]?.color ?? "#1a1f1c";
   const className = `relative overflow-hidden rounded-[24px] p-5 text-white transition-transform active:scale-[0.99] sm:rounded-[28px] sm:p-6 ${
     compact ? "sm:p-5" : ""
   }`;
@@ -216,64 +281,178 @@ function Chip({ children, mono }: { children: React.ReactNode; mono?: boolean })
 }
 
 /**
- * Alternativa más pequeña, para listas de opciones secundarias.
+ * Alternativa agrupada y colapsable por banco y promoción.
  */
-export function AlternativeCard({ recommendation }: { recommendation: RecommendationCardProps["recommendation"] }) {
-  const { promotion, merchant, bankName, card } = recommendation;
+export function GroupedAlternativeCard({
+  recommendation,
+}: {
+  recommendation: RecommendationCardProps["recommendation"];
+}) {
+  const { promotion, merchant, bankName, cards, bankId } = recommendation;
+  const [isOpen, setIsOpen] = useState(false);
+  const [feedback, setFeedback] = useState<"up" | "down" | null>(null);
 
   useEffect(() => {
-    events.promotionViewed({
-      promotionId: promotion.id,
-      merchantId: merchant.id || "",
-      bankId: card.bankId,
-      location: "alternative",
+    // Register views for all cards in the group
+    cards.forEach((card) => {
+      events.promotionViewed({
+        promotionId: promotion.id,
+        merchantId: merchant.id || "",
+        bankId: bankId,
+        location: "alternative",
+      });
     });
-  }, [promotion.id, merchant.id, card.bankId]);
+  }, [promotion.id, merchant.id, cards, bankId]);
 
   return (
-    <div className="flex items-center justify-between rounded-2xl border border-line bg-bg-2 p-4 transition-colors hover:border-line-strong">
-      <div className="min-w-0 flex-1">
-        <div className="truncate font-medium text-ink">{bankName}</div>
-        <div className="mt-0.5 flex flex-wrap items-center gap-x-1.5 overflow-hidden max-h-4 text-xs text-ink-dim min-w-0">
-          <span className="truncate min-w-0 flex-shrink">{merchant.name}</span>
-          <span className="flex items-center gap-x-1.5 before:content-['·'] before:text-ink-dim/50 shrink-0">
-            {modalityLabel(promotion.modality as "presencial" | "online" | "both")}
-          </span>
-          {promotion.code && (
-            <span className="flex items-center gap-x-1.5 before:content-['·'] before:text-ink-dim/50 shrink-0 font-mono uppercase">
-              {promotion.code}
+    <div className="rounded-2xl border border-line bg-bg-2 overflow-hidden transition-colors hover:border-line-strong">
+      {/* Header of the Group */}
+      <div 
+        className="flex items-center justify-between p-4 cursor-pointer select-none"
+        onClick={() => setIsOpen(!isOpen)}
+      >
+        <div className="min-w-0 flex-1">
+          <div className="font-medium text-ink flex items-center gap-2">
+            <span>{bankName}</span>
+            {cards.length > 1 && (
+              <span className="rounded-full bg-bg-3 px-2 py-0.5 font-mono text-[9px] uppercase tracking-widest text-ink-dim">
+                {cards.length} tarjetas
+              </span>
+            )}
+          </div>
+          <div className="mt-0.5 flex flex-wrap items-center gap-x-1.5 overflow-hidden max-h-4 text-xs text-ink-dim min-w-0">
+            <span className="truncate min-w-0 flex-shrink">{merchant.name}</span>
+            <span className="flex items-center gap-x-1.5 before:content-['·'] before:text-ink-dim/50 shrink-0">
+              {modalityLabel(promotion.modality as "presencial" | "online" | "both")}
             </span>
-          )}
+          </div>
+        </div>
+        <div className="ml-4 flex items-center gap-3">
+          <div className="flex flex-col items-end gap-0.5">
+            <span className="font-serif text-2xl font-semibold leading-none text-ink">
+              {formatDiscount(promotion.discount, promotion.discount_per_unit ?? null, promotion.discount_unit ?? null)}
+            </span>
+            {promotion.cap && (
+              <span className="font-mono text-[9px] uppercase tracking-wider text-ink-dim">
+                tope {formatCLP(promotion.cap)}
+              </span>
+            )}
+          </div>
+          <span className={`text-ink-dim transition-transform duration-200 ${isOpen ? "rotate-180" : ""}`}>
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+              <polyline points="6 9 12 15 18 9"></polyline>
+            </svg>
+          </span>
         </div>
       </div>
-      <div className="ml-4 flex flex-col items-end gap-1.5">
-        <span className="font-serif text-2xl font-semibold leading-none text-ink">
-          {formatDiscount(promotion.discount, promotion.discount_per_unit ?? null, promotion.discount_unit ?? null)}
-        </span>
-        {promotion.cap && (
-          <span className="font-mono text-[9px] uppercase tracking-wider text-ink-dim">
-            tope {formatCLP(promotion.cap)}
-          </span>
-        )}
-        {promotion.source && (
-          <a
-            href={promotion.source}
-            target="_blank"
-            rel="noopener noreferrer"
-            onClick={() => {
-              events.promotionClicked({
-                promotionId: promotion.id,
-                merchantId: merchant.id || "",
-                bankId: card.bankId,
-                location: "alternative",
-              });
-            }}
-            className="font-mono text-[10px] text-accent hover:underline"
-          >
-            Ver oferta ↗
-          </a>
-        )}
-      </div>
+
+      {/* Expanded list of cards & details */}
+      {isOpen && (
+        <div className="border-t border-line bg-bg-1/40 p-4 space-y-3 text-sm text-ink-dim">
+          <div>
+            <span className="font-mono text-[9px] uppercase tracking-wider block mb-1.5">Tarjetas aplicables:</span>
+            <ul className="space-y-1.5 pl-2 border-l border-line">
+              {cards.map((c) => (
+                <li key={c.id} className="flex items-center justify-between text-ink">
+                  <span className="font-medium">{c.name}</span>
+                  <span className="text-[10px] font-mono uppercase text-ink-dim">
+                    {c.type === "credit" ? "Crédito" : c.type === "debit" ? "Débito" : "Prepago"}
+                  </span>
+                </li>
+              ))}
+            </ul>
+          </div>
+
+          {promotion.conditions && (
+            <div>
+              <span className="font-mono text-[9px] uppercase tracking-wider block">Condiciones:</span>
+              <p className="mt-0.5 text-xs italic">{promotion.conditions}</p>
+            </div>
+          )}
+
+          {promotion.code && (
+            <div className="flex items-center gap-2">
+              <span className="font-mono text-[9px] uppercase tracking-wider">Código:</span>
+              <span className="font-mono text-xs px-1.5 py-0.5 bg-bg-3 text-ink rounded">
+                {promotion.code}
+              </span>
+            </div>
+          )}
+
+          <div className="flex items-center justify-between gap-4 pt-1 flex-wrap">
+            {promotion.source ? (
+              <a
+                href={promotion.source}
+                target="_blank"
+                rel="noopener noreferrer"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  events.promotionClicked({
+                    promotionId: promotion.id,
+                    merchantId: merchant.id || "",
+                    bankId: bankId,
+                    location: "alternative",
+                  });
+                }}
+                className="inline-flex items-center gap-1 font-mono text-[10px] text-accent hover:underline"
+              >
+                Ver oferta ↗
+              </a>
+            ) : (
+              <div />
+            )}
+
+            {/* Feedback UI for GroupedAlternativeCard */}
+            <div className="flex items-center gap-2 bg-bg-3 rounded-full px-2.5 py-0.5 border border-line">
+              <span className="font-mono text-[9px] uppercase tracking-wider text-ink-dim">
+                {feedback === null ? "¿Te sirvió?" : ""}
+              </span>
+              {feedback === null ? (
+                <div className="flex gap-1">
+                  <button
+                    type="button"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setFeedback("up");
+                      events.promotionFeedback({
+                        promotionId: promotion.id,
+                        merchantId: merchant.id || "",
+                        bankId: bankId,
+                        feedback: "up",
+                      });
+                    }}
+                    className="hover:scale-110 active:scale-95 p-0.5 transition cursor-pointer"
+                    title="Sí, me sirvió"
+                  >
+                    👍
+                  </button>
+                  <button
+                    type="button"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setFeedback("down");
+                      events.promotionFeedback({
+                        promotionId: promotion.id,
+                        merchantId: merchant.id || "",
+                        bankId: bankId,
+                        feedback: "down",
+                      });
+                    }}
+                    className="hover:scale-110 active:scale-95 p-0.5 transition cursor-pointer"
+                    title="No me sirvió"
+                  >
+                    👎
+                  </button>
+                </div>
+              ) : (
+                <span className="font-mono text-[9px] text-ink-dim/90">
+                  {feedback === "up" ? "¡Gracias! 👍" : "Reportado 👎"}
+                </span>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

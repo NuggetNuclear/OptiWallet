@@ -63,4 +63,10 @@ export const events = {
     bankId: string;
     location: "winner" | "alternative" | "list";
   }) => trackEvent("Promotion Clicked", props),
+  promotionFeedback: (props: {
+    promotionId: string;
+    merchantId: string;
+    bankId: string;
+    feedback: "up" | "down";
+  }) => trackEvent("Promotion Feedback", props),
 } as const;
