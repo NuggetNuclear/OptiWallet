@@ -1,5 +1,7 @@
 /** @type {import('next').NextConfig} */
 
+import { withSentryConfig } from "@sentry/nextjs";
+
 // ─── Security headers ────────────────────────────────────────────────────────
 // CSP nota: Next App Router hidrata con <script> inline, así que script-src
 // necesita 'unsafe-inline' mientras no usemos nonces (los nonces vía proxy.ts
@@ -57,4 +59,42 @@ const nextConfig = {
   },
 };
 
-export default nextConfig;
+// ─── Sentry sourcemaps ────────────────────────────────────────────────────────
+// withSentryConfig sube los sourcemaps a Sentry en cada build de producción,
+// lo que permite stack traces legibles en el dashboard (nombres reales de
+// funciones y líneas exactas en vez de código minificado).
+//
+// Requisitos para que los mapas se suban:
+//   - SENTRY_AUTH_TOKEN en .env.local o en Vercel env vars (Internal Integration token)
+//   - NEXT_PUBLIC_SENTRY_DSN para que el SDK esté activo
+//   - "Release" creado automáticamente por withSentryConfig desde el git commit hash
+//
+// Sin SENTRY_AUTH_TOKEN la build completa de todas formas — solo omite el upload.
+// tunnelRoute: redirige los eventos de error por nuestro propio dominio para
+// evitar que adblockers bloqueen las llamadas a *.ingest.sentry.io.
+
+export default withSentryConfig(nextConfig, {
+  // Organización y proyecto en sentry.io (para el upload de sourcemaps).
+  // Setear SENTRY_ORG y SENTRY_PROJECT en .env.local o en Vercel env vars.
+  org:     process.env.SENTRY_ORG,
+  project: process.env.SENTRY_PROJECT,
+
+  // Silenciar logs del plugin en builds normales (aparecen en CI)
+  silent: !process.env.CI,
+
+  // Subir sourcemaps a Sentry y borrarlos del bundle de producción
+  // (no exponer el código fuente en el bundle público)
+  widenClientFileUpload: true,
+
+  // Tuneliza los eventos de Sentry por /monitoring para evitar adblockers
+  tunnelRoute: "/monitoring",
+
+  // Ocultar la anotación de sourcemap en el bundle final
+  hideSourceMaps: true,
+
+  // Deshabilitar el logger de Sentry (reducir bundle size ~3.5KB)
+  disableLogger: true,
+
+  // Deshabilitar el automatic instrumentation de Vercel Cron Jobs (no lo usamos)
+  automaticVercelMonitors: false,
+});

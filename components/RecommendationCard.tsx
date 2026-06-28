@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { formatCLP, formatDiscount, modalityLabel } from "@/lib/format";
 import { calculateSavingsForRec } from "@/lib/recommendations";
 import { BANK_INFO } from "@/lib/constants";
@@ -56,14 +56,18 @@ export function RecommendationCard({ recommendation, amount, units, compact, onC
   const { promotion, cards, merchant, bankName, bankId } = recommendation;
   const isPerUnit = promotion.discount_per_unit != null && promotion.discount_unit === "liter";
   const [feedback, setFeedback] = useState<"up" | "down" | null>(null);
+  const hasFiredRef = useRef(false);
 
   useEffect(() => {
-    events.promotionViewed({
-      promotionId: promotion.id,
-      merchantId: merchant.id || "",
-      bankId: bankId,
-      location: "winner",
-    });
+    if (!hasFiredRef.current) {
+      hasFiredRef.current = true;
+      events.promotionViewed({
+        promotionId: promotion.id,
+        merchantId: merchant.id || "",
+        bankId: bankId,
+        location: "winner",
+      });
+    }
   }, [promotion.id, merchant.id, bankId]);
 
   const minPurchase = getMinPurchase(promotion);
@@ -291,17 +295,21 @@ export function GroupedAlternativeCard({
   const { promotion, merchant, bankName, cards, bankId } = recommendation;
   const [isOpen, setIsOpen] = useState(false);
   const [feedback, setFeedback] = useState<"up" | "down" | null>(null);
+  const hasFiredRef = useRef(false);
 
   useEffect(() => {
-    // Register views for all cards in the group
-    cards.forEach((card) => {
-      events.promotionViewed({
-        promotionId: promotion.id,
-        merchantId: merchant.id || "",
-        bankId: bankId,
-        location: "alternative",
+    if (!hasFiredRef.current) {
+      hasFiredRef.current = true;
+      // Register views for all cards in the group
+      cards.forEach((card) => {
+        events.promotionViewed({
+          promotionId: promotion.id,
+          merchantId: merchant.id || "",
+          bankId: bankId,
+          location: "alternative",
+        });
       });
-    });
+    }
   }, [promotion.id, merchant.id, cards, bankId]);
 
   return (

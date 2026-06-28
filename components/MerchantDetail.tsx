@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useRecommendations, usePromotions, useMerchantFromApi } from "@/lib/hooks/use-api";
 import { daysOfWeekLabel, formatCLP, modalityLabel, formatDiscount } from "@/lib/format";
 import { GroupedAlternativeCard, RecommendationCard } from "./RecommendationCard";
@@ -369,13 +369,17 @@ function PromoRow({
   isWinner: boolean;
   isApplicable: boolean;
 }) {
+  const hasFiredRef = useRef(false);
   useEffect(() => {
-    events.promotionViewed({
-      promotionId: promo.id,
-      merchantId: promo.merchant_id,
-      bankId: promo.bank_id,
-      location: "list",
-    });
+    if (!hasFiredRef.current) {
+      hasFiredRef.current = true;
+      events.promotionViewed({
+        promotionId: promo.id,
+        merchantId: promo.merchant_id,
+        bankId: promo.bank_id,
+        location: "list",
+      });
+    }
   }, [promo.id, promo.merchant_id, promo.bank_id]);
 
   return (

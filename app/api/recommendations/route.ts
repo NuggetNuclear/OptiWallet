@@ -99,7 +99,39 @@ export async function GET(req: NextRequest) {
               NOT EXISTS (SELECT 1 FROM promotion_codes WHERE promotion_id = p.id)
               OR pc.code IS NOT NULL
             )
-      ORDER BY COALESCE(p.discount, 0) DESC, COALESCE(p.discount_per_unit, 0) DESC
+      ORDER BY (
+        -- ── Score compuesto de ranking (ARCHITECTURE.md § Flujo de recomendaciones) ──
+        --
+        -- Cuatro señales ponderadas, cada una normalizada a [0, 1]:
+        --   50%  descuento  — señal principal de calidad de oferta
+        --   20%  popularidad — prior frío desde Google Places (merchants.popularity_prior)
+        --   20%  frescura   — qué tan reciente es la verificación (verified_at)
+        --   10%  urgencia   — promos con vencimiento próximo suben (incentivo al uso)
+        --
+        -- Descuento: usamos el mayor entre discount y discount_per_unit, normalizado
+        -- a 100 como máximo razonable (un 20% sobre base 100 vale 0.20).
+        0.50 * LEAST(COALESCE(p.discount, p.discount_per_unit, 0) / 100.0, 1.0)
+
+        -- Popularidad: cold-start bayesiano — si no hay prior (NULL) usamos 0.5 neutro.
+        + 0.20 * COALESCE(m.popularity_prior, 0.5)
+
+        -- Frescura: exp-decay sobre días desde verified_at (vida media = 90 días).
+        -- Sin verified_at → frescura mínima (0).
+        + 0.20 * CASE
+            WHEN p.verified_at IS NOT NULL
+            THEN EXP(-0.693 * EXTRACT(EPOCH FROM (NOW() - p.verified_at)) / 7776000.0)
+            ELSE 0.0
+          END
+
+        -- Urgencia: promos que vencen en ≤ 7 días suben; sin end_date = sin urgencia.
+        + 0.10 * CASE
+            WHEN p.end_date IS NOT NULL
+              AND p.end_date >= ${dateStr}::date
+              AND p.end_date <= (${dateStr}::date + INTERVAL '7 days')
+            THEN 1.0
+            ELSE 0.0
+          END
+      ) DESC
     `;
 
     return NextResponse.json(rows, {

@@ -204,6 +204,16 @@ describe("rankRecommendations — excluyentes", () => {
     strictEqual(result[2].promotion_id, "c-15-nocap");
   });
 
+  it("sin monto y mismo %: desempata por mayor tope (cap)", () => {
+    const p1 = rec({ promotion_id: "p1", discount: 25, cap: 5000 });
+    const p2 = rec({ promotion_id: "p2", discount: 25, cap: 50000 });
+    const p3 = rec({ promotion_id: "p3", discount: 25, cap: null });
+    const result = rankRecommendations([p1, p2, p3]);
+    strictEqual(result[0].promotion_id, "p3"); // sin tope gana
+    strictEqual(result[1].promotion_id, "p2"); // tope 50k
+    strictEqual(result[2].promotion_id, "p1"); // tope 5k
+  });
+
   it("monto 0: se comporta como sin monto (ordena por %)", () => {
     const result = rankRecommendations([promoC, promoA], 0);
     strictEqual(result[0].promotion_id, "a-30-cap5k");

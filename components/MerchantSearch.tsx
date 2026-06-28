@@ -43,6 +43,11 @@ export const MerchantSearch = forwardRef<MerchantSearchHandle, MerchantSearchPro
       if (sortBy === "popularity") {
         return b.popularity_prior - a.popularity_prior || a.name.localeCompare(b.name);
       }
+      if (sortBy === "discount") {
+        const da = a.max_discount ?? 0;
+        const db = b.max_discount ?? 0;
+        if (db !== da) return db - da;
+      }
       return a.name.localeCompare(b.name);
     });
     return copy;
