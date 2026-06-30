@@ -189,7 +189,7 @@ function HomeContent() {
           <div className="flex items-center gap-2">
             <span className="pulse-dot h-1.5 w-1.5 rounded-full bg-lime" />
             <span className="font-mono text-[10px] uppercase tracking-widest text-ink-dim">
-              OptiWallet v1.0.0-beta.1
+              OptiWallet v1.0.0-beta.2
             </span>
           </div>
           <p className="mt-3 max-w-lg text-xs leading-relaxed text-ink-dim">

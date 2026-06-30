@@ -10,7 +10,7 @@ export const openApiSpec = {
   openapi: "3.1.0",
   info: {
     title: "OptiWallet API",
-    version: "1.0.0-beta.1",
+    version: "1.0.0-beta.2",
     description:
       "API pública de solo lectura de OptiWallet: bancos, tarjetas, comercios, " +
       "promociones y el motor de recomendaciones. Sin autenticación — no maneja " +
@@ -26,6 +26,7 @@ export const openApiSpec = {
     { name: "Promociones", description: "Promos activas por comercio" },
     { name: "Recomendaciones", description: "Motor de recomendación por wallet, fecha y comercio" },
     { name: "Meta", description: "Estadísticas públicas del dataset" },
+    { name: "Analítica", description: "Eventos anónimos de uso (alimentan el ranking de popularidad)" },
   ],
   paths: {
     "/api/banks": {
@@ -183,8 +184,9 @@ export const openApiSpec = {
         description:
           "Cruza las tarjetas de la wallet con las promos vigentes para la fecha " +
           "(día de semana + rango de vigencia), opcionalmente filtrado por comercio. " +
-          "Ordenado por descuento descendente: el primer elemento es la mejor opción. " +
-          "Sin `cardIds` devuelve `[]`.",
+          "Ordenado por un score compuesto (50% descuento + 20% popularidad del comercio " +
+          "+ 20% frescura de verificación + 10% urgencia de vencimiento): el primer " +
+          "elemento es la mejor opción. Sin `cardIds` devuelve `[]`.",
         operationId: "getRecommendations",
         parameters: [
           {
@@ -243,6 +245,29 @@ export const openApiSpec = {
             },
           },
           "500": { $ref: "#/components/responses/InternalError" },
+        },
+      },
+    },
+    "/api/promo-events": {
+      post: {
+        tags: ["Analítica"],
+        summary: "Registrar vista o tap de una promoción",
+        description:
+          "Fire-and-forget: registra una impresión ('view') o un tap ('tap') de una " +
+          "promo, anonimizado (sin datos personales). Alimenta el promedio bayesiano " +
+          "de popularidad del ranking de recomendaciones. Body o IDs inválidos no " +
+          "generan error — la respuesta es siempre 204, incluso si falla la escritura.",
+        operationId: "trackPromoEvent",
+        requestBody: {
+          required: true,
+          content: {
+            "application/json": {
+              schema: { $ref: "#/components/schemas/PromoEvent" },
+            },
+          },
+        },
+        responses: {
+          "204": { description: "Registrado (o ignorado silenciosamente si el input era inválido)" },
         },
       },
     },
@@ -417,6 +442,18 @@ export const openApiSpec = {
           banks: { type: "integer", example: 14 },
         },
         required: ["promotions", "merchants", "banks"],
+      },
+      PromoEvent: {
+        type: "object",
+        properties: {
+          promotionId: { $ref: "#/components/schemas/Id" },
+          merchantId: { $ref: "#/components/schemas/Id" },
+          bankId: { $ref: "#/components/schemas/Id" },
+          eventType: { type: "string", enum: ["view", "tap"] },
+          location: { type: "string", enum: ["feed", "merchant_detail", "search"] },
+          sessionId: { type: "string", maxLength: 128, description: "Hash anónimo opcional (no identifica al usuario)" },
+        },
+        required: ["promotionId", "merchantId", "bankId", "eventType", "location"],
       },
     },
   },

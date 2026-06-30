@@ -1,6 +1,6 @@
 # Seguridad — OptiWallet
 
-> Última actualización: 2026-06-16 · v1.0.0-beta.1
+> Última actualización: 2026-06-30 · v1.0.0-beta.2
 
 Este documento describe la postura de seguridad de OptiWallet, las defensas implementadas, y las recomendaciones operativas pendientes. Para la seguridad específica del panel de administración, ver [`docs/ADMIN.md`](ADMIN.md#seguridad-del-panel).
 

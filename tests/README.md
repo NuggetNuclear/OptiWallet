@@ -45,12 +45,12 @@ node --test tests/validate.test.ts   # un archivo específico
 - **rankRecommendations**: lista vacía, 1 elemento, sin monto (ordena por %), con monto bajo/alto (CLP real), desempate por %, excluida por minPurchase, todas con savings=0, inmutabilidad; contexto por litros y promos mixtas (litros activan el contexto, desempate por valor bruto)
 - **calculateStackedSavings**: amount=0, promos vacías, una promo, cascada correcta, excluida en remanente, tope en cascada, tope=0, todas excluidas, inmutabilidad, ignora no-apilables, promo por-litro no reduce el monto base
 
-### `lib/api-client.ts` — 22 tests
+### `lib/api-client.ts` — 24 tests
 - **URLs**: cada endpoint con sus variantes (sin/con params opcionales, cardIds múltiples/único, merchantId presente/ausente, encoding de caracteres especiales)
 - **Fecha local vs UTC**: `getRecommendationsFromApi` a las 23:30 → debe producir fecha de hoy, no del día siguiente
 - **HTTP errors**: 404 en `getMerchantByIdFromApi` → null; 404/422/500/503 en el resto → `throw Error("API error N")`
 
-### `lib/standalone.ts` — 13 tests
+### `lib/standalone.ts` — 14 tests
 - **isStandalone**: SSR (window undefined), matchMedia, iOS (navigator.standalone), ambos true, ninguno
 - **syncStandaloneCookie**: HTTPS incluye `; secure`, HTTP no; max-age=31536000; path=/; samesite=lax; elimina cookie con max-age=0; no escribe si cookie ya no existe (no-write innecesario); iOS standalone
 

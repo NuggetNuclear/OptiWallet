@@ -488,7 +488,7 @@ export default function LandingPage() {
         </div>
         <div className="footer-bottom">
           <div>© 2026 OptiWallet · Hecho con ☕ en Santiago, Chile</div>
-          <div>v1.0.0-beta.1</div>
+          <div>v1.0.0-beta.2</div>
         </div>
       </footer>
     </div>

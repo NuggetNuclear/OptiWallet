@@ -4,7 +4,7 @@
 
 OptiWallet cruza las promociones de bancos chilenos y recomienda la mejor tarjeta según el día y el comercio. Sin datos bancarios, sin cuentas, sin descargas — funciona como PWA directo desde el navegador, con soporte offline.
 
-> v1.0.0-beta.1 · Solo para Chile 🇨🇱 · **Producción:** [optiwallet.vercel.app](https://optiwallet.vercel.app)
+> v1.0.0-beta.2 · Solo para Chile 🇨🇱 · **Producción:** [optiwallet.vercel.app](https://optiwallet.vercel.app)
 
 ---
 
@@ -14,10 +14,14 @@ OptiWallet cruza las promociones de bancos chilenos y recomienda la mejor tarjet
 |---|---|
 | Este README | Visión general, setup, estructura, convenciones |
 | [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) | Arquitectura en detalle: routing, sistema standalone/PWA, service worker, flujo de datos, lógica de recomendaciones, jerarquía de componentes, design system |
-| [`docs/API.md`](docs/API.md) | Referencia completa de los 8 endpoints: params, validación, respuestas, errores, caching |
+| [`docs/API.md`](docs/API.md) | Referencia completa de los 9 endpoints: params, validación, respuestas, errores, caching |
 | [`/api-docs`](https://optiwallet.vercel.app/api-docs) | **Swagger UI interactivo** (self-hosted) sobre el spec [`/api/openapi.json`](https://optiwallet.vercel.app/api/openapi.json) — fuente: `lib/openapi.ts` |
-| [`TODO.md`](TODO.md) | Inventario de placeholders y pendientes operativos (prensa, sobre-nosotros, cifras de landing, activación Sentry/Plausible) |
+| [`docs/ADMIN.md`](docs/ADMIN.md) | Panel de administración: auth, CRUD, operaciones de scraping, audit log, rotación de claves |
+| [`docs/SCRAPING.md`](docs/SCRAPING.md) | Pipeline de scraping: scrapers → staging → revisión humana → promociones |
 | [`docs/SECURITY.md`](docs/SECURITY.md) | Postura de seguridad: headers, validación, manejo de secrets, recomendaciones operativas |
+| [`tests/README.md`](tests/README.md) | Mapa de cobertura de tests y metodología de aislamiento |
+| [`TODO.md`](TODO.md) | Inventario de placeholders y pendientes operativos (prensa, sobre-nosotros, cifras de landing, activación Sentry/Plausible) |
+| [`docs/DOCUMENTATION_STATUS.md`](docs/DOCUMENTATION_STATUS.md) | Snapshot de la última auditoría de documentación: qué estaba desactualizado, qué se corrigió, qué queda pendiente |
 
 ---
 
@@ -60,10 +64,17 @@ Abre [localhost:3000](http://localhost:3000). La landing está en `/`, la app en
 
 | Variable | Requerida | Uso |
 |---|---|---|
-| `DATABASE_URL` | Sí | Connection string de Neon PostgreSQL. En producción vive en los **secrets de Vercel** — nunca en el repo. Solo la leen `lib/db.ts` (server) y `scripts/apply-schema.ts` (tooling local). |
+| `DATABASE_URL` | Sí | Connection string de Neon PostgreSQL. En producción vive en los **secrets de Vercel** — nunca en el repo. Solo la leen `lib/db.ts` (server) y los scripts en `scripts/`. |
 | `NEXT_PUBLIC_SENTRY_DSN` | No | DSN de Sentry (US-ERR, Sprint 2). **Sin definir, el SDK queda deshabilitado** — cero requests, cero overhead. Config compartida en `lib/sentry.ts`. |
+| `SENTRY_ORG` / `SENTRY_PROJECT` / `SENTRY_AUTH_TOKEN` | No | Solo para subir sourcemaps en build (`withSentryConfig` en `next.config.mjs`) y tener stack traces legibles en el dashboard. Sin `SENTRY_AUTH_TOKEN` la build igual completa, solo omite el upload. |
 | `NEXT_PUBLIC_PLAUSIBLE_SRC` | No | `src` del snippet **v2** de Plausible (Install → Script), ej. `https://plausible.io/js/script.js`. **Sin definir, el script no se inyecta** y `trackEvent` (`lib/analytics.ts`) es no-op. Si el host no es `plausible.io`, agrégalo al CSP en `next.config.mjs`. |
 | `GOOGLE_PLACES_API_KEY` | No | Solo para el script `npm run popularity:compute` (tooling local, **nunca** en runtime). Habilita "Places API (New)" en GCP. Bootstrappea la popularidad de cada comercio (reseñas, sucursales, rating) para el cold-start del ranking. Sin ella el script aborta; la app corre normal. |
+| `ADMIN_SESSION_SECRET` | Para el panel admin | Clave HMAC-SHA256 que firma las sesiones de `/admin`. Rotarla invalida todas las sesiones activas al instante. Detalle en [`docs/ADMIN.md`](docs/ADMIN.md). |
+| `ADMIN_TOTP_ENC_KEY` | Recomendada | Clave AES-256-GCM dedicada para cifrar los secretos TOTP en reposo. Debe ser idéntica entre la máquina que corre `admin:create` y Vercel. Rotarla huerfaniza los secretos TOTP ya guardados. |
+| `AI_PROVIDER` | No | `gemini` (default) \| `ollama` \| `groq`. Backend de `lib/ai/provider.ts`, usado solo por el resolver de comercios en la revisión de scraping (`/api/admin/ops/suggest-merchant`). Sin backend configurado, cae a matching por tokens. |
+| `GEMINI_API_KEY` / `GEMINI_EMBED_MODEL` / `GEMINI_GEN_MODEL` | No | Key y overrides de modelo para Google AI Studio (provider `gemini`, default). |
+| `OLLAMA_URL` / `OLLAMA_EMBED_MODEL` / `OLLAMA_GEN_MODEL` | No | Config de una instancia local de Ollama (provider `ollama`). |
+| `GROQ_API_KEY` / `GROQ_GEN_MODEL` | No | Key del provider `groq` (free tier). Sin modelos de embeddings — solo alimenta `suggestCategory`, no el ranking de comercios. |
 
 Notas:
 
@@ -82,10 +93,15 @@ Notas:
 | `npm run lint` | ESLint (flat config, ver `eslint.config.mjs`) |
 | `npm test` | Tests unitarios con `node:test` (nativo, cero dependencias) |
 | `npm run test:watch` | Tests en modo watch |
+| `npm run test:coverage` | Tests + reporte de cobertura nativo (`--experimental-test-coverage`) |
 | `npm run db:schema` | Aplica `scripts/schema.sql` a la DB de tu `.env.local` |
 | `npm run db:seed` | **Destructivo.** DROP + recrea las tablas desde `schema.sql` y carga datos mock. Único modo de propagar cambios de schema (ver abajo). |
+| `npm run db:gen-seed` | Regenera las secciones de bancos/tarjetas de `scripts/seed.ts` desde el contenido actual de la DB |
 | `npm run popularity:compute` | Consulta Google Places y rellena la popularidad de los comercios (`popularity_prior`, `merchant_tier`). Acepta `-- --dry-run` para ver la tabla sin escribir. Requiere `GOOGLE_PLACES_API_KEY`. |
+| `npm run promotions:refresh` | Rota los códigos activos de `promotion_codes` hacia `promotions.code`/`active` para el día de hoy (job tipo cron) |
 | `npm run swagger:update` | Descarga la última versión de `swagger-ui-dist` y actualiza `public/swagger/` |
+| `npm run admin:create` | CLI: crea el primer admin (único modo de bootstrap; los siguientes se crean desde `/admin/users/new`) |
+| `npm run admin:encrypt-totp` | Migra secretos TOTP en texto plano a cifrado AES-256-GCM (idempotente) |
 
 ### Gestión de la base de datos
 
@@ -126,7 +142,7 @@ OptiWallet/
 │   ├── app/wallet/page.tsx       # /app/wallet — gestión de tarjetas (ruta real, US-DL)
 │   ├── app/comercio/[merchantId]/page.tsx  # /app/comercio/:id — detalle (ruta real, US-DL)
 │   ├── api-docs/page.tsx         # Swagger UI self-hosted (US-003)
-│   ├── api/                      # 8 Route Handlers (serverless Node.js) → docs/API.md
+│   ├── api/                      # 9 Route Handlers (serverless Node.js) → docs/API.md
 │   │   ├── banks/route.ts        #   GET /api/banks — todos los bancos
 │   │   ├── cards/route.ts        #   GET /api/cards — tarjetas (?bankId=)
 │   │   ├── categories/route.ts   #   GET /api/categories — categorías + conteo
@@ -134,6 +150,7 @@ OptiWallet/
 │   │   ├── merchants/[merchantId]/route.ts  # GET — comercio por ID
 │   │   ├── promotions/[merchantId]/route.ts # GET — promos activas de un comercio
 │   │   ├── recommendations/route.ts  # GET ★ Core: join promos × tarjetas × comercios
+│   │   ├── promo-events/route.ts #   POST /api/promo-events — log de vistas/taps (analítica)
 │   │   ├── stats/route.ts        #   GET /api/stats — conteos para la landing
 │   │   └── openapi.json/route.ts #   GET /api/openapi.json — spec OpenAPI 3.1 (US-003)
 │   ├── blog/                     # Páginas internas — usan InnerPageLayout
@@ -185,7 +202,7 @@ OptiWallet/
 │   ├── types.ts                  # Tipos de dominio (Bank, Card, Merchant, Promotion, Recommendation)
 │   ├── db.ts                     # Cliente SQL de Neon (lazy-init, solo server, NeonQueryFunction)
 │   ├── validate.ts               # Validación de IDs para la API (/^[A-Za-z0-9_.-]{1,64}$/)
-│   ├── api-client.ts             # Tipos Api* (snake_case) + fetch wrappers de los 8 endpoints
+│   ├── api-client.ts             # Tipos Api* (snake_case) + fetch wrappers de los 9 endpoints
 │   ├── use-wallet.ts             # Hook localStorage para tarjetas del usuario (hydrated, initiallyEmpty)
 │   ├── standalone.ts             # Detección de PWA instalada + cookie ow_standalone + auto-reparación Android
 │   ├── format.ts                 # Fechas (es-CL), CLP, días de semana, modalidad, toISODateLocal
@@ -206,7 +223,7 @@ OptiWallet/
 │   ├── maintenance.ts            # Modo mantenimiento (cache 30s en memoria, fail-open)
 │   ├── staging.ts                # Normalización scraper → staging, fingerprint, promoId
 │   └── ai/
-│       ├── provider.ts           # Abstracción IA: Gemini / Groq / off (graceful degradation)
+│       ├── provider.ts           # Abstracción IA: Gemini / Ollama / Groq / off (graceful degradation)
 │       └── merchant-suggest.ts   # Ranking + sugerencia de categoría asistidos por IA
 │
 ├── scripts/                      # Tooling de base de datos
@@ -230,7 +247,7 @@ OptiWallet/
 │
 ├── docs/                         # Documentación técnica detallada
 │   ├── ARCHITECTURE.md           # Arquitectura, routing, PWA, SW, data layer, componentes
-│   ├── API.md                    # Referencia de los 8 endpoints
+│   ├── API.md                    # Referencia de los 9 endpoints
 │   ├── ADMIN.md                  # Panel admin: auth, CRUD, operaciones, audit
 │   ├── SCRAPING.md               # Pipeline de scraping: scrapers → staging → review
 │   └── SECURITY.md               # Postura de seguridad + recomendaciones
@@ -295,12 +312,15 @@ Todos los datos viven en **Neon PostgreSQL** — no hay archivos de datos estát
 | `merchant_categories` | Categorías de comercios con emoji |
 | `merchants` | Comercios con aliases para búsqueda fuzzy. Lleva además las señales de popularidad del cold-start del ranking (`places_rating`, `places_ratings_total`, `places_branches`, `popularity_prior` 0–1, `merchant_tier` 1–5, `popularity_updated_at`), pobladas por `npm run popularity:compute`. |
 | `promotions` | Promociones con días, topes, monto mínimo, fechas, modalidad, `card_ids` ("tarjeta única"), `discount_per_unit`/`discount_unit` ($X/L), `stackable`, y trazabilidad (`source`, `verified_at`). Índices en `merchant_id`, `bank_id`, `active`, `days_of_week` (GIN) y `card_ids` (GIN). |
-| `admin_users` | Admins con password_hash, TOTP (AES-GCM at rest), token_version |
+| `promotion_codes` | Códigos rotativos con vigencia (`start_date`/`end_date`) para promos multi-código; `npm run promotions:refresh` copia el código activo del día a `promotions.code` |
+| `promo_events` | Eventos anónimos de vista/tap por promo (`POST /api/promo-events`) — insumo crudo para diluir `popularity_prior` con tráfico real (no consumido todavía, ver `TODO.md`) |
+| `admin_users` | Admins con password_hash, TOTP (AES-GCM at rest), token_version, `is_root` (el admin más antiguo; protegido contra borrado) |
 | `admin_login_attempts` | Rate limiting per-IP para login admin |
 | `admin_audit_log` | Log de acciones admin (acción, entidad, IP, timestamp) |
 | `scraper_runs` | Registro de importaciones del scraper por banco |
 | `promo_staging` | Promos scrapeadas en revisión (pending → approved/rejected) |
-| `app_settings` | Key-value de config global (ej. `maintenance_mode`) |
+| `scraper_raw_cache` | Cache del payload crudo del último fetch por banco, para saltar entradas sin cambios en el próximo scrape |
+| `app_settings` | Key-value de config global (ej. `maintenance_mode`, cookies de scraper guardadas) |
 
 **Convenciones de datos:**
 
@@ -323,8 +343,9 @@ Todos los datos viven en **Neon PostgreSQL** — no hay archivos de datos estát
 | `GET /api/merchants` | `?q=&category=` | Búsqueda fuzzy en nombre y aliases (máx. 50) |
 | `GET /api/merchants/[id]` | — | Un comercio con su categoría |
 | `GET /api/promotions/[merchantId]` | — | Promos activas de un comercio |
-| `GET /api/recommendations` | `cardIds[]=&date=&merchantId=` | **Core:** join promos × tarjetas × comercios, filtra por día y vigencia |
+| `GET /api/recommendations` | `cardIds[]=&date=&merchantId=` | **Core:** join promos × tarjetas × comercios, ranking por score compuesto (descuento/popularidad/frescura/urgencia) |
 | `GET /api/stats` | — | Conteos de promos, comercios y bancos (landing) |
+| `POST /api/promo-events` | body JSON | Fire-and-forget: registra vista/tap de una promo (analítica anónima, alimenta el ranking) |
 
 ---
 
@@ -372,7 +393,7 @@ Tokens definidos en `globals.css` bajo `@theme {}` (Tailwind 4 CSS-first):
 ## PWA
 
 - `manifest.json`: standalone, portrait, tema `#0b0d0c`, lang `es-CL`, `start_url: "/app"`.
-- **Service worker** (`public/sw.js`, **v2** desde Sprint 2): 3 caches (`optiwallet-v2`, `optiwallet-static-v2`, `optiwallet-api-v2`); precache de shell (/, /app, /app/wallet, manifest, íconos); network-first para API y HTML; cache-first con revalidación en background para assets estáticos. Offline, los deep links `/app/*` caen al shell cacheado de `/app` (no a la landing). Solo se registra en producción. Detalle en [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md).
+- **Service worker** (`public/sw.js`): 3 caches versionados por deploy (`optiwallet-${SW_VERSION}`, `optiwallet-static-${SW_VERSION}`, `optiwallet-api-${SW_VERSION}`, donde `SW_VERSION` es el commit SHA, escrito por `scripts/stamp-sw-version.ts` en el `prebuild`); precache de shell (/, /app, /app/wallet, manifest, íconos); network-first para API y HTML; cache-first con revalidación en background para assets estáticos. No intercepta `/admin` ni `/api/admin` — datos sensibles nunca se cachean. Offline, los deep links `/app/*` caen al shell cacheado de `/app` (no a la landing). Solo se registra en producción. Detalle en [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md).
 - **Instalación guiada**: `InstallModal` en la landing — popup in-page con tabs Android/iOS, autodetección de plataforma y soporte de `beforeinstallprompt` (instalación con un toque en Android Chrome).
 - **Redirección standalone**: la PWA instalada abre directo en `/app` (ver Arquitectura).
 - Root layout: `appleWebApp: { capable: true, statusBarStyle: "black-translucent" }`.
@@ -393,4 +414,4 @@ Tokens definidos en `globals.css` bajo `@theme {}` (Tailwind 4 CSS-first):
 
 ---
 
-v1.0.0-beta.1 · Hecho en Santiago 🇨🇱
+v1.0.0-beta.2 · Hecho en Santiago 🇨🇱

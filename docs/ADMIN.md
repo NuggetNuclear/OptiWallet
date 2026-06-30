@@ -1,6 +1,6 @@
 # Panel de Administración — OptiWallet
 
-> Última actualización: 2026-06-16 · v1.0.0-beta.1
+> Última actualización: 2026-06-30 · v1.0.0-beta.2
 
 Este documento cubre todo lo necesario para operar, desplegar y extender el panel de administración de OptiWallet: arquitectura, seguridad, referencia de API, walkthrough de despliegue y guía de uso.
 
@@ -27,8 +27,11 @@ El panel admin es un subsite protegido en `/admin` que permite a administradores
 
 - **CRUD completo** sobre las 5 tablas de la base de datos: `banks`, `cards`, `merchant_categories`, `merchants`, `promotions`. (Las columnas de popularidad de `merchants` —`popularity_prior`, `merchant_tier`, `places_*`— no se editan a mano: las puebla el script `npm run popularity:compute`.)
 - **Resolución de dependencias** antes de operaciones destructivas (ver qué registros dependen de lo que vas a borrar).
-- **Gestión de admins**: crear, listar, cambiar contraseña, resetear TOTP, eliminar.
+- **Gestión de admins**: crear, listar, cambiar contraseña, resetear TOTP, eliminar. El primer admin (`is_root = true`) está protegido contra eliminación.
 - **Autenticación robusta**: contraseña + TOTP (Google Authenticator), sesión HMAC-firmada, rate limiting por IP.
+- **Central de operaciones**: scraping de promociones por banco → cola de revisión (`promo_staging`) → aprobación (individual o masiva, con consola de progreso en vivo) → `promotions`. Ver [`docs/SCRAPING.md`](./SCRAPING.md).
+- **Modo mantenimiento**: toggle protegido por TOTP que redirige a todos los usuarios públicos a `/mantencion` (el panel admin sigue accesible).
+- **Registro de actividad**: bitácora de auditoría de las últimas 500 acciones / 30 días, con filtros y auto-refresh.
 
 ---
 
@@ -39,9 +42,11 @@ app/admin/                    ← UI del panel (Next.js App Router, server + cli
 ├── layout.tsx                ← Shell del admin (metadata noindex, import de admin.css)
 ├── admin.css                 ← Estilos scoped al panel
 ├── components/
-│   ├── AdminNav.tsx          ← Sidebar de navegación
+│   ├── AdminNav.tsx          ← Sidebar de navegación (Operaciones / Base de datos / Sistema)
 │   ├── AdminShell.tsx        ← Wrapper que verifica sesión (llama a /api/admin/auth/me)
-│   └── DeleteModal.tsx       ← Modal de confirmación con lista de dependencias
+│   ├── ConfirmModal.tsx      ← Modal de confirmación genérico (acciones sin dependencias)
+│   ├── DeleteModal.tsx       ← Modal de confirmación con lista de dependencias
+│   └── TerminalConsole.tsx   ← Consola estilo terminal: streaming SSE en vivo (aprobación masiva)
 ├── login/page.tsx            ← Formulario dos fases: contraseña → código TOTP
 ├── totp-setup/page.tsx       ← Enrolamiento TOTP (primer login)
 ├── page.tsx                  ← Dashboard: estadísticas + navegación
@@ -49,12 +54,17 @@ app/admin/                    ← UI del panel (Next.js App Router, server + cli
 │   ├── page.tsx
 │   ├── new/page.tsx
 │   └── [id]/page.tsx
+├── audit/page.tsx            ← Registro de actividad (lee /api/admin/audit, filtros + auto-refresh)
+├── ops/                      ← Central de operaciones: scraping → staging → revisión
+│   ├── page.tsx              ← Overview por banco + panel de modo mantenimiento + botón Fetch
+│   ├── [bankId]/page.tsx     ← Cola de revisión de staging de un banco (aprobar/rechazar/autofill)
+│   └── import/page.tsx       ← Importar JSON de scraper subido manualmente
 └── data/                     ← CRUD de datos
     ├── banks/page.tsx
     ├── cards/page.tsx
     ├── categories/page.tsx
     ├── merchants/page.tsx
-    └── promotions/page.tsx
+    └── promotions/page.tsx   ← incluye selección múltiple + borrado masivo (TOTP)
 
 app/api/admin/                ← API Routes del panel (todas protegidas con sesión)
 ├── auth/
@@ -63,28 +73,54 @@ app/api/admin/                ← API Routes del panel (todas protegidas con ses
 │   ├── logout/route.ts       ← POST: cierre de sesión
 │   └── me/route.ts           ← GET: perfil de la sesión activa
 ├── users/
-│   ├── route.ts              ← GET (lista), POST (crear admin)
+│   ├── route.ts              ← GET (lista, incluye is_root), POST (crear admin)
 │   └── [id]/
-│       ├── route.ts          ← GET, PATCH (contraseña/TOTP), DELETE
+│       ├── route.ts          ← GET, PATCH (contraseña/TOTP), DELETE (bloquea is_root)
 │       └── totp-setup/route.ts ← GET (QR), POST (activar TOTP)
+├── audit/route.ts            ← GET: últimas 500 entradas / 30 días de admin_audit_log
+├── maintenance/route.ts      ← GET (estado), POST (toggle, exige TOTP) del modo mantenimiento
+├── ops/                      ← Central de operaciones (scraping → staging → promotions)
+│   ├── overview/route.ts             ← GET: resumen por banco (pendientes, activas, último fetch)
+│   ├── fetch/route.ts                ← POST: corre el scraper server-side y auto-importa a staging
+│   ├── import/route.ts               ← POST: sube JSON de scraper (ejecutado localmente) a staging
+│   ├── suggest-merchant/route.ts     ← POST: sugerencias de comercio/categoría (IA o matching)
+│   ├── [bankId]/
+│   │   ├── staging/route.ts          ← GET: cola de staging de un banco por status
+│   │   ├── approve-all/route.ts      ← POST: aprobación masiva (respuesta única al final)
+│   │   ├── approve-all/stream/route.ts ← POST: misma aprobación masiva, progreso vía SSE
+│   │   └── reject-all/route.ts       ← POST: rechazo masivo de todo lo pendiente del banco
+│   └── staging/[id]/
+│       ├── approve/route.ts          ← POST: aprueba una fila (resuelve/crea comercio + overrides)
+│       ├── reject/route.ts           ← POST: rechaza una fila
+│       └── autofill/route.ts         ← POST: IA sugiere todos los campos desde el texto de condiciones
 └── data/
     ├── banks/route.ts + [id]/route.ts + [id]/deps/route.ts
     ├── cards/route.ts + [id]/route.ts
     ├── categories/route.ts + [id]/route.ts + [id]/deps/route.ts
     ├── merchants/route.ts + [id]/route.ts + [id]/deps/route.ts
-    └── promotions/route.ts + [id]/route.ts
+    └── promotions/route.ts + [id]/route.ts + bulk-delete/route.ts
 
 lib/
 ├── admin-types.ts            ← Interfaces: AdminUser, AdminSessionPayload
 ├── admin-auth.ts             ← bcryptjs + otpauth (Node.js only, server-only)
 ├── admin-crypto.ts           ← Cifrado AES-256-GCM de secretos TOTP en reposo (Node.js)
 ├── admin-guard.ts            ← requireAdmin() (validación contra DB) + rate limiting compartido
-└── admin-session.ts          ← HMAC-SHA256 + cookie helpers (edge-compatible, server-only)
+├── admin-session.ts          ← HMAC-SHA256 + cookie helpers (edge-compatible, server-only)
+├── admin-log.ts              ← logAdminAction(): inserta en admin_audit_log (best-effort, no bloquea)
+├── maintenance.ts            ← isMaintenanceMode()/setMaintenanceMode() — cache 30s, falla abierto
+└── staging.ts                ← normalizeRow()/promoId()/slugify(): shape común scraper → promo_staging
 
 scripts/
-├── create-admin.ts           ← CLI: crea el primer administrador (bootstrap)
+├── create-admin.ts           ← CLI: crea el primer administrador (bootstrap, marcado is_root=true)
 └── encrypt-totp.ts           ← CLI: migra secretos TOTP en texto plano a cifrado (idempotente)
 ```
+
+> **Central de operaciones (scraping).** El flujo completo scraper → staging →
+> revisión humana → `promotions` está documentado en detalle en
+> [`docs/SCRAPING.md`](./SCRAPING.md). Esta sección solo cubre la superficie
+> del panel admin (rutas y endpoints); para el funcionamiento de cada scraper
+> individual, el formato de `promo_staging` y los "casos borde" (cashback,
+> 2x1, multitramo) ver ese documento.
 
 > **Creación de administradores.** Ya no existe una página web pública de
 > setup. El **primer** admin se crea con el CLI `npm run admin:create` (acceso
@@ -139,8 +175,10 @@ Browser → /api/admin/* → Route Handler (Node.js)
 
 > **Rate limiting unificado.** Todos los endpoints que verifican una credencial
 > o un código comparten el mismo presupuesto por IP (`lib/admin-guard.ts`):
-> `login`, `verify-totp`, el enrolamiento `users/[id]/totp-setup` y el `setup`
-> inicial. Ningún paso queda como superficie de fuerza bruta sin throttle.
+> `login`, `verify-totp`, el enrolamiento `users/[id]/totp-setup`, el step-up
+> re-auth de `PATCH users/[id]`, y los dos endpoints que exigen TOTP en cada
+> llamada (`maintenance` y `promotions/bulk-delete`). Ningún paso queda como
+> superficie de fuerza bruta sin throttle.
 
 ### Token de sesión
 
@@ -197,6 +235,8 @@ Los módulos que contienen lógica sensible de servidor están marcados con `imp
 | `lib/admin-auth.ts` | Usa `bcryptjs` y `otpauth` — no son seguros ni funcionales en el browser |
 | `lib/admin-session.ts` | Maneja cookies y tokens HMAC — nunca debe estar en el bundle del cliente |
 | `lib/admin-guard.ts` | `requireAdmin()` + rate limiting tocan la DB — solo servidor |
+| `lib/admin-log.ts` | Escribe en `admin_audit_log` vía `sql` — solo servidor |
+| `lib/maintenance.ts` | Lee/escribe el flag de mantenimiento en `app_settings` vía `sql` — solo servidor |
 | `lib/db.ts` | Cliente de base de datos — exponer la conexión en el cliente sería un desastre |
 
 `lib/admin-crypto.ts` no usa `import "server-only"` pero queda igualmente
@@ -360,6 +400,33 @@ Vercel ejecuta `npm run build` automáticamente. Cuando el build termine:
 
 > Si el código expira mientras lo tipeas (cada 30s), el siguiente código también funciona (ventana de ±1 paso).
 
+### Central de operaciones (scraping)
+
+`Panel → Operaciones → Central` (`/admin/ops`) es la vista de control del pipeline **scraper → staging → revisión → `promotions`**. Documentación completa del pipeline en [`docs/SCRAPING.md`](./SCRAPING.md); aquí solo el flujo dentro del panel.
+
+**Resumen por banco:** la tabla muestra, por cada banco, cuántas promos están pendientes de revisión, cuántas activas en producción, la fecha del último fetch/import y los "casos borde" detectados (no entran a staging — quedan en `scripts/scrapers/out/`).
+
+**Traer datos nuevos (Fetch):**
+- Bancos con scraper server-side configurado (hoy: `banco-chile`) muestran un botón **Fetch** que corre el scraper directamente desde Vercel y auto-importa el resultado a staging.
+- Si el sitio del banco bloquea la conexión (anti-bot Imperva), el panel pide pegar la cookie del navegador (`DevTools → Network → header Cookie`) y reintenta — la cookie exitosa se guarda para fetches futuros.
+- Bancos "solo script local" (`bci`, `itau`) no se pueden ejecutar desde Vercel: corre el script localmente (`node scripts/scrapers/<banco>.mjs`) y sube el JSON resultante con **+ Importar datos** (`/admin/ops/import`).
+
+**Revisar la cola de un banco:** `Panel → Operaciones → Central → Revisar →` lleva a `/admin/ops/[bankId]`, la cola de promos en staging (`pending`) de ese banco:
+- **Aprobar individual**: resuelve o crea el comercio, permite corregir cualquier campo antes de insertar en `promotions` (overrides).
+- **Autofill con IA**: sugiere todos los campos editables a partir del texto de condiciones (requiere IA configurada — `lib/ai/provider.ts` — si no, retorna 503).
+- **Rechazar individual**: marca la fila como `rejected`, no entra a producción.
+- **Aprobar todo / Rechazar todo**: operaciones masivas sobre todo el pendiente del banco. "Aprobar todo" abre la **consola de progreso en vivo** (`TerminalConsole`, ventana estilo terminal) que muestra cada paso en tiempo real vía streaming SSE — incluyendo comercios y categorías nuevos creados automáticamente por IA durante la aprobación.
+
+**Duplicados:** cada fila se deduplica contra staging existente del mismo banco por `fingerprint` (hash estable del contenido) — un fetch repetido no genera filas duplicadas.
+
+### Modo mantenimiento
+
+El panel **Modo mantenimiento** vive en la parte superior de `/admin/ops` (Central de operaciones), no en el dashboard. Cuando está activo, todos los visitantes públicos son redirigidos a `/mantencion` (ver `proxy.ts`); el panel admin sigue siendo accesible para poder desactivarlo.
+
+- Requiere el código TOTP del admin en **cada** cambio de estado (activar o desactivar) — no solo en el login — porque el impacto es inmediato y global.
+- Muestra el último cambio (fecha + admin responsable).
+- `GET /api/admin/maintenance` para leer el estado; `POST` con `{ enabled, totp_code }` para cambiarlo.
+
 ### Gestión de datos
 
 Cada entidad tiene su propia página CRUD en el menú lateral:
@@ -388,11 +455,17 @@ Panel → Bancos
 3. Si no tiene dependencias, aparece un diálogo de confirmación simple
 4. Confirma → el registro se elimina
 
+**Eliminación masiva de promociones:** la tabla de Promociones permite seleccionar varias filas y borrarlas en lote desde `POST /api/admin/data/promotions/bulk-delete`. A diferencia del resto del CRUD (que reusa la sesión), este endpoint exige el código TOTP del admin en el momento del borrado — una eliminación masiva es difícil de revertir, así que no basta con la cookie de sesión.
+
+**Renombrar una categoría (cambio de ID):** `PATCH /api/admin/data/categories/[id]` con `new_id` distinto del actual renombra el slug. Por defecto reasigna en cascada (`cascade: true`) todos los comercios de la categoría vieja a la nueva; con `cascade: false` el slug viejo se libera sin reasignar nada.
+
 > **Dependencias (jerarquía):**
 > - Banco → puede tener Tarjetas + Promociones
 > - Categoría → puede tener Comercios
 > - Comercio → puede tener Promociones
 > - Tarjeta / Promoción → no tienen dependencias (nodos hoja)
+>
+> Nota: las tarjetas tienen un tercer `type` además de `credit`/`debit`: **`prepaid`** (tarjetas prepago). Aplica también a `card_types` en promociones.
 
 ### Gestión de administradores
 
@@ -418,6 +491,11 @@ Panel → Bancos
 **Eliminar admin:**
 - No puedes eliminarte a ti mismo
 - No puedes eliminar el último admin (quedarías sin acceso)
+- No puedes eliminar un admin con `is_root = true` — es el admin bootstrapeado por `npm run admin:create` (siempre el de `created_at` más antiguo), marcado como protegido para que el panel nunca quede sin un admin "de origen" recuperable solo por CLI
+
+### Registro de actividad
+
+`Panel → Sistema → Registro de actividad` (`/admin/audit`) muestra la bitácora de auditoría: hasta 500 entradas de los últimos 30 días, más reciente primero. Filtrable por admin, acción, tipo de entidad y texto libre (detalle, IP, ID); soporta auto-refresh configurable (10s a 10min). Cada acción administrativa relevante (login, login fallido, logout, CRUD de datos, cambios de admin, 2FA, import/approve/reject de staging, toggle de mantenimiento) queda registrada vía `logAdminAction()` — best-effort: un fallo al escribir la bitácora nunca bloquea la acción real.
 
 ### Cerrar sesión
 
@@ -496,11 +574,14 @@ Error de credenciales (mismo mensaje para email inválido Y contraseña incorrec
     "id": "admin-abc123",
     "email": "admin@example.com",
     "totp_enabled": true,
+    "is_root": true,
     "created_at": "2026-06-13T00:00:00Z",
     "last_login_at": "2026-06-13T10:00:00Z"
   }
 ]
 // Nunca incluye password_hash ni totp_secret
+// is_root: true solo para el admin bootstrapeado por `npm run admin:create`
+// (el de created_at más antiguo) — está protegido contra DELETE.
 ```
 
 #### `POST /api/admin/users`
@@ -564,10 +645,14 @@ Errores de re-auth:
 Guards:
 - 400 si `id` coincide con la sesión activa (self-delete)
 - 400 si solo queda 1 admin en la tabla (last-admin guard)
+- 400 si el admin objetivo tiene `is_root = true` (no se puede eliminar al admin bootstrapeado por CLI)
 
 ```json
 // Éxito
 { "status": "ok" }
+
+// Error (admin protegido)
+{ "error": "Este administrador está protegido y no puede ser eliminado" }  // 400
 ```
 
 #### `GET /api/admin/users/[id]/totp-setup`
@@ -601,16 +686,20 @@ no se re-expone una vez enrolado (para re-enrolar, un admin debe resetear el TOT
 #### `GET /api/admin/data/banks`
 
 ```json
-[{ "id": "bci", "name": "BCI", "short_name": "BCI", "available": true }]
+[{ "id": "bci", "name": "BCI", "short_name": "BCI", "available": true, "color": "#0033A0" }]
 ```
+
+`color` es opcional (hex de 6 dígitos, ej. `#FF0000`) — color de marca usado por `BANK_INFO`-style UI. Puede ser `null`.
 
 #### `POST /api/admin/data/banks`
 
 ```json
 // Request
-{ "id": "banco-nuevo", "name": "Banco Nuevo", "short_name": "BN", "available": false }
-// Response: 201 + el registro creado
+{ "id": "banco-nuevo", "name": "Banco Nuevo", "short_name": "BN", "available": false, "color": "#112233" }
+// Response: 201 + { "id": "banco-nuevo" }
 ```
+
+`available: true` se rechaza con 400 al crear — un banco nuevo no puede activarse sin tener al menos una tarjeta asociada primero (créalo inactivo, agrega tarjetas, luego actívalo con PATCH).
 
 #### `GET /api/admin/data/banks/[id]`
 
@@ -620,26 +709,26 @@ Retorna un banco por ID.
 
 Actualiza solo los campos enviados:
 ```json
-{ "name": "Nuevo Nombre", "available": true }
+{ "name": "Nuevo Nombre", "available": true, "color": "#112233" }
 ```
+
+Igual que en POST: `available: true` se rechaza con 400 si el banco no tiene ninguna tarjeta asociada.
 
 #### `DELETE /api/admin/data/banks/[id]`
 
 Sin `?confirmed=true`: verifica dependencias primero:
 ```json
-// Si tiene dependencias → 409
+// Si tiene dependencias (o no) → 409, siempre exige confirmed=true explícito
 {
-  "error": "El banco tiene registros dependientes. Usa ?confirmed=true para forzar la eliminación.",
+  "error": "Tiene dependencias",
   "cards": [{ "id": "bci-credit", "name": "BCI Credito" }],
-  "promotions": [{ "id": "bci-jumbo-lunes", "merchant_id": "jumbo" }]
+  "promotions": [{ "id": "bci-jumbo-lunes" }]
 }
-
-// Sin dependencias → 409 con listas vacías (igual necesita ?confirmed=true)
 ```
 
 Con `?confirmed=true`:
 ```json
-{ "ok": true }
+{ "status": "ok" }
 // Elimina el banco (las tarjetas y promociones con FK a este banco también
 // fallarán si no se eliminaron antes — el schema NO tiene ON DELETE CASCADE)
 ```
@@ -655,21 +744,23 @@ Con `?confirmed=true`:
 
 ### Data API — Tarjetas
 
-`GET/POST /api/admin/data/cards` — igual que bancos pero el body incluye `bank_id` y `type` (`"credit"` o `"debit"`).
+`GET/POST /api/admin/data/cards` — igual que bancos pero el body incluye `bank_id` y `type` (`"credit"`, `"debit"` o `"prepaid"`).
 
 `GET/PATCH/DELETE /api/admin/data/cards/[id]` — sin endpoint `/deps` (las tarjetas no tienen dependencias en el schema).
 
 ### Data API — Categorías
 
-`GET/POST /api/admin/data/categories` — campos: `id`, `label`, `emoji`.
+`GET/POST /api/admin/data/categories` — campos: `id`, `label`, `emoji`. `GET` (lista) incluye `merchant_count` por categoría.
 
 `GET/PATCH/DELETE /api/admin/data/categories/[id]` — DELETE con `?confirmed=true` igual que bancos.
+
+`PATCH` también permite **renombrar el ID** (slug) de la categoría: enviando `new_id` distinto del actual, crea la categoría con el nuevo id, reasigna en cascada los comercios (`cascade: true` por defecto, desactivable con `cascade: false`) y elimina el id viejo. Respuesta: `{ "status": "ok", "new_id": "...", "cascade": true, "merchants_updated": 12 }`.
 
 `GET /api/admin/data/categories/[id]/deps` → `{ merchants: [...] }`
 
 ### Data API — Comercios
 
-`GET /api/admin/data/merchants` — acepta query param `?q=texto` para filtrar.
+`GET /api/admin/data/merchants` — acepta query param `?category=slug` para filtrar por categoría.
 
 `POST /api/admin/data/merchants`:
 ```json
@@ -680,6 +771,7 @@ Con `?confirmed=true`:
   "aliases": ["Jumbo S.A.", "Cencosud"]
 }
 ```
+`name` tiene un largo máximo (`MERCHANT_NAME_MAX_LENGTH`, definido en `lib/staging.ts`) — 400 si se excede.
 
 `GET /api/admin/data/merchants/[id]/deps` → `{ promotions: [...] }`
 
@@ -696,8 +788,12 @@ Con `?confirmed=true`:
   "id": "bci-jumbo-lunes",
   "bank_id": "bci",
   "card_types": ["credit"],
+  "card_ids": [],
   "merchant_id": "jumbo",
   "discount": 20,
+  "discount_per_unit": null,
+  "discount_unit": null,
+  "stackable": false,
   "cap": 5000,
   "min_purchase": 10000,
   "days_of_week": [1],
@@ -713,13 +809,99 @@ Con `?confirmed=true`:
 ```
 
 - `days_of_week`: array de enteros 0-6 (0=domingo, 1=lunes, ..., 6=sábado). Array vacío = todos los días.
+- `card_types`: array no vacío de `"credit"` / `"debit"` / `"prepaid"`.
+- `card_ids`: opcional, default `[]`. Si no está vacío, la promo aplica **únicamente** a esas tarjetas exactas ("tarjeta única") y `card_types` se ignora como filtro de matching — ver `promoAppliesToCard` en `lib/recommendations.ts`.
+- **Descuento — exactamente uno de los dos mecanismos** (constraint `promotions_discount_xor` en DB):
+  - `discount`: porcentaje 1-100 (`discount_per_unit`/`discount_unit` deben ser `null`), o
+  - `discount_per_unit` + `discount_unit`: descuento fijo por unidad (hoy solo `discount_unit: "liter"`, ej. $X por litro de bencina) — `discount` debe ser `null`.
+- `stackable`: si la promo puede combinarse (apilarse) con otras simultáneamente — usado por `calculateStackedSavings`.
 - `modality`: `"presencial"` | `"online"` | `"both"`
 - `cap`: tope en pesos chilenos (null = sin tope)
 - `min_purchase`: mínimo de compra en pesos (null = sin mínimo)
 
-`PATCH /api/admin/data/promotions/[id]` — actualiza solo los campos enviados.
+`PATCH /api/admin/data/promotions/[id]` — actualiza solo los campos enviados; valida el constraint XOR de descuento sobre el resultado fusionado (campo enviado + campos existentes).
 
 `DELETE /api/admin/data/promotions/[id]` — las promociones son nodos hoja, no tienen dependencias. Elimina directamente (sin modal).
+
+#### `POST /api/admin/data/promotions/bulk-delete`
+
+Eliminación masiva — usada por la selección múltiple en la tabla de Promociones. A diferencia del resto de los endpoints de datos, **exige el código TOTP del admin actual** en cada llamada (no solo la cookie de sesión), por el alcance potencialmente grande e irreversible de la operación.
+
+```json
+// Request
+{ "ids": ["bci-jumbo-lunes", "bci-jumbo-martes"], "code": "123456" }
+
+// Éxito
+{ "status": "ok" }
+
+// Errores
+{ "error": "IDs de promociones requeridos" }       // 400
+{ "error": "Código TOTP requerido" }                // 400
+{ "error": "Código de verificación inválido" }      // 401
+{ "error": "Demasiados intentos. Espera 15 minutos." } // 429
+```
+
+### Audit / Maintenance / Ops APIs
+
+#### `GET /api/admin/audit`
+
+```json
+[
+  {
+    "id": 4821,
+    "admin_id": "admin-abc123",
+    "admin_email": "admin@example.com",
+    "action": "delete",
+    "entity_type": "promotion",
+    "entity_id": "bci-jumbo-lunes",
+    "detail": "Promoción eliminada",
+    "ip_address": "190.12.34.56",
+    "created_at": "2026-06-29T14:02:11Z"
+  }
+]
+```
+Últimas 500 entradas dentro de los últimos 30 días, más reciente primero. Sin paginación ni filtros server-side — el filtrado (admin, acción, entidad, texto libre) ocurre client-side sobre este array en `/admin/audit`.
+
+#### `GET /api/admin/maintenance`
+
+```json
+{ "enabled": false, "updatedAt": "2026-06-20T10:00:00Z", "updatedBy": "admin@example.com" }
+```
+
+#### `POST /api/admin/maintenance`
+
+```json
+// Request — el código TOTP se exige en cada cambio de estado, no solo en el login
+{ "enabled": true, "totp_code": "123456" }
+
+// Éxito
+{ "ok": true, "enabled": true }
+
+// Errores
+{ "error": "Código TOTP de 6 dígitos requerido" }  // 400
+{ "error": "Código TOTP incorrecto" }              // 401
+{ "error": "Demasiados intentos. Espera 15 minutos." } // 429
+```
+
+#### Ops — Central de operaciones
+
+Todos requieren sesión admin (`requireAdmin`). Resumen funcional (detalle completo en [`docs/SCRAPING.md`](./SCRAPING.md)):
+
+| Endpoint | Método | Propósito |
+|---|---|---|
+| `/api/admin/ops/overview` | GET | Resumen por banco: pendientes, activas, último fetch, casos borde |
+| `/api/admin/ops/fetch` | POST | Corre el scraper de un banco server-side (`{ bank_id, cookie? }`); auto-importa a staging. `428` si el sitio del banco exige cookie (anti-bot Imperva) |
+| `/api/admin/ops/import` | POST | Sube el JSON de un scraper corrido localmente (`{ bank_id, clean[], edge_counts? }`, máx 5000 filas) a staging |
+| `/api/admin/ops/suggest-merchant` | POST | Sugerencias de comercio existente (matching/embeddings) + categoría propuesta (IA) para resolver una fila de staging |
+| `/api/admin/ops/[bankId]/staging` | GET | Lista las filas de staging de un banco (`?status=pending\|approved\|rejected`) |
+| `/api/admin/ops/[bankId]/approve-all` | POST | Aprobación masiva de todo lo pendiente del banco — respuesta única al terminar |
+| `/api/admin/ops/[bankId]/approve-all/stream` | POST | Misma aprobación masiva, pero responde `text/event-stream` (SSE): un evento `{"type":"log",...}` por paso y un evento final `{"type":"done","summary":{...}}` — alimenta la consola `TerminalConsole` en el panel |
+| `/api/admin/ops/[bankId]/reject-all` | POST | Rechaza todo lo pendiente del banco |
+| `/api/admin/ops/staging/[id]/approve` | POST | Aprueba una fila: resuelve o crea el comercio, acepta `overrides` para corregir campos antes de insertar en `promotions` |
+| `/api/admin/ops/staging/[id]/reject` | POST | Rechaza una fila individual |
+| `/api/admin/ops/staging/[id]/autofill` | POST | IA sugiere todos los campos editables a partir del texto de condiciones de la fila. `503` si no hay proveedor de IA configurado (`lib/ai/provider.ts`) |
+
+Tanto `approve-all` como `approve-all/stream` resuelven comercios no mapeados automáticamente: clasifican cada nombre nuevo con IA (`suggestCategoriesBatch`), crean la categoría sugerida si no existe, y crean el comercio — todo queda registrado en la bitácora de auditoría.
 
 ---
 
@@ -767,7 +949,7 @@ cards      ← nodo hoja en el schema (nada tiene FK hacia cards)
 | **Hashing de contraseñas** | bcrypt costo 12 (≈300ms en hardware moderno) |
 | **Cifrado de secretos TOTP en reposo** | AES-256-GCM (`lib/admin-crypto.ts`): el `totp_secret` se guarda cifrado, no en texto plano. Un dump de la DB no basta para falsificar códigos 2FA — también se necesita la clave de la app. Compatible hacia atrás con filas legacy en texto plano (migrar con `npm run admin:encrypt-totp`) |
 | **Anti-enumeración de emails** | Login siempre corre bcrypt, incluso si el email no existe en la DB |
-| **Rate limiting** | 5 intentos fallidos por IP en 15 min en login, verify-totp, totp-setup y setup (tabla `admin_login_attempts`) |
+| **Rate limiting** | 5 intentos fallidos por IP en 15 min en login, verify-totp, totp-setup, step-up re-auth (`PATCH users/[id]`), `maintenance` y `promotions/bulk-delete` (tabla `admin_login_attempts`) |
 | **Validación de sesión contra DB** | `requireAdmin()` re-consulta `admin_users` en cada request del API: un admin eliminado, con TOTP reseteado o cuenta deshabilitada pierde acceso de inmediato, sin esperar a que expire la cookie (8h) |
 | **Política de contraseñas unificada** | Mínimo 12 caracteres en todos los flujos (setup inicial, crear admin, cambiar contraseña) |
 | **TOTP obligatorio** | totp_enabled=false redirige a setup antes de dar acceso |
@@ -786,7 +968,9 @@ cards      ← nodo hoja en el schema (nada tiene FK hacia cards)
 | **Revocación de sesión** | Cada token lleva el `token_version` del admin al firmarse; cambiarlo (cambio de contraseña, logout) invalida todas sus sesiones vigentes de inmediato |
 | **Cache-Control: no-store** | Las respuestas del panel no se cachean en CDN |
 | **Service Worker excluye admin** | El SW no intercepta `/admin` ni `/api/admin`: sus respuestas nunca entran a CacheStorage del browser |
-| **server-only** | `lib/admin-auth.ts`, `lib/admin-session.ts`, `lib/db.ts` no pueden ser importados en Client Components |
+| **server-only** | `lib/admin-auth.ts`, `lib/admin-session.ts`, `lib/admin-guard.ts`, `lib/admin-log.ts`, `lib/maintenance.ts`, `lib/db.ts` no pueden ser importados en Client Components |
+| **TOTP en operaciones de alto impacto** | Activar/desactivar modo mantenimiento y la eliminación masiva de promociones exigen el código TOTP del admin en cada llamada — no solo la cookie de sesión — por su alcance global o irreversible |
+| **Admin protegido (`is_root`)** | El admin bootstrapeado por `npm run admin:create` no puede eliminarse vía API ni panel, evitando quedar sin un admin recuperable solo por CLI |
 
 ### Inventario y rotación de claves
 

@@ -58,7 +58,7 @@ export default function ApiDocsPage() {
           ← OptiWallet
         </Link>
         <span style={{ fontFamily: "monospace", fontSize: 12, opacity: 0.7 }}>
-          API v1.0.0-beta.1 · OpenAPI 3.1 ·{" "}
+          API v1.0.0-beta.2 · OpenAPI 3.1 ·{" "}
           <a href="/api/openapi.json" style={{ color: "#d4ff3a" }}>
             openapi.json
           </a>
