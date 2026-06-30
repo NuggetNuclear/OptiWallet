@@ -1220,6 +1220,98 @@ nav {
     padding: 36px 24px;
   }
 }
+
+/* ============ ROADMAP ============ */
+.roadmap-intro {
+  color: var(--ink-dim);
+  font-size: 16px;
+  line-height: 1.7;
+  max-width: 620px;
+  margin-bottom: 48px;
+}
+.roadmap-groups {
+  display: flex;
+  flex-direction: column;
+  gap: 40px;
+  max-width: 720px;
+}
+.roadmap-group-head {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 20px;
+}
+.roadmap-status {
+  font-family: var(--font-jetbrains), monospace;
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.14em;
+  padding: 5px 12px;
+  border-radius: 999px;
+  border: 1px solid var(--line);
+}
+.roadmap-status[data-state="done"] {
+  color: var(--lime);
+  background: rgba(212, 255, 58, 0.1);
+  border-color: rgba(212, 255, 58, 0.3);
+}
+.roadmap-status[data-state="progress"] {
+  color: var(--copper);
+  background: rgba(214, 120, 70, 0.1);
+  border-color: rgba(214, 120, 70, 0.3);
+}
+.roadmap-status[data-state="next"] {
+  color: var(--ink-dim);
+  background: var(--bg-2);
+}
+.roadmap-group-title {
+  font-family: var(--font-fraunces), serif;
+  font-size: 20px;
+  font-weight: 600;
+  letter-spacing: -0.02em;
+}
+.roadmap-list {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  list-style: none;
+  padding: 0;
+  margin: 0;
+}
+.roadmap-item {
+  background: var(--bg-2);
+  border: 1px solid var(--line);
+  border-radius: 16px;
+  padding: 18px 20px;
+  transition: border-color 0.2s;
+}
+.roadmap-item:hover {
+  border-color: var(--line-strong);
+}
+.roadmap-item-title {
+  font-size: 15px;
+  font-weight: 600;
+  margin-bottom: 4px;
+}
+.roadmap-item-desc {
+  color: var(--ink-dim);
+  font-size: 14px;
+  line-height: 1.6;
+}
+.roadmap-note {
+  margin-top: 48px;
+  max-width: 620px;
+  font-size: 14px;
+  line-height: 1.7;
+  color: var(--ink-dim);
+}
+.roadmap-note a {
+  color: var(--copper);
+  text-decoration: none;
+}
+.roadmap-note a:hover {
+  opacity: 0.7;
+}
 /* ============ INSTALL MODAL (Sprint 2) ============ */
 /* Popup in-page con instrucciones de instalación Android/iOS.
    Componente: components/InstallModal.tsx */

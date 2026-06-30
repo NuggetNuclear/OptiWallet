@@ -17,7 +17,7 @@
 ### Páginas "Coming Soon" (componente `ComingSoon`)
 - [ ] **/sobre-nosotros** — solo un párrafo genérico ("equipo de estudiantes de la UDP"). Escribir la historia real, fotos/nombres del equipo.
 - [ ] **/blog** — sin artículos. Escribir los primeros posts (ideas: guía promos por banco, cómo funciona el motor de recomendaciones).
-- [ ] **/roadmap** — sin contenido. Publicar roadmap real (puede salir del backlog de sprints).
+- [x] **/roadmap** — publicado roadmap real (Lanzado / En progreso / Próximamente) en `app/roadmap/page.tsx`. Mantener sincronizado con este archivo al cerrar items.
 - [ ] **/prensa** — "Kit de prensa en preparación". Crear kit: logos (SVG/PNG), capturas, ficha de datos, boilerplate.
 
 ### Email de contacto
