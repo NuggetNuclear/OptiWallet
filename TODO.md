@@ -11,7 +11,7 @@
 - [ ] **Cifra "$180k de ahorro promedio anual"** — proyección sin metodología real (el footer admite "*Estimaciones con placeholder"). Calcular con datos reales o re-redactar.
 - [ ] **Cifra "+40% de los chilenos tiene más de 2 tarjetas"** — sin fuente citada. Buscar fuente (CMF/SBIF) o eliminar.
 - [ ] **Cifra "14 bancos al lanzamiento"** — hardcodeada; el resto de stats viene de `/api/stats`. Unificar o verificar.
-- [x] **Footer: "v1.0.0-beta.1 · \*Estimaciones con placeholder"** — eliminado el asterisco y texto placeholder. Ahora dice solo "v1.0.0-beta.1".
+- [x] **Footer: "v1.0.0-beta.1 · \*Estimaciones con placeholder"** — eliminado el asterisco y texto placeholder. Ahora dice solo el número de versión vigente (ver `package.json`).
 - [x] **Sección "Instalar" (#instalar)** — instrucciones actualizadas: ahora dice "tu navegador" en vez de "Safari", con aclaración "Safari en iPhone, Chrome en Android".
 
 ### Páginas "Coming Soon" (componente `ComingSoon`)
@@ -37,5 +37,5 @@
 - [x] Banner de "nueva versión disponible" cuando el Service Worker detecta update — pill flotante glassmorphism con botón "Actualizar" y dismiss. Hook `useServiceWorker` ahora expone `updateAvailable`, `applyUpdate()` y `dismiss()`.
 - [x] Swagger UI (`/api-docs`): los assets en `public/swagger/` ahora se actualizan con `npm run swagger:update` (script `scripts/update-swagger-ui.ts`). Versión actual: swagger-ui-dist@5.32.6.
 - [ ] Favoritos + alertas e Historial de ahorro: marcados "Próximamente" en la landing — alinear con el roadmap publicado.
-- [ ] **Ranking de promos por popularidad** — fase 1 hecha (cold-start: `merchants.popularity_prior`/`merchant_tier` poblados por `npm run popularity:compute` desde Google Places). Pendiente: (1) la **query consumidora** que ordena promos usando `popularity_prior` (score compuesto popularidad/calidad/frescura/urgencia, hoy `ORDER BY discount DESC` en `/api/recommendations`); (2) tabla **`promo_events`** para loguear tráfico real (vistas/taps) y diluir el prior con un promedio bayesiano cuando haya usuarios. Diseño en [`docs/ARCHITECTURE.md` → Flujo de recomendaciones](docs/ARCHITECTURE.md).
+- [x] **Ranking de promos por popularidad — fases 1 y 2 hechas.** (1) Cold-start: `merchants.popularity_prior`/`merchant_tier` poblados por `npm run popularity:compute` desde Google Places. (2) Query consumidora: `/api/recommendations` ya ordena por un score compuesto (50% descuento + 20% popularidad + 20% frescura + 10% urgencia) en vez de `ORDER BY discount DESC`. (3) Tabla `promo_events` (vistas/taps) y endpoint `POST /api/promo-events` ya existen y loguean tráfico real. **Pendiente (fase 3):** nada todavía lee `promo_events` — el score sigue usando el `popularity_prior` estático de Google Places sin diluirlo con el promedio bayesiano de tráfico real. Diseño en [`docs/ARCHITECTURE.md` → Flujo de recomendaciones](docs/ARCHITECTURE.md).
 - [x] Página 404 personalizada (`app/not-found.tsx`) — diseño premium con "404" outline, glows decorativos, stagger animations y CTAs branded.

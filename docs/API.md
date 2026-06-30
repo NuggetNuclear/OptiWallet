@@ -1,8 +1,8 @@
 # API Reference — OptiWallet
 
-> Última actualización: 2026-06-16 · v1.0.0-beta.1
+> Última actualización: 2026-06-30 · v1.0.0-beta.2
 
-Referencia completa de los 8 endpoints de la API. Todos son **Route Handlers** (serverless Node.js en Vercel) que consultan **Neon PostgreSQL** directamente.
+Referencia completa de los 9 endpoints de la API. Todos son **Route Handlers** (serverless Node.js en Vercel) que consultan **Neon PostgreSQL** directamente.
 
 > **Sprint 2 (US-003):** la API también está documentada en formato **OpenAPI 3.1**:
 >
@@ -23,6 +23,7 @@ Referencia completa de los 8 endpoints de la API. Todos son **Route Handlers** (
 - [GET /api/merchants/[merchantId]](#get-apimerchantsmerchantid)
 - [GET /api/promotions/[merchantId]](#get-apipromotionsmerchantid)
 - [GET /api/recommendations](#get-apirecommendations)
+- [POST /api/promo-events](#post-apipromo-events)
 - [GET /api/stats](#get-apistats)
 
 ---
@@ -31,7 +32,7 @@ Referencia completa de los 8 endpoints de la API. Todos son **Route Handlers** (
 
 ### Método HTTP
 
-Todos los endpoints son **solo `GET`** — la API es **pública y de solo lectura**. No hay endpoints `POST`, `PUT`, `DELETE` ni `PATCH`.
+La API es **pública y de solo lectura** para todo el catálogo de datos: ocho endpoints son `GET`. La única excepción es `POST /api/promo-events`, que registra analítica de uso (impresiones/taps de promos) y no expone ni modifica datos del catálogo. No hay endpoints `PUT`, `DELETE` ni `PATCH`.
 
 ### Formato de respuesta
 
@@ -62,14 +63,18 @@ Esta validación es **defensa en profundidad**: las queries ya van parametrizada
 
 Los errores 500 **nunca exponen detalles** al cliente — el stack trace va a los logs de Vercel.
 
+**Excepción:** `POST /api/promo-events` no sigue esta tabla — siempre responde `204` sin body, incluso ante input inválido o fallo de base de datos (ver su sección más abajo).
+
 ### Caching
 
-Todos los endpoints responden con `Cache-Control` para el CDN de Vercel:
+Todos los endpoints de **catálogo** (`GET`) responden con `Cache-Control` para el CDN de Vercel:
 
 | Tipo | `s-maxage` | `stale-while-revalidate` |
 |---|---|---|
 | Datos estables (banks, cards, categories) | 60s (1 min) | 120s (2 min) |
 | Datos dinámicos (merchants, promos, recs, stats) | 60s (1 min) | 300s (5 min) |
+
+`POST /api/promo-events` no es cacheable (es una escritura).
 
 ---
 
@@ -252,7 +257,8 @@ Búsqueda fuzzy de comercios por nombre/aliases, con filtro opcional por categor
     "aliases": ["papa jones", "papajohns"],
     "category_label": "Comida Rápida",
     "emoji": "🍔",
-    "popularity_prior": 0.72
+    "popularity_prior": 0.72,
+    "max_discount": 25
   }
 ]
 ```
@@ -266,6 +272,7 @@ Búsqueda fuzzy de comercios por nombre/aliases, con filtro opcional por categor
 | `category_label` | `string` | Nombre de la categoría (JOIN) |
 | `emoji` | `string` | Emoji de la categoría (JOIN) |
 | `popularity_prior` | `number` | Prior de popularidad 0–1 (cold-start del ranking). Default 0.5 si aún no se ha computado. |
+| `max_discount` | `number \| null` | Mayor descuento activo del comercio (`discount` o `discount_per_unit`, lo que esté seteado). `0` si no tiene promos activas. Subconsulta server-side, no requiere JOIN del caller. |
 
 **Límite:** máximo 50 resultados.
 
@@ -350,8 +357,13 @@ Retorna todas las promociones **activas y vigentes** de un comercio, con el nomb
     "id": "bci-papa-johns-martes",
     "bank_id": "bci",
     "card_types": ["credit"],
+    "card_ids": [],
+    "card_names": [],
     "merchant_id": "papa-johns",
     "discount": 25,
+    "discount_per_unit": null,
+    "discount_unit": null,
+    "stackable": false,
     "cap": 5000,
     "min_purchase": 10000,
     "days_of_week": [2],
@@ -428,6 +440,9 @@ Retorna todas las promociones **activas y vigentes** de un comercio, con el nomb
   {
     "promotion_id": "bci-papa-johns-martes",
     "discount": 25,
+    "discount_per_unit": null,
+    "discount_unit": null,
+    "stackable": false,
     "cap": 5000,
     "min_purchase": 10000,
     "days_of_week": [2],
@@ -440,6 +455,7 @@ Retorna todas las promociones **activas y vigentes** de un comercio, con el nomb
     "verified_at": "2026-06-01",
     "merchant_id": "papa-johns",
     "merchant_name": "Papa John's",
+    "popularity_prior": 0.72,
     "category_id": "comida-rapida",
     "category_label": "Comida Rápida",
     "emoji": "🍔",
@@ -479,7 +495,16 @@ Retorna todas las promociones **activas y vigentes** de un comercio, con el nomb
 | `card_type` | `string` | Tipo (`credit` / `debit` / `prepaid`) |
 | `bank_id` | `string` | ID del banco |
 
-**Orden:** mayor descuento primero (`discount DESC`).
+**Orden:** la API ordena server-side por un **score compuesto** (no es simplemente `discount DESC`), pensado para balancear oferta, popularidad, frescura y urgencia. El primer elemento del array es la mejor recomendación. Cuatro señales ponderadas, cada una normalizada a `[0, 1]`:
+
+| Señal | Peso | Cálculo |
+|---|---|---|
+| Descuento | 50% | `MIN(MAX(discount, discount_per_unit, 0) / 100, 1)` — el mayor entre `discount` y `discount_per_unit`, normalizado a base 100 |
+| Popularidad | 20% | `merchants.popularity_prior` (0.5 si es `NULL`, cold-start) |
+| Frescura | 20% | Decaimiento exponencial desde `verified_at` con vida media de 90 días (`0` si no hay `verified_at`) |
+| Urgencia | 10% | `1.0` si `end_date` vence en ≤ 7 días desde `date`, si no `0.0` (sin `end_date` = sin urgencia) |
+
+Nota: el cliente puede re-rankear estos mismos resultados con `rankRecommendations` (`lib/recommendations.ts`) una vez que el usuario ingresa un monto de compra — en ese caso el orden pasa a ser por ahorro real en CLP (`calculateSavingsForRec`) en vez del score de descubrimiento del backend. Ver más abajo.
 
 **Lógica de match:** una promo aparece si:
 1. La tarjeta pertenece al mismo banco que la promo (`c.bank_id = p.bank_id`)
@@ -489,8 +514,20 @@ Retorna todas las promociones **activas y vigentes** de un comercio, con el nomb
 3. La promo está activa (`p.active = true`)
 4. El día de la semana coincide (`dayOfWeek ∈ days_of_week`, o `days_of_week` vacío = todos)
 5. La fecha está dentro del rango de vigencia (si `start_date`/`end_date` existen)
+6. Si la promo tiene códigos con vigencia propia en `promotion_codes`, debe existir uno activo para `date` — en ese caso el campo `code` de la respuesta es el código vigente de esa tabla (`promotion_codes.code`), no el `code` estático de `promotions`. Si la promo no tiene entradas en `promotion_codes`, se usa el `code` de `promotions` tal cual.
 
 **Sin tarjetas:** si `cardIds` está vacío, retorna `[]` inmediatamente sin consultar la base.
+
+### Reranking client-side (`lib/recommendations.ts`)
+
+El backend ordena por el score de descubrimiento de arriba, pero la UI puede reordenar los mismos resultados con funciones puras en `lib/recommendations.ts`:
+
+- **`calculateSavings(amount, discount, cap, minPurchase)`** — ahorro en CLP para promos porcentuales, respetando `cap` y `min_purchase`.
+- **`calculateSavingsPerUnit(units, discountPerUnit, cap)`** — ahorro en CLP para promos por unidad (ej. $/L).
+- **`calculateSavingsForRec(rec, amount?, units?)`** — elige automáticamente entre las dos anteriores según si la recomendación usa `discount` o `discount_per_unit`.
+- **`rankRecommendations(recs, amount?, units?)`** — sin contexto, ordena por el valor bruto del descuento (mezclando % y CLP/L); con `amount`/`units`, recalcula el ahorro real con `calculateSavingsForRec` y reordena por CLP — así una tarjeta con menor % pero mayor `cap` puede ganarle a una con % más alto en compras grandes. Empates se resuelven primero por valor bruto del descuento, luego por mayor `cap` (sin tope gana).
+- **`promoAppliesToCard(promo, card)`** — espejo en TypeScript puro de la condición de `JOIN` del punto 2 de "Lógica de match" arriba; existe para poder testear el matching sin tocar la base.
+- **`calculateStackedSavings(promos, amount, units?)`** — ahorro acumulado al aplicar en cascada solo las promociones con `stackable: true`, ordenadas de mayor a menor ahorro; cada descuento porcentual sucesivo se aplica sobre el monto restante (los de tipo por-unidad no reducen el monto base, porque no se calculan sobre la compra en CLP).
 
 **Cache:** `s-maxage=60, stale-while-revalidate=300`
 
@@ -504,6 +541,37 @@ Retorna todas las promociones **activas y vigentes** de un comercio, con el nomb
 | `merchantId` inválido | 400 | `{"error":"merchantId inválido"}` |
 | `date` formato inválido | 400 | `{"error":"Fecha inválida (YYYY-MM-DD)"}` |
 | `date` lógicamente inválida | 400 | `{"error":"Fecha inválida"}` |
+
+---
+
+## POST /api/promo-events
+
+Registra una impresión (`view`) o un tap (`tap`) de una promoción, para analítica de uso interna. Es la única ruta pública que no es `GET` y la única que escribe en la base de datos.
+
+**Archivo:** `app/api/promo-events/route.ts`
+
+### Body (JSON)
+
+| Campo | Tipo | Requerido | Descripción |
+|---|---|---|---|
+| `promotionId` | `string` | Sí | ID de la promo. Se valida con `isValidId`. |
+| `merchantId` | `string` | Sí | ID del comercio (denormalizado). Se valida con `isValidId`. |
+| `bankId` | `string` | Sí | ID del banco (denormalizado). Se valida con `isValidId`. |
+| `eventType` | `"view" \| "tap"` | Sí | Tipo de evento. |
+| `location` | `"feed" \| "merchant_detail" \| "search"` | Sí | Dónde ocurrió el evento. |
+| `sessionId` | `string` | No | Hash anónimo de sesión, máximo 128 caracteres. Si no cumple, se ignora (se guarda `null`). |
+
+### Respuesta
+
+Siempre `204 No Content`, sin body — incluyendo cuando el input es inválido o falla la escritura a la base.
+
+**Diseño fire-and-forget:** este endpoint nunca devuelve un error al cliente. Body malformado, JSON inválido, campos faltantes/inválidos, o un fallo de base de datos resultan todos en `204` silencioso (el error de DB sí se loguea server-side con `console.error`). Esto es intencional: la analítica de uso **nunca** debe interrumpir o reintentar en el flujo del usuario. El cliente la invoca desde `logPromoEvent()` (`lib/api-client.ts`) con `fetch(..., { keepalive: true })` para que el request sobreviva si la página se cierra.
+
+**Cache:** no aplica (no es cacheable, es una escritura).
+
+### Errores
+
+No expone códigos de error — ver "Respuesta" arriba.
 
 ---
 

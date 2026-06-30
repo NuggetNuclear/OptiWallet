@@ -1,6 +1,6 @@
 # Arquitectura de OptiWallet
 
-> Última actualización: 2026-06-16 · v1.0.0-beta.1
+> Última actualización: 2026-06-30 · v1.0.0-beta.2
 
 Este documento describe la arquitectura técnica completa de OptiWallet. Para la visión general y el setup local, ver [`README.md`](../README.md).
 
@@ -38,7 +38,7 @@ OptiWallet es una **PWA** construida con **Next.js 16 App Router**. El frontend 
 │    ├─ page.tsx         → Landing (client)            │
 │    ├─ app/page.tsx     → Web app (client)            │
 │    ├─ admin/*          → Panel admin (server+client) │
-│    ├─ api/*            → 8 Route Handlers públicos   │
+│    ├─ api/*            → 9 Route Handlers públicos   │
 │    ├─ api/admin/*      → API admin (auth requerida)  │
 │    └─ blog/, contacto/ → Páginas internas (server)   │
 │                                                     │
@@ -76,6 +76,7 @@ OptiWallet es una **PWA** construida con **Next.js 16 App Router**. El frontend 
 | `/api/merchants/[merchantId]` | Route Handler | `app/api/merchants/[merchantId]/route.ts` | Comercio por ID exacto. |
 | `/api/promotions/[merchantId]` | Route Handler | `app/api/promotions/[merchantId]/route.ts` | Promos activas de un comercio. |
 | `/api/recommendations` | Route Handler | `app/api/recommendations/route.ts` | **Core:** recomendaciones cruzadas. |
+| `/api/promo-events` | Route Handler | `app/api/promo-events/route.ts` | `POST` fire-and-forget: registra impresión (`view`) o tap (`tap`) de una promo. Siempre responde `204`, incluso con body inválido o error de DB. |
 | `/api/stats` | Route Handler | `app/api/stats/route.ts` | Conteos para la landing. |
 | `/api/openapi.json` | Route Handler (estático) | `app/api/openapi.json/route.ts` | Spec OpenAPI 3.1 (fuente: `lib/openapi.ts`). |
 | `/admin` | Server + client components | `app/admin/` | Dashboard del panel de administración (requiere sesión). |
@@ -204,11 +205,17 @@ export const viewport: Viewport = {
 
 | Cache | Nombre | Contenido |
 |---|---|---|
-| General | `optiwallet-v2` | Reservado (fallback) |
-| Estático | `optiwallet-static-v2` | Shell precacheado + assets estáticos |
-| API | `optiwallet-api-v2` | Respuestas de API cacheadas |
+| General | `optiwallet-${SW_VERSION}` | Reservado (fallback) |
+| Estático | `optiwallet-static-${SW_VERSION}` | Shell precacheado + assets estáticos |
+| API | `optiwallet-api-${SW_VERSION}` | Respuestas de API cacheadas |
 
-> **v2 (Sprint 2):** bump por el deep-linking — se precachea también `/app/wallet` y el fallback offline de rutas `/app/*` pasó a ser el shell de `/app`. El `activate` limpia los caches v1 automáticamente.
+`SW_VERSION` la reescribe `scripts/stamp-sw-version.ts` con el commit SHA del deploy (ver *Registro*) — los nombres reales de cache en producción son del tipo `optiwallet-static-<sha>`, no literalmente `v2`. El placeholder committeado es `"dev"`.
+
+> **Historial de versiones (comentarios en el código fuente):**
+> - **v2 (Sprint 2):** bump por el deep-linking — se precachea también `/app/wallet` y el fallback offline de rutas `/app/*` pasó a ser el shell de `/app`.
+> - **v3 (2026-06-15):** el SW ya **no intercepta `/admin` ni `/api/admin`** — esas respuestas viajan con `Cache-Control: no-store` y nunca deben llegar a CacheStorage (datos sensibles: lista de admins, audit log). El `fetch` handler retorna temprano (sin `respondWith`) para esas rutas, dejándolas pasar directo a la red.
+>
+> El `activate` limpia automáticamente cualquier cache que no coincida con el `SW_VERSION` vigente, en cada deploy.
 
 ### Precache (install)
 
@@ -222,6 +229,8 @@ Se cachean al instalar el SW:
 ┌──────────────────────┬────────────────────────────────────────────┐
 │ Tipo de recurso      │ Estrategia                                 │
 ├──────────────────────┼────────────────────────────────────────────┤
+│ /admin, /api/admin    │ Sin SW — pasa directo a la red, nunca se   │
+│                       │ cachea (datos sensibles, v3)               │
 │ API (/api/*)         │ Network-first → fallback a cache           │
 │ Assets estáticos     │ Cache-first → actualiza en background      │
 │ (_next/static, .png, │ (stale-while-revalidate)                   │
@@ -322,8 +331,20 @@ Fuente de verdad: `scripts/schema.sql`.
                │ source, verified_at            │
                │ active (BOOLEAN)               │
                │ created_at, updated_at         │
-               └────────────────────────────────┘
+               └───────┬────────────────────────┘
+                       │ 1:N (códigos rotativos)
+                       ▼
+            ┌──────────────────────────────┐
+            │       promotion_codes        │
+            │───────────────────────────────│
+            │ id (PK, BIGSERIAL)            │
+            │ promotion_id (FK)             │
+            │ code                          │
+            │ start_date, end_date          │
+            └──────────────────────────────┘
 ```
+
+`promotion_codes` cubre promos con **código rotativo** (ej. un cupón distinto cada semana): si una promo tiene filas en `promotion_codes`, el código efectivo para una fecha dada se resuelve con un `LEFT JOIN` filtrado por rango de fechas en `/api/recommendations` (`COALESCE(pc.code, p.code)`), y la promo solo aparece si existe un código vigente para esa fecha. Si no tiene filas en `promotion_codes`, se usa el `code` estático de la promo (comportamiento histórico).
 
 **Índices:**
 - `idx_promotions_merchant` — `merchant_id`
@@ -333,6 +354,8 @@ Fuente de verdad: `scripts/schema.sql`.
 - `idx_promotions_card_ids` — `card_ids` (GIN)
 
 **Columnas de popularidad de `merchants`:** pobladas por `scripts/compute-merchant-popularity.ts` (`npm run popularity:compute`) desde Google Places API (New). `popularity_prior` (0–1) y `merchant_tier` (1–5) alimentan el cold-start del ranking de promos cuando aún no hay tráfico propio; las columnas `places_*` guardan las señales crudas para re-tunear pesos sin re-consultar la API. Ver el flujo de recomendaciones más abajo. Todas se agregan vía `ALTER TABLE ... ADD COLUMN IF NOT EXISTS`, así que `npm run db:schema` las propaga a una DB existente.
+
+**`promo_events`:** registra impresiones (`view`) y taps (`tap`) de promos — tráfico real para diluir gradualmente el cold-start de `popularity_prior` con señal propia (ver `POST /api/promo-events` en la tabla de routing). Columnas: `promotion_id` (FK), `merchant_id`/`bank_id` (denormalizados para queries analíticas), `event_type`, `location` (`feed`/`merchant_detail`/`search`), `session_id` (hash anónimo opcional, sin datos personales) y `occurred_at`. La fórmula de dilución bayesiana (`pop_efectiva = (N_taps + K·prior)/(N_views + K)`) está documentada como comentario en `schema.sql` pero **el cómputo de `pop_efectiva` a partir de estos eventos aún no está implementado** — hoy el ranking solo consume `popularity_prior` directamente (ver más abajo). Índices: `idx_promo_events_promo`, `idx_promo_events_merchant`, `idx_promo_events_occurred`, `idx_promo_events_type`.
 
 ### Convenciones de IDs
 
@@ -367,7 +390,7 @@ El endpoint `/api/recommendations` es el **core del producto**. Cruza tarjetas d
 │  2. Calcular dayOfWeek de la fecha                        │
 │  3. Query SQL:                                            │
 │     JOIN promotions × merchants × merchant_categories     │
-│          × cards                                          │
+│          × cards, LEFT JOIN promotion_codes                │
 │     WHERE:                                                │
 │       - c.id IN cardIds (las tarjetas del usuario)        │
 │       - c.bank_id = p.bank_id (mismo banco)              │
@@ -378,14 +401,25 @@ El endpoint `/api/recommendations` es el **core del producto**. Cruza tarjetas d
 │       - dayOfWeek ∈ p.days_of_week (o vacío = todos)     │
 │       - start_date <= date <= end_date (si existen)      │
 │       - merchantId filter (si viene)                      │
-│     ORDER BY discount DESC                                │
+│       - si tiene códigos rotativos, debe existir uno      │
+│         vigente para `date` en promotion_codes            │
+│     ORDER BY score compuesto DESC (ver más abajo)         │
 │  4. Retornar array de recomendaciones rankeadas           │
 └───────────────────────────────────────────────────────────┘
 ```
 
 **Matching de tarjeta:** la condición vive en el JOIN del route y está extraída como función pura testeable `promoAppliesToCard` (`lib/recommendations.ts`). Si la promo tiene `card_ids` (≥ 1) aplica **solo** a esas tarjetas exactas (ej. "solo Mastercard Black") y `card_types` se ignora; si `card_ids` está vacío, aplica a cualquier tarjeta del banco cuyo `type` esté en `card_types`.
 
-**Ranking por popularidad (en desarrollo):** hoy el orden final es `discount DESC`. El siguiente paso es ponderar con la popularidad del comercio para que una promo de una marca masiva no quede bajo una de un local sin tráfico. El prior ya está disponible en `merchants.popularity_prior` (bootstrappeado desde Google Places, ver *Capa de datos*); la idea acordada es un score compuesto `popularidad·w1 + calidad_promo·w2 + frescura·w3 + urgencia·w4`, con el prior funcionando como "visitas fantasma" en un promedio bayesiano que se diluye al llegar tráfico real (`pop_efectiva = (visitas + K·prior)/(N + K)`). **Pendientes:** la query consumidora que usa `popularity_prior` y una tabla `promo_events` para loguear el tráfico real.
+**Ranking por popularidad (implementado):** el `ORDER BY` de `/api/recommendations` calcula, en SQL, un score compuesto de 4 señales normalizadas a `[0, 1]` y pondera:
+
+- **50% descuento** — `LEAST(COALESCE(discount, discount_per_unit, 0) / 100.0, 1.0)`.
+- **20% popularidad** — `merchants.popularity_prior` (cold-start desde Google Places; `0.5` neutro si es `NULL`).
+- **20% frescura** — exponential decay sobre `verified_at` con vida media de 90 días (`EXP(-0.693 · días / 90)`); `0` si no hay `verified_at`.
+- **10% urgencia** — `1.0` si `end_date` está dentro de los próximos 7 días, si no `0`.
+
+Este score reemplazó el `ORDER BY discount DESC` original; el cálculo completo vive inline en el `ORDER BY` de `app/api/recommendations/route.ts` (comentado ahí mismo, espejo de esta sección).
+
+**Tráfico real (`promo_events`) — pendiente de consumir:** `POST /api/promo-events` ya registra impresiones (`view`) y taps (`tap`) por promo, comercio y ubicación (ver *Capa de datos*). La tabla existe y se está poblando, pero el score compuesto de arriba **todavía no consume `promo_events`** — sigue usando `popularity_prior` "crudo" tal cual lo dejó el bootstrap de Google Places. **Pendiente:** el cómputo de `pop_efectiva = (N_taps + K·popularity_prior)/(N_views + K)` (promedio bayesiano que diluye el prior frío a medida que se acumula tráfico propio) y su integración como reemplazo del término de popularidad en el `ORDER BY`.
 
 **Fecha por defecto:** si no se envía `date`, se usa la fecha actual en zona `America/Santiago` (no UTC del servidor). Esto evita que desde las ~21:00 en Chile se muestren promos del día siguiente.
 
@@ -395,11 +429,13 @@ El endpoint `/api/recommendations` es el **core del producto**. Cruza tarjetas d
 
 Para evitar duplicación y permitir un testeo robusto, la lógica de negocio del cálculo de descuentos y el ordenamiento dinámico se centraliza en `lib/recommendations.ts`:
 
-1. **`calculateSavings`**: Calcula el ahorro real en pesos chilenos considerando el porcentaje de descuento, el tope máximo (`cap`) y el monto mínimo de compra (`min_purchase`).
-2. **`rankRecommendations` (Excluyentes)**:
-   * Por defecto, ordena por porcentaje de descuento.
-   * Si el usuario ingresa un monto en la vista de detalle del comercio, re-ordena dinámicamente las recomendaciones por **ahorro real en pesos**. Esto resuelve el caso de decisiones **excluyentes**: para montos de compra altos, una tarjeta con menor porcentaje de descuento pero mayor tope puede ser la ganadora frente a otra con más descuento pero menor tope.
-3. **`calculateStackedSavings` (Apilables)**: Calcula el ahorro acumulado al aplicar de forma sucesiva múltiples promociones (ej. un cupón del comercio junto a un beneficio de tarjeta bancaria). El descuento secundario se aplica de manera acumulativa sobre el monto restante después del primer descuento.
+1. **`calculateSavings`**: Calcula el ahorro real en pesos chilenos para promos de **porcentaje**, considerando el descuento, el tope máximo (`cap`) y el monto mínimo de compra (`min_purchase`).
+2. **`calculateSavingsPerUnit`**: Equivalente a `calculateSavings` pero para promos de tipo **fijo por unidad** (ej. $100/L en bencineras) — multiplica `units × discountPerUnit` y aplica el `cap` si existe.
+3. **`calculateSavingsForRec`**: Dispatcher que recibe una recomendación completa y decide entre `calculateSavings` (si tiene `discount`) o `calculateSavingsPerUnit` (si tiene `discount_per_unit` con `discount_unit === "liter"`). Es la función que usan `rankRecommendations` y `calculateStackedSavings` internamente.
+4. **`rankRecommendations` (Excluyentes)**:
+   * Por defecto, ordena por el valor bruto del descuento (porcentaje o monto por unidad).
+   * Si el usuario ingresa un monto (o litros) en la vista de detalle del comercio, re-ordena dinámicamente las recomendaciones por **ahorro real en pesos** vía `calculateSavingsForRec`. Esto resuelve el caso de decisiones **excluyentes**: para montos de compra altos, una tarjeta con menor porcentaje de descuento pero mayor tope puede ser la ganadora frente a otra con más descuento pero menor tope. Empates se desempatan primero por descuento bruto, luego por mayor `cap`.
+5. **`calculateStackedSavings` (Apilables)**: Calcula el ahorro acumulado al aplicar de forma sucesiva múltiples promociones marcadas `stackable` (ej. un cupón del comercio junto a un beneficio de tarjeta bancaria). Ordena las promos apilables por mayor ahorro primero; las de porcentaje reducen el monto base para la siguiente promo de la cadena, las de por-unidad no.
 
 ---
 
@@ -632,5 +668,6 @@ Toda la localización está hardcoded a **es-CL** (español de Chile):
 | `toISODateLocal(date)` | `"2026-04-29"` (hora local, no UTC) |
 | `daysOfWeekLabel(days)` | `"Lun, Mié, Vie"` o `"Todos los días"` |
 | `modalityLabel(modality)` | `"Online y presencial"` |
+| `formatDiscount(discount, discountPerUnit, discountUnit)` | `"15%"` o `"$100/L"` según el tipo de promo |
 
 **Nota importante:** `toISODateLocal` usa `getFullYear/getMonth/getDate` (hora local) en vez de `toISOString()` (UTC). En Chile (UTC-3/UTC-4), `toISOString()` ya es "mañana" desde las ~21:00 — mostraría promos incorrectas.

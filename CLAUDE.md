@@ -15,7 +15,10 @@ node --test tests/validate.test.ts  # Single test file
 
 npm run db:schema            # Apply schema.sql to Neon DB (idempotent, non-destructive)
 npm run db:seed              # DESTRUCTIVE: drop + recreate tables + load mock data
+npm run db:gen-seed          # Regenerate scripts/seed.ts banks/cards sections from current DB contents
 npm run popularity:compute   # Bootstrap merchant popularity via Google Places API (requires GOOGLE_PLACES_API_KEY)
+npm run promotions:refresh   # Rotate today's active promotion_codes into promotions.code/active (cron-style daily job)
+npm run swagger:update       # Re-vendor the self-hosted Swagger UI assets in public/swagger/
 npm run admin:create         # Create first admin (CLI — only way to bootstrap)
 npm run admin:encrypt-totp   # Migrate plaintext TOTP secrets to AES-256-GCM (idempotent)
 ```
@@ -30,8 +33,13 @@ Tests run with Node's native `node:test` + `node:assert` — no Jest, no Vitest.
 | `ADMIN_SESSION_SECRET` | For admin panel | HMAC-SHA256 signing key. Rotating this invalidates all active sessions. |
 | `ADMIN_TOTP_ENC_KEY` | Recommended | AES-256-GCM key for TOTP secrets at rest. Must match between local (`admin:create`) and Vercel. Rotating orphans all stored TOTP secrets. |
 | `NEXT_PUBLIC_SENTRY_DSN` | No | Sentry disabled entirely if absent. |
+| `SENTRY_ORG` / `SENTRY_PROJECT` / `SENTRY_AUTH_TOKEN` | No | Only for uploading sourcemaps at build time (`withSentryConfig` in `next.config.mjs`). Without `SENTRY_AUTH_TOKEN` the build still completes, it just skips the sourcemap upload. |
 | `NEXT_PUBLIC_PLAUSIBLE_SRC` | No | Plausible v2 script `src`. If absent, `analytics.ts` is a no-op. If host ≠ `plausible.io`, add it to CSP in `next.config.mjs`. |
 | `GOOGLE_PLACES_API_KEY` | No | Only for `popularity:compute` script — never in runtime. |
+| `AI_PROVIDER` | No | `gemini` (default) \| `ollama` \| `groq`. Selects the backend for `lib/ai/provider.ts`, used by the merchant resolver in the scraping review flow (`/api/admin/ops/suggest-merchant`). Without a usable backend, the UI falls back to plain token matching. |
+| `GEMINI_API_KEY` / `GEMINI_EMBED_MODEL` / `GEMINI_GEN_MODEL` | No | Google AI Studio key + model overrides for the default `gemini` provider. |
+| `OLLAMA_URL` / `OLLAMA_EMBED_MODEL` / `OLLAMA_GEN_MODEL` | No | Local Ollama instance config, used when `AI_PROVIDER=ollama`. |
+| `GROQ_API_KEY` / `GROQ_GEN_MODEL` | No | Used when `AI_PROVIDER=groq`. Groq has no embeddings model, so it only powers `suggestCategory`, not merchant ranking. |
 
 Copy `.env.example` → `.env.local` to start. `DATABASE_URL` is the only required variable for running the app locally.
 
@@ -88,8 +96,10 @@ When the PWA is installed and opened, it must land on `/app`, not the marketing 
 
 ### Recommendations engine
 
-`GET /api/recommendations` is the core product endpoint. It JOINs promotions × cards × merchants, filtering by `card.id IN cardIds`, date range, and `dayOfWeek ∈ days_of_week`. Business logic for savings calculation and ranking lives in `lib/recommendations.ts` as pure functions:
-- `calculateSavings` — applies discount %, cap, and min_purchase
+`GET /api/recommendations` is the core product endpoint. It JOINs promotions × cards × merchants (+ `promotion_codes` for promos with rotating codes), filtering by `card.id IN cardIds`, date range, and `dayOfWeek ∈ days_of_week`. The SQL itself orders results by a weighted composite score — 50% discount, 20% `merchants.popularity_prior`, 20% freshness (`verified_at` exponential decay), 10% expiry urgency — documented in `docs/ARCHITECTURE.md` → Flujo de recomendaciones. (The score currently reads the static, Google-Places-derived `popularity_prior`; nothing yet blends in real `promo_events` traffic — see `TODO.md`.)
+
+Client-side savings calculation and re-ranking lives in `lib/recommendations.ts` as pure functions:
+- `calculateSavings` / `calculateSavingsPerUnit` / `calculateSavingsForRec` — apply discount % or per-unit discount, cap, and min_purchase
 - `rankRecommendations` — sorts by percentage by default, switches to real CLP savings when the user enters a purchase amount (a card with lower % but higher cap can win at large amounts)
 - `calculateStackedSavings` — cascading savings for stackable promos
 
@@ -102,6 +112,10 @@ Auth flow: `POST /api/admin/auth/login` → issues pending-MFA token (5 min) →
 All admin API routes call `requireAdmin()` (`lib/admin-guard.ts`) which validates the cookie AND re-queries the DB — a deleted or TOTP-reset admin loses access immediately.
 
 TOTP secrets are stored AES-256-GCM encrypted in the DB (`lib/admin-crypto.ts`). The `ADMIN_TOTP_ENC_KEY` must be identical between the machine running `admin:create` and the Vercel environment.
+
+### AI provider abstraction (`lib/ai/provider.ts`)
+
+Used only by the scraping review flow's merchant resolver (`lib/ai/merchant-suggest.ts`, exposed at `POST /api/admin/ops/suggest-merchant`) — never on the public-facing app. Two primitives, `embed()` and `generateJSON()`, are backed by a swappable provider selected via `AI_PROVIDER` (`gemini` default, `ollama`, or `groq`). If no backend is configured/reachable, the UI falls back to plain token matching — the feature degrades gracefully rather than failing.
 
 ### CSS strategy
 
@@ -122,7 +136,7 @@ TOTP secrets are stored AES-256-GCM encrypted in the DB (`lib/admin-crypto.ts`).
 ## Further reading
 
 - `docs/ARCHITECTURE.md` — deep dives: standalone system, service worker lifecycle, component hierarchy, page transitions
-- `docs/API.md` — all 8 public endpoints with request/response examples
+- `docs/API.md` — all 9 public endpoints with request/response examples
 - `docs/ADMIN.md` — admin panel: auth flows, CRUD hierarchy, key rotation, first deploy walkthrough
 - `docs/SCRAPING.md` — scraping pipeline: scrapers → staging → review
 - `docs/SECURITY.md` — CSP rationale, SQL parameterization, secrets handling
