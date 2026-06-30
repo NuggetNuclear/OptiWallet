@@ -35,6 +35,7 @@ export type ApiMerchant = {
   emoji:            string;
   /** Prior de popularidad 0–1 (cold-start del ranking). DEFAULT 0.5 si el script aún no corrió. */
   popularity_prior: number;
+  max_discount:     number | null;
 };
 
 export type ApiRecommendation = {
@@ -179,4 +180,43 @@ export async function getPromotionsForMerchantFromApi(
   const res = await fetch(`/api/promotions/${encodeURIComponent(merchantId)}`);
   if (!res.ok) throw new Error(`API error ${res.status}`);
   return res.json();
+}
+
+// ──────────────────────────────────────────────────────────────
+// Tracking de eventos de promos (fire-and-forget)
+// ──────────────────────────────────────────────────────────────
+
+export type PromoEventType = "view" | "tap";
+export type PromoEventLocation = "feed" | "merchant_detail" | "search";
+
+/**
+ * Registra una impresión o tap de una promoción en la tabla `promo_events`.
+ * Fire-and-forget: nunca lanza errores, no bloquea al caller.
+ *
+ * @param promotionId  ID de la promo vista/tocada
+ * @param merchantId   ID del comercio (denormalizado)
+ * @param bankId       ID del banco (denormalizado)
+ * @param eventType    'view' o 'tap'
+ * @param location     Dónde ocurrió el evento
+ * @param sessionId    Hash anónimo de sesión (opcional)
+ */
+export function logPromoEvent(params: {
+  promotionId: string;
+  merchantId:  string;
+  bankId:      string;
+  eventType:   PromoEventType;
+  location:    PromoEventLocation;
+  sessionId?:  string;
+}): void {
+  if (typeof window === "undefined") return; // solo cliente
+  // Ignoramos la promesa a propósito — fire-and-forget
+  fetch("/api/promo-events", {
+    method:  "POST",
+    headers: { "Content-Type": "application/json" },
+    body:    JSON.stringify(params),
+    // keepalive: true permite que el request sobreviva si la página se cierra
+    keepalive: true,
+  }).catch(() => {
+    // Silencioso — analytics nunca rompe la app
+  });
 }

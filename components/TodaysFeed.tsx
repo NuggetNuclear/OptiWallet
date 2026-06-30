@@ -6,7 +6,18 @@ import { formatCLP, modalityLabel, formatDiscount } from "@/lib/format";
 import { SkeletonCard } from "./SkeletonCard";
 import type { ApiRecommendation } from "@/lib/api-client";
 
+import { rankRecommendations } from "@/lib/recommendations";
+
 const PAGE_SIZE = 15;
+
+interface MerchantFeedItem {
+  merchant_id: string;
+  merchant_name: string;
+  emoji: string | null;
+  popularity_prior: number;
+  bestRec: ApiRecommendation;
+  cards: Array<{ id: string; name: string }>;
+}
 
 interface TodaysFeedProps {
   cardIds: string[];
@@ -27,19 +38,38 @@ export function TodaysFeed({
   const [visibleCount, setVisibleCount] = useState(PAGE_SIZE);
   const sentinelRef = useRef<HTMLDivElement>(null);
 
-  // Agrupar por merchant y quedarnos con la mejor promo por comercio.
+  // Agrupar por merchant y recopilar las tarjetas de la mejor opción
   const byMerchant = useMemo(() => {
-    const map = new Map<string, ApiRecommendation>();
+    const map = new Map<string, ApiRecommendation[]>();
     for (const rec of recs) {
-      const existing = map.get(rec.merchant_id);
-      const recVal = rec.discount ?? rec.discount_per_unit ?? 0;
-      const extVal = existing ? (existing.discount ?? existing.discount_per_unit ?? 0) : -1;
-      if (!existing || recVal > extVal) {
-        map.set(rec.merchant_id, rec);
+      if (!map.has(rec.merchant_id)) {
+        map.set(rec.merchant_id, []);
       }
+      map.get(rec.merchant_id)!.push(rec);
     }
-    const disc = (r: ApiRecommendation) => r.discount ?? r.discount_per_unit ?? 0;
-    return Array.from(map.values()).sort((a, b) => {
+
+    const items: MerchantFeedItem[] = [];
+
+    for (const [merchantId, merchantRecs] of map.entries()) {
+      const ranked = rankRecommendations(merchantRecs);
+      const best = ranked[0];
+      // Obtener todas las tarjetas asociadas a esta misma promo y banco
+      const matchingCards = ranked
+        .filter((r) => r.promotion_id === best.promotion_id && r.bank_id === best.bank_id)
+        .map((r) => ({ id: r.card_id, name: r.card_name }));
+
+      items.push({
+        merchant_id: merchantId,
+        merchant_name: best.merchant_name,
+        emoji: best.emoji,
+        popularity_prior: best.popularity_prior,
+        bestRec: best,
+        cards: matchingCards,
+      });
+    }
+
+    const disc = (item: MerchantFeedItem) => item.bestRec.discount ?? item.bestRec.discount_per_unit ?? 0;
+    return items.sort((a, b) => {
       if (sortBy === "name") {
         return a.merchant_name.localeCompare(b.merchant_name) || disc(b) - disc(a);
       }
@@ -100,11 +130,11 @@ export function TodaysFeed({
 
   return (
     <div className="grid gap-2">
-      {visible.map((rec) => (
+      {visible.map((item) => (
         <FeedRow
-          key={rec.merchant_id}
-          rec={rec}
-          onClick={() => onMerchantClick(rec.merchant_id)}
+          key={item.merchant_id}
+          item={item}
+          onClick={() => onMerchantClick(item.merchant_id)}
         />
       ))}
       {/* Sentinel para IntersectionObserver */}
@@ -130,22 +160,24 @@ export function TodaysFeed({
   );
 }
 
-function FeedRow({ rec, onClick }: { rec: ApiRecommendation; onClick: () => void }) {
+function FeedRow({ item, onClick }: { item: MerchantFeedItem; onClick: () => void }) {
+  const rec = item.bestRec;
+  const cardNamesLabel = item.cards.length === 1
+    ? item.cards[0].name
+    : item.cards.map((c) => c.name).join(", ");
+
   return (
     <button
       onClick={onClick}
       className="group flex w-full min-w-0 items-center gap-3 overflow-hidden rounded-2xl border border-line bg-bg-2 p-4 text-left transition-colors active:scale-[0.98] hover:border-lime"
     >
       <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-bg-3 text-xl">
-        {rec.emoji ?? "🛍️"}
+        {item.emoji ?? "🛍️"}
       </div>
       <div className="min-w-0 flex-1">
-        <div className="truncate font-medium text-ink">{rec.merchant_name}</div>
-        {/* Subtítulo dinámico: el nombre de la tarjeta se trunca con … y los chips
-            (modalidad, tope) que no caben en la línea simplemente se ocultan
-            (flex-wrap manda lo que sobra a una 2ª línea que max-h-4 recorta). */}
+        <div className="truncate font-medium text-ink">{item.merchant_name}</div>
         <div className="mt-0.5 flex max-h-4 flex-wrap items-center gap-x-1.5 overflow-hidden font-mono text-[10px] uppercase leading-4 tracking-widest text-ink-dim">
-          <span className="min-w-0 flex-shrink truncate">{rec.card_name}</span>
+          <span className="min-w-0 flex-shrink truncate">{cardNamesLabel}</span>
           <span className="flex shrink-0 items-center gap-x-1.5 before:text-ink-dim/50 before:content-['·']">
             {modalityLabel(rec.modality as "presencial" | "online" | "both")}
           </span>

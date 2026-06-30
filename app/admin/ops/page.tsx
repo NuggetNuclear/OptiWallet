@@ -80,7 +80,7 @@ function MaintenancePanel() {
     if (r.ok) setStatus(await r.json());
     setLoading(false);
   }
-  useEffect(() => { loadStatus(); }, []); // eslint-disable-line react-hooks/exhaustive-deps
+  useEffect(() => { loadStatus(); }, []); // eslint-disable-line react-hooks/set-state-in-effect
 
   async function toggle(enable: boolean) {
     if (totpCode.length !== 6) { setError("Ingresa el código TOTP de 6 dígitos"); return; }
@@ -518,7 +518,7 @@ export default function OpsCenter() {
       .then((d) => { setData(d); setLoading(false); });
   }
 
-  useEffect(() => { loadOverview(); }, []); // eslint-disable-line react-hooks/exhaustive-deps
+  useEffect(() => { loadOverview(); }, []);
 
   const t = data?.totals;
 

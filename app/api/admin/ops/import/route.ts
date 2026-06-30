@@ -2,7 +2,7 @@ import { sql } from "@/lib/db";
 import { requireAdmin, clientIp } from "@/lib/admin-guard";
 import { logAdminAction } from "@/lib/admin-log";
 import { isValidId } from "@/lib/validate";
-import { normalizeRow, type ScrapedRow, type StagedRow, MERCHANT_NAME_MAX_LENGTH } from "@/lib/staging";
+import { normalizeRow, type ScrapedRow, type StagedRow } from "@/lib/staging";
 import { NextRequest, NextResponse } from "next/server";
 
 const NO_CACHE = { "Cache-Control": "no-store" };

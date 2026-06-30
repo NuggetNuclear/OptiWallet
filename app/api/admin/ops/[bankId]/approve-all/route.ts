@@ -3,7 +3,6 @@ import { requireAdmin, clientIp } from "@/lib/admin-guard";
 import { logAdminAction } from "@/lib/admin-log";
 import {
   isValidId,
-  isValidCardTypes,
   isValidDaysOfWeek,
   isNonNegativeIntOrNull,
   isValidDateOrNull,
@@ -14,6 +13,38 @@ import { suggestCategoriesBatch } from "@/lib/ai/merchant-suggest";
 import { NextRequest, NextResponse } from "next/server";
 
 const NO_CACHE = { "Cache-Control": "no-store" };
+
+// Filas tal como vienen de las queries (sin ORM, así que las tipamos a mano).
+interface StagingRow {
+  id: number;
+  merchant_id: string | null;
+  merchant_name: string;
+  discount: number | null;
+  discount_per_unit: number | null;
+  discount_unit: string | null;
+  cap: number | null;
+  min_purchase: number | null;
+  days_of_week: number[];
+  card_types: string[];
+  modality: string | null;
+  start_date: unknown;
+  end_date: unknown;
+  stackable: boolean;
+  code: string | null;
+  conditions: string | null;
+  source: string | null;
+  fingerprint: string;
+}
+interface MerchantRow {
+  id: string;
+  name: string;
+  aliases: string[] | null;
+  category_id: string;
+}
+interface CategoryRow {
+  id: string;
+  label: string;
+}
 
 const normString = (s: string) =>
   (s || "")
@@ -41,7 +72,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ ban
     const pendingRows = await sql`
       SELECT * FROM promo_staging
       WHERE bank_id = ${bankId} AND status = 'pending'
-    ` as any[];
+    ` as StagingRow[];
 
     console.log(`[Approve All] Se encontraron ${pendingRows.length} promociones pendientes en staging.`);
 
@@ -55,8 +86,8 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ ban
     }
 
     // 2. Obtener catálogos de la base de datos para mapeo/resolución local
-    const dbMerchants = await sql`SELECT id, name, aliases, category_id FROM merchants` as any[];
-    const categories = await sql`SELECT id, label FROM merchant_categories` as any[];
+    const dbMerchants = await sql`SELECT id, name, aliases, category_id FROM merchants` as MerchantRow[];
+    const categories = await sql`SELECT id, label FROM merchant_categories` as CategoryRow[];
 
     if (categories.length === 0) {
       return NextResponse.json({ error: "No existen categorías en la base de datos." }, { status: 500, headers: NO_CACHE });

@@ -63,4 +63,45 @@ export const events = {
     bankId: string;
     location: "winner" | "alternative" | "list";
   }) => trackEvent("Promotion Clicked", props),
+  promotionFeedback: (props: {
+    promotionId: string;
+    merchantId: string;
+    bankId: string;
+    feedback: "up" | "down";
+  }) => trackEvent("Promotion Feedback", props),
 } as const;
+
+// ─── Plausible Goals — guía de configuración ──────────────────────────────────
+// Para que los eventos custom aparezcan en el dashboard de Plausible hay que
+// registrar cada uno como "Goal" en plausible.io → Sitio → Goals → + Goal.
+//
+// Tipo de todos los Goals: Custom event (no Pageview).
+// Los nombres son CASE-SENSITIVE — deben coincidir exactamente con los strings
+// de trackEvent() de arriba.
+//
+// ┌─────────────────────────────────┬──────────────────────────────────────────┐
+// │ Goal name (exacto)              │ Custom props a registrar (opcional)      │
+// ├─────────────────────────────────┼──────────────────────────────────────────┤
+// │ Onboarding Started              │ —                                        │
+// │ Onboarding Completed            │ cards (número)                           │
+// │ Wallet Updated                  │ cards (número)                           │
+// │ CTA Click                       │ cta (string — ej. "hero", "footer")      │
+// │ Install Modal Opened            │ source (string — ej. "nav", "cta")       │
+// │ Install Instructions Viewed     │ platform ("android" | "ios")             │
+// │ Merchant Viewed                 │ merchant (string — merchant ID)          │
+// │ Promotion Viewed                │ promotionId, merchantId, bankId, location│
+// │ Promotion Clicked               │ promotionId, merchantId, bankId, location│
+// │ Promotion Feedback              │ promotionId, merchantId, bankId, feedback│
+// └─────────────────────────────────┴──────────────────────────────────────────┘
+//
+// Pasos para registrar un Goal con Custom Props en Plausible:
+//   1. plausible.io → tu sitio → Goals → + Goal
+//   2. Tipo: "Custom event", Event name: (exacto de la tabla)
+//   3. En la sección "Custom props", agregar cada prop del evento
+//      (Plausible los autocompleta con los datos ya recibidos)
+//   4. Guardar — el Goal y sus props empiezan a aparecer en el dashboard
+//      con datos desde ese momento (no retroactivo)
+//
+// Nota: si NEXT_PUBLIC_PLAUSIBLE_SRC no está seteado, el script de Plausible
+// no carga y todos los trackEvent() son no-ops silenciosos. Ver docs/ADMIN.md
+// para la guía de activación de variables de entorno en Vercel.

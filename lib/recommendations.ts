@@ -117,12 +117,20 @@ export function rankRecommendations(
 ): ApiRecommendation[] {
   const hasContext = (amount !== undefined && amount > 0) || (units !== undefined && units > 0);
 
+  const compareCap = (capA: number | null, capB: number | null): number => {
+    if (capA === capB) return 0;
+    if (capA === null) return -1;
+    if (capB === null) return 1;
+    return capB - capA;
+  };
+
   if (!hasContext) {
     return [...recs].sort((a, b) => {
       // Comparar usando el valor bruto del descuento (% vs CLP/L se mezclan solo sin contexto)
       const va = a.discount_per_unit ?? a.discount ?? 0;
       const vb = b.discount_per_unit ?? b.discount ?? 0;
-      return vb - va;
+      if (vb !== va) return vb - va;
+      return compareCap(a.cap, b.cap);
     });
   }
 
@@ -131,10 +139,12 @@ export function rankRecommendations(
     const savingsB = calculateSavingsForRec(b, amount, units);
 
     if (savingsB !== savingsA) return savingsB - savingsA;
-    // Desempate: mayor porcentaje o mayor monto por unidad
+    // Desempate 1: mayor porcentaje o mayor monto por unidad
     const va = a.discount_per_unit ?? a.discount ?? 0;
     const vb = b.discount_per_unit ?? b.discount ?? 0;
-    return vb - va;
+    if (vb !== va) return vb - va;
+    // Desempate 2: mayor tope
+    return compareCap(a.cap, b.cap);
   });
 }
 

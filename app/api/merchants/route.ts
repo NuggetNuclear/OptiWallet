@@ -23,7 +23,12 @@ export async function GET(req: NextRequest) {
         m.aliases,
         m.popularity_prior,
         mc.label AS category_label,
-        mc.emoji
+        mc.emoji,
+        (
+          SELECT COALESCE(MAX(COALESCE(p.discount, p.discount_per_unit, 0)), 0)
+          FROM promotions p
+          WHERE p.merchant_id = m.id AND p.active = true
+        )::int AS max_discount
       FROM merchants m
       JOIN merchant_categories mc ON m.category_id = mc.id
       WHERE

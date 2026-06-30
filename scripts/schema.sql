@@ -251,3 +251,30 @@ INSERT INTO app_settings (key, value)
   VALUES ('maintenance_mode', 'false')
   ON CONFLICT (key) DO NOTHING;
 
+-- ── promo_events (tráfico real para dilución bayesiana del popularity_prior) ──
+-- Registra impresiones y taps de promociones para reemplazar gradualmente el
+-- cold-start (popularity_prior de Google Places) con señales propias.
+-- Diseño:
+--   event_type: 'view'  → la promo apareció en el feed/detalle del usuario
+--               'tap'   → el usuario tocó/expandió la promo
+--   session_id: hash anónimo de (fingerprint + fecha) — sin datos personales.
+--   location:   dónde ocurrió ('feed' | 'merchant_detail' | 'search')
+-- Cuando N eventos acumulados supere un umbral, el ranking puede computar:
+--   pop_efectiva = (N_taps + K * popularity_prior) / (N_views + K)
+-- donde K es el pseudo-count bayesiano (ej. K = 50).
+CREATE TABLE IF NOT EXISTS promo_events (
+  id           BIGSERIAL    PRIMARY KEY,
+  promotion_id TEXT         NOT NULL REFERENCES promotions(id) ON DELETE CASCADE,
+  merchant_id  TEXT         NOT NULL,   -- denormalizado para queries analíticas
+  bank_id      TEXT         NOT NULL,   -- denormalizado
+  event_type   TEXT         NOT NULL CHECK (event_type IN ('view', 'tap')),
+  location     TEXT         NOT NULL CHECK (location IN ('feed', 'merchant_detail', 'search')),
+  session_id   TEXT,                    -- anónimo — no vincula a usuario individual
+  occurred_at  TIMESTAMPTZ  NOT NULL DEFAULT now()
+);
+
+CREATE INDEX IF NOT EXISTS idx_promo_events_promo     ON promo_events(promotion_id);
+CREATE INDEX IF NOT EXISTS idx_promo_events_merchant  ON promo_events(merchant_id);
+CREATE INDEX IF NOT EXISTS idx_promo_events_occurred  ON promo_events(occurred_at DESC);
+CREATE INDEX IF NOT EXISTS idx_promo_events_type      ON promo_events(event_type);
+
