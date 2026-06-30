@@ -21,6 +21,7 @@ OptiWallet cruza las promociones de bancos chilenos y recomienda la mejor tarjet
 | [`docs/SECURITY.md`](docs/SECURITY.md) | Postura de seguridad: headers, validación, manejo de secrets, recomendaciones operativas |
 | [`tests/README.md`](tests/README.md) | Mapa de cobertura de tests y metodología de aislamiento |
 | [`TODO.md`](TODO.md) | Inventario de placeholders y pendientes operativos (prensa, sobre-nosotros, cifras de landing, activación Sentry/Plausible) |
+| [`docs/DOCUMENTATION_STATUS.md`](docs/DOCUMENTATION_STATUS.md) | Snapshot de la última auditoría de documentación: qué estaba desactualizado, qué se corrigió, qué queda pendiente |
 
 ---
 
