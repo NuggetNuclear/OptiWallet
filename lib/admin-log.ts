@@ -30,6 +30,7 @@ export type AuditEntity =
   | "auth"
   | "scraper_run"
   | "promo_staging"
+  | "report"
   | "app_settings";
 
 export async function logAdminAction(

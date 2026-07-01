@@ -9,6 +9,8 @@ import {
   getRecommendationsFromApi,
   getMerchantByIdFromApi,
   getPromotionsForMerchantFromApi,
+  createPromoReport,
+  updatePromoReport,
 } from "../lib/api-client.ts";
 
 // ──────────────────────── URLs construidas correctamente ─────────────────────
@@ -206,5 +208,52 @@ describe("Cliente de API — errores HTTP", () => {
   it("500 en getMerchantByIdFromApi -> lanza Error (no retorna null)", async () => {
     mockStatus = 500;
     await rejects(getMerchantByIdFromApi("jumbo"), /API error 500/);
+  });
+});
+
+// ──────────────────────── Reportes de promos ─────────────────────────────────
+
+describe("Cliente de API — reportes de promos", () => {
+  let originalFetch: typeof globalThis.fetch;
+  let lastUrl = "";
+  let mockStatus = 200;
+  let mockBody: unknown = {};
+  const g = globalThis as unknown as { window?: unknown };
+
+  beforeEach(() => {
+    originalFetch = globalThis.fetch;
+    lastUrl = "";
+    mockStatus = 200;
+    mockBody = {};
+    // createPromoReport/updatePromoReport son no-ops fuera del navegador; simulamos window.
+    g.window = {};
+    globalThis.fetch = async (url: string | URL | Request) => {
+      lastUrl = url.toString();
+      return {
+        ok: mockStatus >= 200 && mockStatus < 300,
+        status: mockStatus,
+        json: async () => mockBody,
+      } as Response;
+    };
+  });
+
+  afterEach(() => { globalThis.fetch = originalFetch; delete g.window; });
+
+  it("createPromoReport -> POST /api/promo-reports y devuelve el id", async () => {
+    mockBody = { id: 99 };
+    const id = await createPromoReport({ promotionId: "p1", merchantId: "m1", bankId: "b1" });
+    strictEqual(lastUrl, "/api/promo-reports");
+    strictEqual(id, 99);
+  });
+
+  it("createPromoReport con error HTTP -> devuelve null sin lanzar", async () => {
+    mockStatus = 500;
+    const id = await createPromoReport({ promotionId: "p1", merchantId: "m1", bankId: "b1" });
+    strictEqual(id, null);
+  });
+
+  it("updatePromoReport -> PATCH /api/promo-reports/:id", () => {
+    updatePromoReport(42, "expired");
+    strictEqual(lastUrl, "/api/promo-reports/42");
   });
 });

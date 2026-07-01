@@ -49,10 +49,20 @@ export async function GET(req: NextRequest) {
     `;
 
     const banks = rows as Array<{ pending: number; last_fetch: string | null; available: boolean }>;
+    // Resiliente a que promo_reports aún no exista (código desplegado antes del schema).
+    let pendingReports = 0;
+    try {
+      const reportRows = await sql`SELECT COUNT(*)::int AS n FROM promo_reports WHERE status = 'pending'`;
+      pendingReports = (reportRows[0] as { n: number } | undefined)?.n ?? 0;
+    } catch {
+      pendingReports = 0;
+    }
+
     const totals = {
       backlog: banks.reduce((a, b) => a + (b.pending || 0), 0),
       banks_total: banks.length,
       banks_never_fetched: banks.filter((b) => !b.last_fetch).length,
+      pending_reports: pendingReports,
     };
 
     return NextResponse.json({ banks: rows, totals }, { headers: NO_CACHE });

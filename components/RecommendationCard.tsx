@@ -5,6 +5,7 @@ import { formatCLP, formatDiscount, modalityLabel } from "@/lib/format";
 import { calculateSavingsForRec } from "@/lib/recommendations";
 import { BANK_INFO } from "@/lib/constants";
 import { events } from "@/lib/analytics";
+import { PromoFeedback } from "./PromoFeedback";
 
 interface RecommendationCardProps {
   recommendation: {
@@ -55,7 +56,6 @@ function getMinPurchase(promotion: RecommendationCardProps["recommendation"]["pr
 export function RecommendationCard({ recommendation, amount, units, compact, onClick }: RecommendationCardProps) {
   const { promotion, cards, merchant, bankName, bankId } = recommendation;
   const isPerUnit = promotion.discount_per_unit != null && promotion.discount_unit === "liter";
-  const [feedback, setFeedback] = useState<"up" | "down" | null>(null);
   const hasFiredRef = useRef(false);
 
   useEffect(() => {
@@ -194,53 +194,14 @@ export function RecommendationCard({ recommendation, amount, units, compact, onC
             <div />
           )}
 
-          {/* Feedback UI inside the card */}
-          <div className="flex items-center gap-2 bg-black/10 rounded-full px-3 py-1 border border-white/5">
-            <span className="font-mono text-[9px] uppercase tracking-wider text-white/60">
-              {feedback === null ? "¿Te sirvió?" : ""}
-            </span>
-            {feedback === null ? (
-              <div className="flex gap-1.5">
-                <button
-                  type="button"
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    setFeedback("up");
-                    events.promotionFeedback({
-                      promotionId: promotion.id,
-                      merchantId: merchant.id || "",
-                      bankId: bankId,
-                      feedback: "up",
-                    });
-                  }}
-                  className="hover:scale-110 active:scale-95 p-0.5 transition cursor-pointer"
-                  title="Sí, me sirvió"
-                >
-                  👍
-                </button>
-                <button
-                  type="button"
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    setFeedback("down");
-                    events.promotionFeedback({
-                      promotionId: promotion.id,
-                      merchantId: merchant.id || "",
-                      bankId: bankId,
-                      feedback: "down",
-                    });
-                  }}
-                  className="hover:scale-110 active:scale-95 p-0.5 transition cursor-pointer"
-                  title="No me sirvió"
-                >
-                  👎
-                </button>
-              </div>
-            ) : (
-              <span className="font-mono text-[10px] text-white/90">
-                {feedback === "up" ? "¡Gracias! 👍" : "Reportado 👎"}
-              </span>
-            )}
+          {/* Feedback + reporte (captura en dos fases) */}
+          <div className="flex flex-wrap items-center justify-end gap-2 rounded-2xl border border-white/5 bg-black/10 px-3 py-1.5">
+            <PromoFeedback
+              promotionId={promotion.id}
+              merchantId={merchant.id || ""}
+              bankId={bankId}
+              tone="onColor"
+            />
           </div>
         </div>
       </div>
@@ -294,7 +255,6 @@ export function GroupedAlternativeCard({
 }) {
   const { promotion, merchant, bankName, cards, bankId } = recommendation;
   const [isOpen, setIsOpen] = useState(false);
-  const [feedback, setFeedback] = useState<"up" | "down" | null>(null);
   const hasFiredRef = useRef(false);
 
   useEffect(() => {
@@ -409,53 +369,14 @@ export function GroupedAlternativeCard({
               <div />
             )}
 
-            {/* Feedback UI for GroupedAlternativeCard */}
-            <div className="flex items-center gap-2 bg-bg-3 rounded-full px-2.5 py-0.5 border border-line">
-              <span className="font-mono text-[9px] uppercase tracking-wider text-ink-dim">
-                {feedback === null ? "¿Te sirvió?" : ""}
-              </span>
-              {feedback === null ? (
-                <div className="flex gap-1">
-                  <button
-                    type="button"
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      setFeedback("up");
-                      events.promotionFeedback({
-                        promotionId: promotion.id,
-                        merchantId: merchant.id || "",
-                        bankId: bankId,
-                        feedback: "up",
-                      });
-                    }}
-                    className="hover:scale-110 active:scale-95 p-0.5 transition cursor-pointer"
-                    title="Sí, me sirvió"
-                  >
-                    👍
-                  </button>
-                  <button
-                    type="button"
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      setFeedback("down");
-                      events.promotionFeedback({
-                        promotionId: promotion.id,
-                        merchantId: merchant.id || "",
-                        bankId: bankId,
-                        feedback: "down",
-                      });
-                    }}
-                    className="hover:scale-110 active:scale-95 p-0.5 transition cursor-pointer"
-                    title="No me sirvió"
-                  >
-                    👎
-                  </button>
-                </div>
-              ) : (
-                <span className="font-mono text-[9px] text-ink-dim/90">
-                  {feedback === "up" ? "¡Gracias! 👍" : "Reportado 👎"}
-                </span>
-              )}
+            {/* Feedback + reporte (captura en dos fases) */}
+            <div className="flex flex-wrap items-center justify-end gap-2 rounded-full border border-line bg-bg-3 px-2.5 py-1">
+              <PromoFeedback
+                promotionId={promotion.id}
+                merchantId={merchant.id || ""}
+                bankId={bankId}
+                tone="onSurface"
+              />
             </div>
           </div>
         </div>

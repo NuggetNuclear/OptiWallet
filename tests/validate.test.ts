@@ -10,6 +10,7 @@ import {
   isValidDateOrNull,
   isValidDiscountConfig,
   isValidHttpUrl,
+  isValidReportReason,
 } from "../lib/validate.ts";
 
 // IDs validos: [A-Za-z0-9_.-]{1,64}
@@ -165,4 +166,14 @@ describe("isValidHttpUrl — source debe ser URL http(s)", () => {
   it("string vacío -> false", () => strictEqual(isValidHttpUrl(""), false));
   it("texto plano no-URL -> false", () => strictEqual(isValidHttpUrl("solo texto"), false));
   it("no-string -> false", () => strictEqual(isValidHttpUrl(null), false));
+});
+
+describe("isValidReportReason — motivos de reporte permitidos", () => {
+  it("expired -> true", () => strictEqual(isValidReportReason("expired"), true));
+  it("wrong_discount -> true", () => strictEqual(isValidReportReason("wrong_discount"), true));
+  it("not_found -> true", () => strictEqual(isValidReportReason("not_found"), true));
+  it("other -> true", () => strictEqual(isValidReportReason("other"), true));
+  it("motivo desconocido -> false", () => strictEqual(isValidReportReason("spam"), false));
+  it("null -> false", () => strictEqual(isValidReportReason(null), false));
+  it("string vacío -> false", () => strictEqual(isValidReportReason(""), false));
 });

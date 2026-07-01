@@ -21,6 +21,17 @@ export function areValidIds(values: string[]): boolean {
   return values.every(isValidId);
 }
 
+// ── Reportes de usuario sobre promociones (público) ───────────────────────────
+
+/** Motivos válidos de un reporte de promo. */
+export const REPORT_REASONS = ["expired", "wrong_discount", "not_found", "other"] as const;
+export type ReportReason = (typeof REPORT_REASONS)[number];
+
+/** ¿`v` es uno de los motivos permitidos? */
+export function isValidReportReason(v: unknown): v is ReportReason {
+  return typeof v === "string" && (REPORT_REASONS as readonly string[]).includes(v);
+}
+
 // ── Validadores de campos de promoción (writes del panel admin) ───────────────
 // Las columnas tienen CHECK constraints en Postgres, pero validar en la capa app
 // devuelve 400 (input claro) en vez de 500 (error de DB filtrado).

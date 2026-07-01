@@ -62,4 +62,19 @@ describe("schema.sql — integridad del esquema de base de datos", () => {
     const mapBlock = schemaContent.slice(mapIdx, mapIdx + 400);
     ok(mapBlock.includes("ON DELETE CASCADE"), "merchant_tag_map debe usar ON DELETE CASCADE");
   });
+
+  it("define la tabla promo_reports para reportes de usuarios", () => {
+    ok(
+      schemaContent.includes("CREATE TABLE IF NOT EXISTS promo_reports"),
+      "Debe definir la tabla promo_reports",
+    );
+  });
+
+  it("promo_reports acota status y reason con CHECK, y borra en cascada con la promo", () => {
+    const idx = schemaContent.indexOf("CREATE TABLE IF NOT EXISTS promo_reports");
+    ok(idx !== -1, "Debe existir la tabla promo_reports");
+    const block = schemaContent.slice(idx, idx + 900);
+    ok(block.includes("status IN ('pending', 'resolved', 'dismissed')"), "status debe estar acotado por CHECK");
+    ok(block.includes("REFERENCES promotions(id) ON DELETE CASCADE"), "debe referenciar promotions con ON DELETE CASCADE");
+  });
 });

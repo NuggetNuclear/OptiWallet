@@ -2,7 +2,7 @@
 
 > Última actualización: 2026-06-30 · v1.0.0-beta.2
 
-Referencia completa de los 9 endpoints de la API. Todos son **Route Handlers** (serverless Node.js en Vercel) que consultan **Neon PostgreSQL** directamente.
+Referencia de los endpoints de la API. Todos son **Route Handlers** (serverless Node.js en Vercel) que consultan **Neon PostgreSQL** directamente.
 
 > **Sprint 2 (US-003):** la API también está documentada en formato **OpenAPI 3.1**:
 >
@@ -24,6 +24,7 @@ Referencia completa de los 9 endpoints de la API. Todos son **Route Handlers** (
 - [GET /api/promotions/[merchantId]](#get-apipromotionsmerchantid)
 - [GET /api/recommendations](#get-apirecommendations)
 - [POST /api/promo-events](#post-apipromo-events)
+- [POST /api/promo-reports · PATCH /api/promo-reports/[id]](#post-apipromo-reports--patch-apipromo-reportsid)
 - [GET /api/stats](#get-apistats)
 
 ---
@@ -32,7 +33,7 @@ Referencia completa de los 9 endpoints de la API. Todos son **Route Handlers** (
 
 ### Método HTTP
 
-La API es **pública y de solo lectura** para todo el catálogo de datos: ocho endpoints son `GET`. La única excepción es `POST /api/promo-events`, que registra analítica de uso (impresiones/taps de promos) y no expone ni modifica datos del catálogo. No hay endpoints `PUT`, `DELETE` ni `PATCH`.
+La API es **pública y de solo lectura** para todo el catálogo de datos: la mayoría de los endpoints son `GET`. Las excepciones escriben señales de usuario (no modifican el catálogo): `POST /api/promo-events` (analítica de uso) y `POST`/`PATCH /api/promo-reports` (reportes de promos).
 
 ### Formato de respuesta
 
@@ -572,6 +573,42 @@ Siempre `204 No Content`, sin body — incluyendo cuando el input es inválido o
 ### Errores
 
 No expone códigos de error — ver "Respuesta" arriba.
+
+---
+
+## POST /api/promo-reports · PATCH /api/promo-reports/[id]
+
+Captura de reportes de usuario en dos fases. Cuando el usuario toca 👎 en una promo, el
+cliente llama primero a `POST /api/promo-reports` (crea el reporte al instante, `reason` NULL)
+y, si el usuario elige un motivo, lo refina con `PATCH /api/promo-reports/[id]`. Si no elige,
+el reporte igual queda registrado. Rutas públicas, escriben en `promo_reports`.
+
+**Archivos:** `app/api/promo-reports/route.ts`, `app/api/promo-reports/[id]/route.ts`
+
+### POST — body (JSON)
+
+| Campo | Tipo | Requerido | Descripción |
+|---|---|---|---|
+| `promotionId` | `string` | Sí | ID de la promo (`isValidId`). |
+| `merchantId` | `string` | Sí | ID del comercio (denormalizado). |
+| `bankId` | `string` | Sí | ID del banco (denormalizado). |
+| `sessionId` | `string` | No | Hash anónimo, máx 128 chars. |
+
+**Respuesta:** `200 { "id": <number> }` con el id del reporte (para el PATCH). Input inválido o
+rate-limit (`20/min` por sesión/IP) → `204` silencioso. Fire-and-forget vía `createPromoReport()`.
+
+### PATCH — body (JSON)
+
+| Campo | Tipo | Requerido | Descripción |
+|---|---|---|---|
+| `reason` | `"expired" \| "wrong_discount" \| "not_found" \| "other"` | Sí | Motivo del reporte. |
+| `note` | `string` | No | Texto libre (solo con `reason="other"`), máx 280 chars. |
+
+**Respuesta:** siempre `204`. Solo aplica si el reporte existe, aún no tiene motivo y se creó
+hace < 15 min (ventana anti-manipulación). Fire-and-forget vía `updatePromoReport()`.
+
+Los reportes se trian en el panel admin (`/admin/ops/reports`): agrupados por promo, con
+acciones para desactivar la promo o marcar resueltos/descartados, y priorización opcional con IA.
 
 ---
 

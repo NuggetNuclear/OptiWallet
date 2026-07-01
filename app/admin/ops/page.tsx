@@ -28,7 +28,7 @@ interface BankRow {
 }
 interface Overview {
   banks: BankRow[];
-  totals: { backlog: number; banks_total: number; banks_never_fetched: number };
+  totals: { backlog: number; banks_total: number; banks_never_fetched: number; pending_reports: number };
 }
 interface MaintenanceStatus {
   enabled: boolean;
@@ -549,6 +549,10 @@ export default function OpsCenter() {
             <div className="admin-stat-value">{t.banks_total}</div>
             <div className="admin-stat-label">Bancos totales</div>
           </div>
+          <Link href="/admin/ops/reports" className="admin-card admin-stat" style={{ textDecoration: "none" }}>
+            <div className="admin-stat-value" style={{ color: t.pending_reports > 0 ? "var(--copper)" : undefined }}>{t.pending_reports}</div>
+            <div className="admin-stat-label">Reportes pendientes →</div>
+          </Link>
         </div>
       )}
 
