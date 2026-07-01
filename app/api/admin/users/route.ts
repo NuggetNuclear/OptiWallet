@@ -24,7 +24,7 @@ export async function GET(req: NextRequest) {
   }
   try {
     const rows = await sql`
-      SELECT id, email, totp_enabled, is_root, created_at, last_login_at
+      SELECT id, email, name, totp_enabled, is_root, created_at, last_login_at
       FROM admin_users
       ORDER BY created_at ASC
     `;
@@ -46,8 +46,11 @@ export async function POST(req: NextRequest) {
   }
   try {
     const body = await req.json().catch(() => null);
-    const { email, password } = body ?? {};
+    const { name, email, password } = body ?? {};
 
+    if (typeof name !== "string" || name.trim().length === 0) {
+      return NextResponse.json({ error: "El nombre es obligatorio" }, { status: 400, headers: NO_CACHE });
+    }
     if (!email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
       return NextResponse.json({ error: "Email inválido" }, { status: 400, headers: NO_CACHE });
     }
@@ -74,8 +77,8 @@ export async function POST(req: NextRequest) {
     const qrDataUrl    = await QRCode.toDataURL(totpUri);
 
     await sql`
-      INSERT INTO admin_users (id, email, password_hash, totp_secret, totp_enabled)
-      VALUES (${id}, ${email}, ${passwordHash}, ${encryptSecret(totpSecret)}, false)
+      INSERT INTO admin_users (id, email, name, password_hash, totp_secret, totp_enabled)
+      VALUES (${id}, ${email}, ${name.trim()}, ${passwordHash}, ${encryptSecret(totpSecret)}, false)
     `;
     await logAdminAction(session, "create", "admin_user", id, `Admin "${email}" creado`, clientIp(req));
 

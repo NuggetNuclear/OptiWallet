@@ -4,10 +4,12 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import { AdminShell } from "../components/AdminShell";
 import { DeleteModal } from "../components/DeleteModal";
+import { AdminFloatingAction } from "../components/AdminFloatingAction";
 
 interface AdminUser {
   id: string;
   email: string;
+  name: string;
   totp_enabled: boolean;
   is_root: boolean;
   created_at: string;
@@ -70,9 +72,11 @@ export default function AdminUsersPage() {
           <p className="admin-subtitle">Cuentas con acceso al panel</p>
         </div>
         {isRoot && (
-          <Link href="/admin/users/new">
-            <button className="admin-btn admin-btn-primary">+ Nuevo admin</button>
-          </Link>
+          <AdminFloatingAction>
+            <Link href="/admin/users/new">
+              <button className="admin-btn admin-btn-primary">+ Nuevo admin</button>
+            </Link>
+          </AdminFloatingAction>
         )}
       </div>
 
@@ -89,6 +93,7 @@ export default function AdminUsersPage() {
           <table className="admin-table">
             <thead>
               <tr>
+                <th>Nombre</th>
                 <th>Email</th>
                 <th>ID</th>
                 <th>2FA</th>
@@ -100,6 +105,7 @@ export default function AdminUsersPage() {
             <tbody>
               {users.map((u) => (
                 <tr key={u.id}>
+                  <td>{u.name}</td>
                   <td>{u.email}</td>
                   <td><code className="admin-code">{u.id}</code></td>
                   <td>

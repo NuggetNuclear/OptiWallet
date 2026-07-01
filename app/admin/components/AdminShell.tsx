@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { AdminNav } from "./AdminNav";
 
-interface Session { id: string; email: string; totp_enabled: boolean }
+interface Session { id: string; email: string; name: string; totp_enabled: boolean }
 
 export function AdminShell({ children }: { children: React.ReactNode }) {
   const router            = useRouter();
@@ -39,7 +39,7 @@ export function AdminShell({ children }: { children: React.ReactNode }) {
 
   return (
     <div className="admin-shell">
-      <AdminNav email={session.email} />
+      <AdminNav email={session.email} name={session.name} />
       <main className="admin-main">{children}</main>
     </div>
   );

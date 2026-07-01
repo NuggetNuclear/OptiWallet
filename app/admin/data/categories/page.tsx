@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { AdminShell } from "../../components/AdminShell";
 import { DeleteModal } from "../../components/DeleteModal";
 import { MergeModal } from "../../components/MergeModal";
+import { AdminFloatingAction } from "../../components/AdminFloatingAction";
 
 interface Category { id: string; label: string; emoji: string; merchant_count?: number }
 
@@ -118,7 +119,9 @@ export default function CategoriesPage() {
 
       <div className="admin-header">
         <h1 className="admin-title">Categorías</h1>
-        <button className="admin-btn admin-btn-primary" onClick={openNew}>+ Nueva categoría</button>
+        <AdminFloatingAction>
+          <button className="admin-btn admin-btn-primary" onClick={openNew}>+ Nueva categoría</button>
+        </AdminFloatingAction>
       </div>
 
       {error && <div className="admin-error">{error}</div>}

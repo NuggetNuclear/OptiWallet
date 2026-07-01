@@ -15,7 +15,7 @@
 // bytes de /sw.js en CADA deploy, que es lo único que hace que el browser
 // dispare `updatefound` → aparece el banner "nueva versión disponible".
 // En dev queda "dev" (da igual: el SW solo se registra en producción).
-const SW_VERSION = "dev";
+const SW_VERSION = "21fc21f";
 
 // Versionamos los caches con SW_VERSION para que cada deploy purgue los caches
 // viejos (en `activate`) y se reprecachee el shell con el código nuevo.

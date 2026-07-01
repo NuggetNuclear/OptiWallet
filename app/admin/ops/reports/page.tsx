@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { AdminShell } from "../../components/AdminShell";
+import { AdminFloatingAction } from "../../components/AdminFloatingAction";
 
 interface ReportGroup {
   promotion_id: string;
@@ -145,9 +146,11 @@ export default function ReportsPage() {
       <div className="admin-header">
         <h1 className="admin-title">Reportes de usuarios</h1>
         {status === "pending" && (
-          <button className="admin-btn admin-btn-primary" onClick={runTriage} disabled={triaging || rows.length === 0}>
-            {triaging ? "Priorizando…" : "✦ Priorizar con IA"}
-          </button>
+          <AdminFloatingAction>
+            <button className="admin-btn admin-btn-primary" onClick={runTriage} disabled={triaging || rows.length === 0}>
+              {triaging ? "Priorizando…" : "✦ Priorizar con IA"}
+            </button>
+          </AdminFloatingAction>
         )}
       </div>
 

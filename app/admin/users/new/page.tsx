@@ -6,6 +6,7 @@ import { AdminShell } from "../../components/AdminShell";
 
 export default function NewAdminPage() {
   const router = useRouter();
+  const [name,      setName]      = useState("");
   const [email,     setEmail]     = useState("");
   const [password,  setPassword]  = useState("");
   const [error,     setError]     = useState("");
@@ -20,7 +21,7 @@ export default function NewAdminPage() {
       const res  = await fetch("/api/admin/users", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ email, password }),
+        body: JSON.stringify({ name, email, password }),
       });
       const data = await res.json();
       if (!res.ok) { setError(data.error ?? "Error"); return; }
@@ -43,6 +44,10 @@ export default function NewAdminPage() {
           <div className="admin-card">
             {error && <div className="admin-error">{error}</div>}
             <form onSubmit={submit}>
+              <div className="admin-form-row">
+                <label className="admin-label">Nombre</label>
+                <input className="admin-input" value={name} onChange={(e) => setName(e.target.value)} required />
+              </div>
               <div className="admin-form-row">
                 <label className="admin-label">Email</label>
                 <input className="admin-input" type="email" value={email} onChange={(e) => setEmail(e.target.value)} required />

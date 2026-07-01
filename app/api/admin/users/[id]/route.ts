@@ -19,7 +19,7 @@ export async function GET(req: NextRequest, { params }: Params) {
   const { id } = await params;
   try {
     const rows = await sql`
-      SELECT id, email, totp_enabled, created_at, last_login_at
+      SELECT id, email, name, totp_enabled, created_at, last_login_at
       FROM admin_users WHERE id = ${id}
     `;
     if (!rows.length) return NextResponse.json({ error: "No encontrado" }, { status: 404, headers: NO_CACHE });
@@ -56,10 +56,20 @@ export async function PATCH(req: NextRequest, { params }: Params) {
     }
 
     const body = await req.json().catch(() => null);
-    const { current_password, password, reset_totp } = body ?? {};
+    const { current_password, password, reset_totp, name } = body ?? {};
 
     const changesPassword = password !== undefined;
     const resetsTotp = reset_totp === true;
+    const changesName = name !== undefined;
+
+    // El nombre no es un dato sensible (a diferencia de contraseña/2FA), así
+    // que no exige el step-up de current_password — solo el chequeo de
+    // permisos (isSelf o root) que ya corrió arriba.
+    if (changesName) {
+      if (typeof name !== "string" || name.trim().length === 0) {
+        return NextResponse.json({ error: "El nombre no puede estar vacío" }, { status: 400, headers: NO_CACHE });
+      }
+    }
 
     // Step-up re-authentication: changing a password or resetting 2FA — for
     // yourself OR another admin — requires the ACTING admin to re-enter their own
@@ -96,6 +106,11 @@ export async function PATCH(req: NextRequest, { params }: Params) {
       const newSecret = generateTotpSecret();
       await sql`UPDATE admin_users SET totp_secret = ${encryptSecret(newSecret)}, totp_enabled = false WHERE id = ${id}`;
       await logAdminAction(session, "totp_reset", "admin_user", id, `2FA restablecido para admin ${id}`, ip);
+    }
+
+    if (changesName) {
+      await sql`UPDATE admin_users SET name = ${(name as string).trim()} WHERE id = ${id}`;
+      await logAdminAction(session, "update", "admin_user", id, `Nombre actualizado para admin ${id}`, ip);
     }
 
     return NextResponse.json({ status: "ok" }, { headers: NO_CACHE });

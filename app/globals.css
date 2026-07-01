@@ -102,13 +102,18 @@ body {
   background: var(--bg);
   color: var(--ink);
   min-height: 100%;
-  overflow-x: hidden;
+  /* clip, no hidden: "hidden" on only the x-axis forces the browser to compute
+     overflow-y as "auto", turning <body> into its own scroll container. That
+     breaks position:sticky for descendants (e.g. .admin-sidebar) whose nearest
+     scrolling ancestor should be the viewport. "clip" prevents the horizontal
+     scrollbar without creating that implicit scroll container. */
+  overflow-x: clip;
 }
 
 body {
   font-family: var(--font-sora), system-ui, sans-serif;
   position: relative;
-  overflow-x: hidden;
+  overflow-x: clip;
 }
 
 /* Grain global — el alma estética del producto */

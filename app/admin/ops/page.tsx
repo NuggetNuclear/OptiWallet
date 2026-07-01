@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { AdminShell } from "../components/AdminShell";
+import { AdminFloatingAction } from "../components/AdminFloatingAction";
 import { TerminalConsole, type TerminalLine } from "../components/TerminalConsole";
 // ── Types ───────────────────────────────────────────────────────────────────
 
@@ -533,7 +534,9 @@ export default function OpsCenter() {
           <h1 className="admin-title">Central de operaciones</h1>
           <p className="admin-subtitle">Scraping → staging → revisión → promociones</p>
         </div>
-        <Link href="/admin/ops/import" className="admin-btn admin-btn-primary">+ Importar datos</Link>
+        <AdminFloatingAction>
+          <Link href="/admin/ops/import" className="admin-btn admin-btn-primary">+ Importar datos</Link>
+        </AdminFloatingAction>
       </div>
 
       {/* ── Maintenance mode ── */}

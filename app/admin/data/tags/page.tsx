@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { AdminShell } from "../../components/AdminShell";
 import { DeleteModal } from "../../components/DeleteModal";
 import { MergeModal } from "../../components/MergeModal";
+import { AdminFloatingAction } from "../../components/AdminFloatingAction";
 
 interface Tag { id: string; label: string; emoji: string | null; merchant_count?: number }
 
@@ -118,7 +119,9 @@ export default function TagsPage() {
 
       <div className="admin-header">
         <h1 className="admin-title">Etiquetas</h1>
-        <button className="admin-btn admin-btn-primary" onClick={openNew}>+ Nueva etiqueta</button>
+        <AdminFloatingAction>
+          <button className="admin-btn admin-btn-primary" onClick={openNew}>+ Nueva etiqueta</button>
+        </AdminFloatingAction>
       </div>
 
       <p style={{ fontSize: 13, color: "var(--ink-dim)", marginBottom: 16 }}>

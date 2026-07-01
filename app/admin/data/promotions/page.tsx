@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { AdminShell } from "../../components/AdminShell";
 import { DeleteModal } from "../../components/DeleteModal";
+import { AdminFloatingAction } from "../../components/AdminFloatingAction";
 
 interface Promo {
   id: string; bank_id: string; card_types: string[]; card_ids: string[]; merchant_id: string;
@@ -234,7 +235,9 @@ export default function PromotionsPage() {
 
       <div className="admin-header">
         <h1 className="admin-title">Promociones</h1>
-        <button className="admin-btn admin-btn-primary" onClick={openNew}>+ Nueva promo</button>
+        <AdminFloatingAction>
+          <button className="admin-btn admin-btn-primary" onClick={openNew}>+ Nueva promo</button>
+        </AdminFloatingAction>
       </div>
 
       {error && <div className="admin-error">{error}</div>}

@@ -96,6 +96,16 @@ ALTER TABLE admin_users ADD COLUMN IF NOT EXISTS is_root BOOLEAN NOT NULL DEFAUL
 UPDATE admin_users SET is_root = true
   WHERE created_at = (SELECT MIN(created_at) FROM admin_users) AND NOT is_root;
 
+-- Display name shown in the admin panel sidebar (profile block: avatar + name +
+-- email). NOT NULL — new admins must supply one at creation time (create-admin.ts
+-- CLI and POST /api/admin/users both require it). For admins that already existed
+-- before this column, backfill a readable placeholder derived from their email
+-- (e.g. "gabriel.rojas@x.com" -> "Gabriel Rojas") so the UI never renders a blank
+-- name; each admin can then replace it with their real name from /admin/users/[id].
+ALTER TABLE admin_users ADD COLUMN IF NOT EXISTS name TEXT NOT NULL DEFAULT '';
+UPDATE admin_users SET name = INITCAP(REPLACE(SPLIT_PART(email, '@', 1), '.', ' '))
+  WHERE name = '';
+
 -- Color de marca para bancos. Idempotente.
 ALTER TABLE banks ADD COLUMN IF NOT EXISTS color TEXT;
 
@@ -320,4 +330,3 @@ CREATE TABLE IF NOT EXISTS promo_reports (
 CREATE INDEX IF NOT EXISTS idx_promo_reports_promo   ON promo_reports(promotion_id);
 CREATE INDEX IF NOT EXISTS idx_promo_reports_status  ON promo_reports(status);
 CREATE INDEX IF NOT EXISTS idx_promo_reports_created ON promo_reports(created_at DESC);
-

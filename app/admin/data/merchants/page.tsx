@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { AdminShell } from "../../components/AdminShell";
 import { DeleteModal } from "../../components/DeleteModal";
+import { AdminFloatingAction } from "../../components/AdminFloatingAction";
 
 interface MerchantTag { id: string; label: string; emoji: string | null }
 interface Merchant { id: string; name: string; category_id: string; aliases: string[]; category_label?: string; emoji?: string; tags?: MerchantTag[] }
@@ -106,7 +107,9 @@ export default function MerchantsPage() {
 
       <div className="admin-header">
         <h1 className="admin-title">Comercios</h1>
-        <button className="admin-btn admin-btn-primary" onClick={openNew}>+ Nuevo comercio</button>
+        <AdminFloatingAction>
+          <button className="admin-btn admin-btn-primary" onClick={openNew}>+ Nuevo comercio</button>
+        </AdminFloatingAction>
       </div>
 
       {error && <div className="admin-error">{error}</div>}

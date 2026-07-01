@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import { AdminShell } from "../../components/AdminShell";
 import { DeleteModal } from "../../components/DeleteModal";
+import { AdminFloatingAction } from "../../components/AdminFloatingAction";
 
 interface Bank { id: string; name: string; short_name: string | null; available: boolean; color: string | null }
 
@@ -193,7 +194,9 @@ export default function BanksPage() {
 
       <div className="admin-header">
         <h1 className="admin-title">Bancos</h1>
-        <button className="admin-btn admin-btn-primary" onClick={openNew}>+ Nuevo banco</button>
+        <AdminFloatingAction>
+          <button className="admin-btn admin-btn-primary" onClick={openNew}>+ Nuevo banco</button>
+        </AdminFloatingAction>
       </div>
 
       {error && <div className="admin-error">{error}</div>}

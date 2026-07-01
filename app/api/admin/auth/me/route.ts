@@ -15,9 +15,9 @@ export async function GET(req: NextRequest) {
     // account 401s, and a reset TOTP reports totp_enabled=false so the client
     // redirects to enrollment — mirroring the requireAdmin() guard on the API.
     const rows = await sql`
-      SELECT email, totp_enabled, token_version, is_root FROM admin_users WHERE id = ${session.adminId}
+      SELECT email, name, totp_enabled, token_version, is_root FROM admin_users WHERE id = ${session.adminId}
     `;
-    const user = rows[0] as { email: string; totp_enabled: boolean; token_version?: number; is_root?: boolean } | undefined;
+    const user = rows[0] as { email: string; name: string; totp_enabled: boolean; token_version?: number; is_root?: boolean } | undefined;
     if (!user) {
       return NextResponse.json({ error: "No autorizado" }, { status: 401, headers: NO_CACHE });
     }
@@ -32,6 +32,7 @@ export async function GET(req: NextRequest) {
       {
         id: session.adminId,
         email: user.email,
+        name: user.name,
         totp_enabled: user.totp_enabled,
         is_root: Boolean(user.is_root),
       },

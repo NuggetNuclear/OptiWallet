@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { AdminShell } from "../../components/AdminShell";
 import { DeleteModal } from "../../components/DeleteModal";
+import { AdminFloatingAction } from "../../components/AdminFloatingAction";
 
 interface Card  { id: string; bank_id: string; name: string; type: "credit" | "debit" | "prepaid" }
 interface Bank  { id: string; name: string }
@@ -73,7 +74,9 @@ export default function CardsPage() {
 
       <div className="admin-header">
         <h1 className="admin-title">Tarjetas</h1>
-        <button className="admin-btn admin-btn-primary" onClick={openNew}>+ Nueva tarjeta</button>
+        <AdminFloatingAction>
+          <button className="admin-btn admin-btn-primary" onClick={openNew}>+ Nueva tarjeta</button>
+        </AdminFloatingAction>
       </div>
 
       {error && <div className="admin-error">{error}</div>}

@@ -72,6 +72,12 @@ function slugify(email: string): string {
 async function main() {
   console.log("\n🔐  Crear primer administrador de OptiWallet\n");
 
+  const name = await ask("Nombre: ");
+  if (!name.trim()) {
+    console.error("❌  El nombre no puede estar vacío");
+    process.exit(1);
+  }
+
   const email = await ask("Email: ");
   if (!email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
     console.error("❌  Email inválido");
@@ -97,8 +103,8 @@ async function main() {
   const id     = slugify(email);
 
   await db`
-    INSERT INTO admin_users (id, email, password_hash, totp_secret, totp_enabled, is_root)
-    VALUES (${id}, ${email}, ${hash}, ${encryptSecret(secret)}, false, true)
+    INSERT INTO admin_users (id, email, name, password_hash, totp_secret, totp_enabled, is_root)
+    VALUES (${id}, ${email}, ${name.trim()}, ${hash}, ${encryptSecret(secret)}, false, true)
   `;
 
   const qr = await QRCode.toString(uri, { type: "terminal", small: true });

@@ -4,12 +4,14 @@ import { useState, useEffect } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { AdminShell } from "../../components/AdminShell";
 
-interface AdminUser { id: string; email: string; totp_enabled: boolean; last_login_at: string | null }
+interface AdminUser { id: string; email: string; name: string; totp_enabled: boolean; last_login_at: string | null }
 
 export default function EditAdminPage() {
   const { id }  = useParams<{ id: string }>();
   const router  = useRouter();
   const [user,     setUser]     = useState<AdminUser | null>(null);
+  const [name,     setName]     = useState("");
+  const [savingName, setSavingName] = useState(false);
   const [password, setPassword] = useState("");
   // Step-up re-auth: the acting admin re-enters their OWN current password to
   // authorize a password change or a TOTP reset.
@@ -22,8 +24,27 @@ export default function EditAdminPage() {
   useEffect(() => {
     fetch(`/api/admin/users/${id}`)
       .then((r) => r.ok ? r.json() : null)
-      .then(setUser);
+      .then((u: AdminUser | null) => {
+        setUser(u);
+        if (u) setName(u.name);
+      });
   }, [id]);
+
+  async function saveName(e: React.FormEvent) {
+    e.preventDefault();
+    setError(""); setMsg(""); setSavingName(true);
+    try {
+      const res  = await fetch(`/api/admin/users/${id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ name }),
+      });
+      const data = await res.json();
+      if (!res.ok) { setError(data.error ?? "Error"); return; }
+      setMsg("Nombre actualizado");
+      setUser((u) => u ? { ...u, name } : u);
+    } catch { setError("Error de red"); } finally { setSavingName(false); }
+  }
 
   async function resetPassword(e: React.FormEvent) {
     e.preventDefault();
@@ -78,6 +99,16 @@ export default function EditAdminPage() {
               {user.totp_enabled ? "Activo" : "Pendiente"}
             </span>
           </p>
+        </div>
+
+        <div className="admin-card" style={{ marginBottom: 16 }}>
+          <p className="admin-label" style={{ marginBottom: 12 }}>Nombre</p>
+          <form onSubmit={saveName} style={{ display: "flex", gap: 10 }}>
+            <input className="admin-input" value={name} onChange={(e) => setName(e.target.value)} required />
+            <button type="submit" disabled={savingName || name.trim() === user.name} className="admin-btn admin-btn-primary">
+              {savingName ? "Guardando…" : "Guardar"}
+            </button>
+          </form>
         </div>
 
         <div className="admin-card" style={{ marginBottom: 16 }}>

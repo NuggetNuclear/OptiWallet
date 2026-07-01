@@ -27,7 +27,7 @@ const NAV = [
 
 const ALL_HREFS = NAV.flatMap((g) => g.items.map((i) => i.href));
 
-export function AdminNav({ email }: { email: string }) {
+export function AdminNav({ email, name }: { email: string; name: string }) {
   const pathname = usePathname();
   const router   = useRouter();
   const [loggingOut, setLoggingOut] = useState(false);
@@ -53,9 +53,17 @@ export function AdminNav({ email }: { email: string }) {
   return (
     <aside className="admin-sidebar">
       <div className="admin-logo">
-        <div>
-          <span>Admin</span>
-          <p>OptiWallet</p>
+        <div className="admin-profile">
+          <span className="admin-avatar" aria-hidden="true">
+            <svg viewBox="0 0 24 24" width="18" height="18">
+              <circle cx="12" cy="8" r="4" fill="#0b0d0c" />
+              <path d="M4 20.5c0-4.7 3.8-7.5 8-7.5s8 2.8 8 7.5" fill="#0b0d0c" />
+            </svg>
+          </span>
+          <div className="admin-profile-text">
+            <p className="admin-profile-name">{name || "Admin"}</p>
+            <p className="admin-profile-email">{email}</p>
+          </div>
         </div>
         <button
           type="button"
@@ -86,7 +94,6 @@ export function AdminNav({ email }: { email: string }) {
         ))}
 
         <div className="admin-nav-footer">
-          <p className="admin-nav-email">{email}</p>
           <button
             onClick={logout}
             disabled={loggingOut}
