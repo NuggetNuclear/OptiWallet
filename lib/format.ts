@@ -86,5 +86,6 @@ export function formatDiscount(
   if (discountPerUnit !== null && discountUnit === "liter") {
     return `${formatCLP(discountPerUnit)}/L`;
   }
-  return `${discount}%`;
+  // Guard against a null discount rendering literally as "null%".
+  return `${discount ?? 0}%`;
 }

@@ -27,7 +27,11 @@ El panel admin es un subsite protegido en `/admin` que permite a administradores
 
 - **CRUD completo** sobre las 5 tablas de la base de datos: `banks`, `cards`, `merchant_categories`, `merchants`, `promotions`. (Las columnas de popularidad de `merchants` —`popularity_prior`, `merchant_tier`, `places_*`— no se editan a mano: las puebla el script `npm run popularity:compute`.)
 - **Resolución de dependencias** antes de operaciones destructivas (ver qué registros dependen de lo que vas a borrar).
-- **Gestión de admins**: crear, listar, cambiar contraseña, resetear TOTP, eliminar. El primer admin (`is_root = true`) está protegido contra eliminación.
+- **Gestión de admins** (modelo de roles root / no-root):
+  - **Solo el admin raíz** (`is_root = true`, el bootstrapeado por CLI) puede **crear**, **eliminar** o **modificar otras cuentas** (cambiar contraseña / resetear TOTP de otro admin).
+  - **Cualquier admin** puede gestionar **su propia** cuenta (cambiar su contraseña, resetear su TOTP) — con step-up re-auth.
+  - Una cuenta raíz está protegida: no puede ser eliminada ni modificada por otro admin (ni siquiera por otro root); solo se gestiona a sí misma.
+  - Es una barrera de servidor (`requireAdmin` resuelve `is_root` desde la DB en cada request); el frontend además oculta las acciones no permitidas.
 - **Autenticación robusta**: contraseña + TOTP (Google Authenticator), sesión HMAC-firmada, rate limiting por IP.
 - **Central de operaciones**: scraping de promociones por banco → cola de revisión (`promo_staging`) → aprobación (individual o masiva, con consola de progreso en vivo) → `promotions`. Ver [`docs/SCRAPING.md`](./SCRAPING.md).
 - **Modo mantenimiento**: toggle protegido por TOTP que redirige a todos los usuarios públicos a `/mantencion` (el panel admin sigue accesible).
@@ -73,9 +77,9 @@ app/api/admin/                ← API Routes del panel (todas protegidas con ses
 │   ├── logout/route.ts       ← POST: cierre de sesión
 │   └── me/route.ts           ← GET: perfil de la sesión activa
 ├── users/
-│   ├── route.ts              ← GET (lista, incluye is_root), POST (crear admin)
+│   ├── route.ts              ← GET (lista, incluye is_root), POST (crear admin — solo root)
 │   └── [id]/
-│       ├── route.ts          ← GET, PATCH (contraseña/TOTP), DELETE (bloquea is_root)
+│       ├── route.ts          ← GET, PATCH (contraseña/TOTP), DELETE — modificar/eliminar otras cuentas es solo root; root protegido
 │       └── totp-setup/route.ts ← GET (QR), POST (activar TOTP)
 ├── audit/route.ts            ← GET: últimas 500 entradas / 30 días de admin_audit_log
 ├── maintenance/route.ts      ← GET (estado), POST (toggle, exige TOTP) del modo mantenimiento
@@ -643,6 +647,7 @@ Errores de re-auth:
 #### `DELETE /api/admin/users/[id]`
 
 Guards:
+- **403 si el admin que ejecuta no es `is_root`** (crear/eliminar cuentas es solo del admin raíz)
 - 400 si `id` coincide con la sesión activa (self-delete)
 - 400 si solo queda 1 admin en la tabla (last-admin guard)
 - 400 si el admin objetivo tiene `is_root = true` (no se puede eliminar al admin bootstrapeado por CLI)
@@ -965,6 +970,7 @@ cards      ← nodo hoja en el schema (nada tiene FK hacia cards)
 | **Auth en proxy.ts** | La verificación de sesión ocurre en el Edge antes de renderizar cualquier página admin |
 | **Auth en Route Handlers** | `requireAdmin()` al inicio de cada handler de datos (valida cookie **y** re-consulta la DB) |
 | **Step-up re-auth** | Cambiar contraseña o resetear TOTP (propio o de otro admin) exige la contraseña actual del admin que ejecuta la acción (`current_password`) — una cookie robada por sí sola ya no permite tomar control de una cuenta |
+| **Modelo de roles root/no-root** | Crear, eliminar y modificar **otras** cuentas es exclusivo del admin raíz (`is_root`). Un no-root solo gestiona su propia cuenta; una cuenta raíz solo se gestiona a sí misma. `requireAdmin()` resuelve `is_root` desde la DB por request (fail-closed: sin la columna migrada, nadie es root) |
 | **Revocación de sesión** | Cada token lleva el `token_version` del admin al firmarse; cambiarlo (cambio de contraseña, logout) invalida todas sus sesiones vigentes de inmediato |
 | **Cache-Control: no-store** | Las respuestas del panel no se cachean en CDN |
 | **Service Worker excluye admin** | El SW no intercepta `/admin` ni `/api/admin`: sus respuestas nunca entran a CacheStorage del browser |

@@ -11,6 +11,14 @@ import { withSentryConfig } from "@sentry/nextjs";
 //  - https://*.ingest.*.sentry.io → envío de errores a Sentry (US-ERR)
 // Todo lo demás queda bloqueado: fuentes self-hosted por next/font, sin
 // embeds, sin frames. Swagger UI (/api-docs) es self-hosted en /public/swagger.
+//
+// ⚠️ IMPORTANTE — Plausible self-hosted / dominio custom:
+// `script-src` y `connect-src` de abajo asumen el host oficial `plausible.io`.
+// Si usas `NEXT_PUBLIC_PLAUSIBLE_SRC` apuntando a OTRO host (Plausible
+// self-hosted o proxy), DEBES agregar ese origen a AMBAS directivas o el
+// navegador bloqueará silenciosamente el script y el envío de eventos —
+// analytics deja de registrar sin ningún error visible. El bloque de abajo
+// emite un warning en el build de Vercel si detecta un host no cubierto.
 const ContentSecurityPolicy = [
   "default-src 'self'",
   "script-src 'self' 'unsafe-inline' https://plausible.io",
@@ -26,6 +34,23 @@ const ContentSecurityPolicy = [
   "frame-ancestors 'none'",
   "upgrade-insecure-requests",
 ].join("; ");
+
+// Build-time guard: si NEXT_PUBLIC_PLAUSIBLE_SRC apunta a un host que la CSP no
+// permite, el script de analytics se bloquearía silenciosamente en producción.
+// Avisamos en el log del build (Vercel/CI) para que se agregue el origen arriba.
+if (process.env.NEXT_PUBLIC_PLAUSIBLE_SRC) {
+  try {
+    const host = new URL(process.env.NEXT_PUBLIC_PLAUSIBLE_SRC).host;
+    if (!ContentSecurityPolicy.includes(host)) {
+      console.warn(
+        `\n⚠️  CSP: NEXT_PUBLIC_PLAUSIBLE_SRC usa el host "${host}", que NO está en script-src/connect-src.\n` +
+        `    El navegador bloqueará Plausible. Agrega "https://${host}" a ambas directivas en next.config.mjs.\n`,
+      );
+    }
+  } catch {
+    console.warn("⚠️  NEXT_PUBLIC_PLAUSIBLE_SRC no es una URL válida:", process.env.NEXT_PUBLIC_PLAUSIBLE_SRC);
+  }
+}
 
 const securityHeaders = [
   { key: "Content-Security-Policy", value: ContentSecurityPolicy },

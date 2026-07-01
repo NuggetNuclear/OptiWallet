@@ -19,3 +19,13 @@ export interface AdminSessionPayload {
    */
   tv?: number;
 }
+
+/**
+ * What `requireAdmin` hands back: the (cookie) session plus the live `is_root`
+ * flag read from the DB. `is_root` is NOT stored in the cookie — it's resolved
+ * per request so a privilege change takes effect immediately, and a stolen
+ * cookie can never claim root it wasn't granted.
+ */
+export interface AdminContext extends AdminSessionPayload {
+  is_root: boolean;
+}

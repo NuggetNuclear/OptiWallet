@@ -37,6 +37,24 @@ export async function PATCH(req: NextRequest, { params }: Params) {
   const { id } = await params;
   const ip = clientIp(req);
   try {
+    // Managing ANOTHER admin is root-only, and a root account can only be
+    // managed by itself — this stops a non-root (or a second root) from
+    // resetting the root's password/2FA and hijacking or locking it out.
+    // Managing your OWN account stays open to everyone (with the step-up below).
+    const isSelf = id === session.adminId;
+    if (!isSelf) {
+      if (!session.is_root) {
+        return NextResponse.json({ error: "Solo un administrador raíz puede modificar otras cuentas" }, { status: 403, headers: NO_CACHE });
+      }
+      const target = await sql`SELECT is_root FROM admin_users WHERE id = ${id}`;
+      if (!target.length) {
+        return NextResponse.json({ error: "No encontrado" }, { status: 404, headers: NO_CACHE });
+      }
+      if ((target[0] as { is_root: boolean }).is_root) {
+        return NextResponse.json({ error: "Esta cuenta raíz está protegida y solo puede gestionarse a sí misma" }, { status: 403, headers: NO_CACHE });
+      }
+    }
+
     const body = await req.json().catch(() => null);
     const { current_password, password, reset_totp } = body ?? {};
 
@@ -90,6 +108,11 @@ export async function PATCH(req: NextRequest, { params }: Params) {
 export async function DELETE(req: NextRequest, { params }: Params) {
   const session = await requireAdmin(req);
   if (!session) return NextResponse.json({ error: "No autorizado" }, { status: 401, headers: NO_CACHE });
+
+  // Eliminar cuentas es una acción reservada al admin raíz.
+  if (!session.is_root) {
+    return NextResponse.json({ error: "Solo un administrador raíz puede eliminar cuentas" }, { status: 403, headers: NO_CACHE });
+  }
 
   const { id } = await params;
 
