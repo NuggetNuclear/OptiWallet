@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { events } from "@/lib/analytics";
 import { createPromoReport, updatePromoReport, type PromoReportReason } from "@/lib/api-client";
 
@@ -46,10 +46,28 @@ interface PromoFeedbackProps {
 export function PromoFeedback({ promotionId, merchantId, bankId, tone }: PromoFeedbackProps) {
   const t = TONE[tone];
   const [feedback, setFeedback] = useState<"up" | "down" | null>(null);
-  const [reportId, setReportId] = useState<number | null>(null);
   const [reason, setReason] = useState<PromoReportReason | null>(null);
   const [noteOpen, setNoteOpen] = useState(false);
   const [note, setNote] = useState("");
+
+  // El id del reporte llega de forma asíncrona tras el POST del 👎. Si el usuario
+  // elige un motivo antes de que resuelva, lo guardamos como "pendiente" y lo
+  // enviamos en cuanto el id esté disponible — así el motivo nunca se pierde y no
+  // termina como "sin motivo" en el panel.
+  const reportIdRef = useRef<number | null>(null);
+  const pendingRef = useRef<{ reason: PromoReportReason; note?: string } | null>(null);
+
+  function flushReason(id: number | null) {
+    if (id === null || !pendingRef.current) return;
+    const { reason: r, note: n } = pendingRef.current;
+    pendingRef.current = null;
+    updatePromoReport(id, r, n);
+  }
+
+  function submitReason(r: PromoReportReason, n?: string) {
+    if (reportIdRef.current !== null) updatePromoReport(reportIdRef.current, r, n);
+    else pendingRef.current = { reason: r, note: n };
+  }
 
   function sendPlausible(kind: "up" | "down") {
     events.promotionFeedback({ promotionId, merchantId, bankId, feedback: kind });
@@ -66,7 +84,8 @@ export function PromoFeedback({ promotionId, merchantId, bankId, tone }: PromoFe
     setFeedback("down");
     sendPlausible("down");
     const id = await createPromoReport({ promotionId, merchantId, bankId });
-    setReportId(id);
+    reportIdRef.current = id;
+    flushReason(id); // por si el usuario ya eligió motivo mientras esperábamos el id
   }
 
   function pickReason(e: React.MouseEvent, slug: PromoReportReason) {
@@ -76,12 +95,12 @@ export function PromoFeedback({ promotionId, merchantId, bankId, tone }: PromoFe
       setNoteOpen(true);
       return;
     }
-    if (reportId !== null) updatePromoReport(reportId, slug);
+    submitReason(slug);
   }
 
   function sendNote(e: React.MouseEvent) {
     e.stopPropagation();
-    if (reportId !== null) updatePromoReport(reportId, "other", note.trim() || undefined);
+    submitReason("other", note.trim() || undefined);
     setNoteOpen(false);
   }
 

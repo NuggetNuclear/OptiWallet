@@ -217,20 +217,29 @@ export default function ReportsPage() {
                     <td className="admin-cell-dim" style={{ fontSize: 11 }}>{timeAgo(r.last_at)}</td>
                     <td>
                       <div className="admin-actions">
-                        <Link className="admin-btn admin-btn-ghost admin-btn-sm" href="/admin/data/promotions">Ver promo</Link>
+                        <Link
+                          className="admin-btn admin-btn-primary admin-btn-sm"
+                          title="Abrir esta promo en el editor para revisarla o corregirla"
+                          href={`/admin/data/promotions?bankId=${encodeURIComponent(r.bank_id)}&merchantId=${encodeURIComponent(r.merchant_id)}&edit=${encodeURIComponent(r.promotion_id)}`}
+                        >
+                          Revisar / editar
+                        </Link>
                         {status === "pending" && (
                           <>
                             {r.active && (
                               <button className="admin-btn admin-btn-danger admin-btn-sm" disabled={busy === r.promotion_id}
+                                title="Bajar la promo (active=false) y dar por resueltos sus reportes"
                                 onClick={() => act("/api/admin/ops/reports/deactivate", r.promotion_id, "Promo desactivada")}>
                                 Desactivar
                               </button>
                             )}
                             <button className="admin-btn admin-btn-ghost admin-btn-sm" disabled={busy === r.promotion_id}
+                              title="Ya la revisaste/corregiste: marcar los reportes como resueltos"
                               onClick={() => act("/api/admin/ops/reports/resolve", r.promotion_id, "Reportes resueltos")}>
-                              Resolver
+                              Marcar resuelto
                             </button>
                             <button className="admin-btn admin-btn-ghost admin-btn-sm" disabled={busy === r.promotion_id}
+                              title="Reporte inválido o irrelevante: descartar sin tocar la promo"
                               onClick={() => dismiss(r.promotion_id)}>
                               Descartar
                             </button>

@@ -25,14 +25,23 @@ const NAV = [
   ]},
 ];
 
+const ALL_HREFS = NAV.flatMap((g) => g.items.map((i) => i.href));
+
 export function AdminNav({ email }: { email: string }) {
   const pathname = usePathname();
   const router   = useRouter();
   const [loggingOut, setLoggingOut] = useState(false);
   const [open, setOpen] = useState(false);
 
+  // Solo el href que hace el match MÁS ESPECÍFICO con la ruta actual queda activo.
+  // Así /admin/ops (Central) no se ilumina cuando estás en /admin/ops/reports o
+  // /admin/ops/import, pero sí en rutas hijas sin item propio (p.ej. /admin/ops/[bankId]).
+  const activeHref = ALL_HREFS
+    .filter((h) => pathname === h || (h !== "/admin" && pathname.startsWith(h + "/")))
+    .sort((a, b) => b.length - a.length)[0];
+
   function isActive(href: string) {
-    return pathname === href || (href !== "/admin" && pathname.startsWith(href));
+    return href === activeHref;
   }
 
   async function logout() {

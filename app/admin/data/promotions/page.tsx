@@ -31,6 +31,12 @@ const EMPTY: Promo = {
   source: "", verified_at: new Date().toISOString().slice(0, 10), active: true,
 };
 
+/** Lee un query param al montar (client-only) para deep-links desde Reportes. */
+function initialParam(key: string): string {
+  if (typeof window === "undefined") return "";
+  return new URLSearchParams(window.location.search).get(key) ?? "";
+}
+
 export default function PromotionsPage() {
   const [promos,    setPromos]    = useState<Promo[]>([]);
   const [banks,     setBanks]     = useState<Bank[]>([]);
@@ -44,9 +50,11 @@ export default function PromotionsPage() {
   const [success,   setSuccess]   = useState("");
   const [delTarget, setDelTarget] = useState<Promo | null>(null);
   const [deleting,  setDeleting]  = useState(false);
-  const [filterBank, setFilterBank]  = useState("");
-  const [filterMerchant, setFilterMerchant] = useState("");
+  const [filterBank, setFilterBank]  = useState(() => initialParam("bankId"));
+  const [filterMerchant, setFilterMerchant] = useState(() => initialParam("merchantId"));
   const [showActive, setShowActive]  = useState(false);
+  // Promo a abrir automáticamente en el editor (deep-link "Revisar / editar" desde Reportes).
+  const [pendingEdit, setPendingEdit] = useState<string | null>(() => initialParam("edit") || null);
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
   const [showBulkDel, setShowBulkDel] = useState(false);
   const [totpCode, setTotpCode] = useState("");
@@ -63,12 +71,29 @@ export default function PromotionsPage() {
       fetch("/api/admin/data/merchants"),
       fetch("/api/admin/data/cards"),
     ]);
-    if (pr.ok) setPromos(await pr.json());
+    let list: Promo[] = [];
+    if (pr.ok) { list = await pr.json(); setPromos(list); }
     if (br.ok) setBanks(await br.json());
     if (mr.ok) setMerchants(await mr.json());
     if (cr.ok) setCards(await cr.json());
     setLoading(false);
     setSelectedIds([]);
+
+    // Deep-link desde Reportes: abre la promo objetivo en el editor una sola vez.
+    if (pendingEdit) {
+      const target = list.find((p) => p.id === pendingEdit);
+      if (target) {
+        openEdit(target);
+        if (typeof window !== "undefined") {
+          window.scrollTo({ top: 0, behavior: "smooth" });
+          // Limpia ?edit de la URL para que un refresh no reabra el editor.
+          const url = new URL(window.location.href);
+          url.searchParams.delete("edit");
+          window.history.replaceState(null, "", url.toString());
+        }
+      }
+      setPendingEdit(null);
+    }
   }
   useEffect(() => { (async () => { await load(); })(); }, [filterBank, filterMerchant, showActive]); // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -218,6 +243,9 @@ export default function PromotionsPage() {
       {form && (
         <div className="admin-card" style={{ marginBottom: 24 }}>
           <p className="admin-card-title">{isNew ? "Nueva promoción" : `Editar: ${form.id}`}</p>
+
+          <fieldset className="admin-fieldset">
+            <legend className="admin-fieldset-legend">Identidad</legend>
           <div className="admin-form-grid">
             {isNew && (
               <div className="admin-form-row">
@@ -242,7 +270,13 @@ export default function PromotionsPage() {
                 {merchants.map((m) => <option key={m.id} value={m.id}>{m.name}</option>)}
               </select>
             </div>
-            <div className="admin-form-row">
+          </div>
+          </fieldset>
+
+          <fieldset className="admin-fieldset">
+            <legend className="admin-fieldset-legend">Descuento</legend>
+          <div className="admin-form-grid">
+            <div className="admin-form-row span-2">
               <label className="admin-label">Tipo de descuento</label>
               <div className="admin-check-group" style={{ flexDirection: "row", gap: 16 }}>
                 <label className="admin-check-row">
@@ -299,6 +333,12 @@ export default function PromotionsPage() {
                 <option value="both">Ambas</option>
               </select>
             </div>
+          </div>
+          </fieldset>
+
+          <fieldset className="admin-fieldset">
+            <legend className="admin-fieldset-legend">Vigencia y origen</legend>
+          <div className="admin-form-grid">
             <div className="admin-form-row">
               <label className="admin-label">Inicio vigencia</label>
               <input className="admin-input" type="date"
@@ -330,7 +370,10 @@ export default function PromotionsPage() {
                 onChange={(e) => setForm({ ...form, conditions: e.target.value || null })} />
             </div>
           </div>
+          </fieldset>
 
+          <fieldset className="admin-fieldset">
+            <legend className="admin-fieldset-legend">Tarjetas</legend>
           <div style={{ marginBottom: 16 }}>
             <label className="admin-label">Tipos de tarjeta</label>
             <div className="admin-check-group">
@@ -408,6 +451,10 @@ export default function PromotionsPage() {
             )}
           </div>
 
+          </fieldset>
+
+          <fieldset className="admin-fieldset">
+            <legend className="admin-fieldset-legend">Disponibilidad</legend>
           <div style={{ marginBottom: 16 }}>
             <label className="admin-label">Días de la semana (vacío = todos)</label>
             <div className="admin-check-group">
@@ -429,6 +476,7 @@ export default function PromotionsPage() {
             <input type="checkbox" checked={form.stackable} onChange={(e) => setForm({ ...form, stackable: e.target.checked })} />
             Apilable <span style={{ fontSize: 11, color: "var(--ink-dim)", fontFamily: "var(--font-jetbrains)" }}>(puede combinarse con otras promos simultáneamente)</span>
           </label>
+          </fieldset>
 
           <div className="admin-form-actions">
             <button className="admin-btn admin-btn-primary" onClick={save} disabled={saving}>

@@ -300,20 +300,10 @@ function FetchButton({
               El scraper hará lo siguiente:
             </p>
 
-            <div style={{
-              background: "var(--bg-3, rgba(245,241,232,0.04))",
-              borderRadius: 8,
-              padding: "12px 14px",
-              marginBottom: 14,
-              fontSize: 12,
-              color: "var(--ink-dim)",
-              lineHeight: 1.9,
-            }}>
+            <div className="admin-steps" style={{ marginBottom: 14 }}>
               {wt.steps.map((step, i) => (
-                <div key={i} style={{ display: "flex", gap: 8 }}>
-                  <span style={{ color: "var(--lime)", fontWeight: 700, fontFamily: "var(--font-jetbrains)", flexShrink: 0 }}>
-                    {i + 1}.
-                  </span>
+                <div key={i} className="admin-step">
+                  <span className="admin-step-num">{i + 1}</span>
                   <span>{step}</span>
                 </div>
               ))}
@@ -427,31 +417,23 @@ function FetchButton({
               Para continuar, pega la cookie de tu navegador:
             </p>
 
-            <div style={{
-              background: "var(--bg-3, rgba(245,241,232,0.04))",
-              borderRadius: 8,
-              padding: "12px 14px",
-              marginBottom: 16,
-              fontSize: 12,
-              color: "var(--ink-dim)",
-              lineHeight: 1.8,
-            }}>
-              {instructions.length > 0 ? (
-                instructions.map((step, i) => (
-                  <div key={i} style={{ display: "flex", gap: 8, marginBottom: 2 }}>
-                    <span style={{ color: "var(--lime)", fontWeight: 700, fontFamily: "var(--font-jetbrains)", flexShrink: 0 }}>
-                      {step.slice(0, 2)}
-                    </span>
-                    <span>{step.slice(3)}</span>
+            <div className="admin-steps" style={{ marginBottom: 16 }}>
+              {(instructions.length > 0
+                ? instructions
+                : [
+                    "1. Abre el sitio del banco en tu navegador",
+                    "2. DevTools → Network → copia el header \"Cookie\"",
+                    "3. Pégala abajo",
+                  ]
+              ).map((step, i) => {
+                const m = step.match(/^\s*(\d+)[.)]?\s+(.*)$/);
+                return (
+                  <div key={i} className="admin-step">
+                    <span className="admin-step-num">{m ? m[1] : i + 1}</span>
+                    <span>{m ? m[2] : step}</span>
                   </div>
-                ))
-              ) : (
-                <>
-                  <div>1. Abre el sitio del banco en tu navegador</div>
-                  <div>2. DevTools → Network → copia el header &quot;Cookie&quot;</div>
-                  <div>3. Pégala abajo</div>
-                </>
-              )}
+                );
+              })}
             </div>
 
             <div className="admin-form-row">
