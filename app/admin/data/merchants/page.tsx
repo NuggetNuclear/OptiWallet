@@ -4,17 +4,21 @@ import { useEffect, useState } from "react";
 import { AdminShell } from "../../components/AdminShell";
 import { DeleteModal } from "../../components/DeleteModal";
 
-interface Merchant { id: string; name: string; category_id: string; aliases: string[]; category_label?: string; emoji?: string }
+interface MerchantTag { id: string; label: string; emoji: string | null }
+interface Merchant { id: string; name: string; category_id: string; aliases: string[]; category_label?: string; emoji?: string; tags?: MerchantTag[] }
 interface Category { id: string; label: string; emoji: string }
+interface Tag { id: string; label: string; emoji: string | null }
 
-const EMPTY: Merchant = { id: "", name: "", category_id: "", aliases: [] };
+const EMPTY: Merchant = { id: "", name: "", category_id: "", aliases: [], tags: [] };
 
 export default function MerchantsPage() {
   const [merchants, setMerchants] = useState<Merchant[]>([]);
   const [categories, setCategories] = useState<Category[]>([]);
+  const [tags,     setTags]     = useState<Tag[]>([]);
   const [loading,  setLoading]  = useState(true);
   const [form,     setForm]     = useState<Merchant | null>(null);
   const [aliasInput, setAliasInput] = useState("");
+  const [selTags,  setSelTags]  = useState<string[]>([]);
   const [isNew,    setIsNew]    = useState(false);
   const [saving,   setSaving]   = useState(false);
   const [error,    setError]    = useState("");
@@ -25,22 +29,29 @@ export default function MerchantsPage() {
   const [search,   setSearch]   = useState("");
 
   async function load() {
-    const [mr, cr] = await Promise.all([
+    const [mr, cr, tr] = await Promise.all([
       fetch("/api/admin/data/merchants"),
       fetch("/api/admin/data/categories"),
+      fetch("/api/admin/data/tags"),
     ]);
     if (mr.ok) setMerchants(await mr.json());
     if (cr.ok) setCategories(await cr.json());
+    if (tr.ok) setTags(await tr.json());
     setLoading(false);
   }
   useEffect(() => { (async () => { await load(); })(); }, []);
 
-  function openNew()               { setForm({ ...EMPTY }); setAliasInput(""); setIsNew(true);  setError(""); setSuccess(""); }
+  function openNew()               { setForm({ ...EMPTY }); setAliasInput(""); setSelTags([]); setIsNew(true);  setError(""); setSuccess(""); }
   function openEdit(m: Merchant)   {
     setForm({ ...m, aliases: [...m.aliases] });
     setAliasInput(m.aliases.join(", "));
+    setSelTags((m.tags ?? []).map((t) => t.id));
     setIsNew(false);
     setError(""); setSuccess("");
+  }
+
+  function toggleTag(id: string) {
+    setSelTags((prev) => prev.includes(id) ? prev.filter((t) => t !== id) : [...prev, id]);
   }
 
   async function save() {
@@ -53,7 +64,7 @@ export default function MerchantsPage() {
       const res    = await fetch(url, {
         method,
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ ...form, aliases }),
+        body: JSON.stringify({ ...form, aliases, tag_ids: selTags }),
       });
       const data = await res.json();
       if (!res.ok) { setError(data.error ?? "Error"); return; }
@@ -131,6 +142,25 @@ export default function MerchantsPage() {
                 onChange={(e) => setAliasInput(e.target.value)}
                 placeholder="papa jones, papajohns" />
             </div>
+            <div className="admin-form-row span-2">
+              <label className="admin-label">Etiquetas {selTags.length > 0 && <span style={{ color: "var(--ink-dim)", fontSize: 11 }}>({selTags.length})</span>}</label>
+              <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
+                {tags.length === 0 && <span style={{ fontSize: 12, color: "var(--ink-dim)" }}>No hay etiquetas. Créalas en Etiquetas.</span>}
+                {tags.map((t) => {
+                  const on = selTags.includes(t.id);
+                  return (
+                    <button
+                      key={t.id}
+                      type="button"
+                      onClick={() => toggleTag(t.id)}
+                      className={`admin-btn admin-btn-sm ${on ? "admin-btn-primary" : "admin-btn-ghost"}`}
+                    >
+                      {t.emoji ? `${t.emoji} ` : ""}{t.label}
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
           </div>
           <div className="admin-form-actions">
             <button className="admin-btn admin-btn-primary" onClick={save} disabled={saving}>
@@ -157,13 +187,16 @@ export default function MerchantsPage() {
       ) : (
         <div className="admin-table-wrap">
           <table className="admin-table">
-            <thead><tr><th>ID</th><th>Nombre</th><th>Categoría</th><th>Aliases</th><th></th></tr></thead>
+            <thead><tr><th>ID</th><th>Nombre</th><th>Categoría</th><th>Etiquetas</th><th>Aliases</th><th></th></tr></thead>
             <tbody>
               {visible.map((m) => (
                 <tr key={m.id}>
                   <td><code className="admin-code">{m.id}</code></td>
                   <td>{m.name}</td>
                   <td>{m.emoji} {m.category_label ?? m.category_id}</td>
+                  <td className="admin-cell-dim" style={{ fontSize: 11 }}>
+                    {m.tags && m.tags.length ? m.tags.map((t) => t.label).join(", ") : "—"}
+                  </td>
                   <td className="admin-cell-dim" style={{ fontSize: 11 }}>{m.aliases.join(", ") || "—"}</td>
                   <td>
                     <div className="admin-actions">

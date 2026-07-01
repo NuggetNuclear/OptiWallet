@@ -906,7 +906,7 @@ Todos requieren sesión admin (`requireAdmin`). Resumen funcional (detalle compl
 | `/api/admin/ops/staging/[id]/reject` | POST | Rechaza una fila individual |
 | `/api/admin/ops/staging/[id]/autofill` | POST | IA sugiere todos los campos editables a partir del texto de condiciones de la fila. `503` si no hay proveedor de IA configurado (`lib/ai/provider.ts`) |
 
-Tanto `approve-all` como `approve-all/stream` resuelven comercios no mapeados automáticamente: clasifican cada nombre nuevo con IA (`suggestCategoriesBatch`), crean la categoría sugerida si no existe, y crean el comercio — todo queda registrado en la bitácora de auditoría.
+Tanto `approve-all` como `approve-all/stream` resuelven comercios no mapeados automáticamente: clasifican cada nombre nuevo con IA (`suggestCategoriesBatch`), asignan una **categoría macro existente** (sin crear categorías nuevas; fallback a `otros`), le adjuntan hasta 3 **tags** granulares (creando los que falten) y crean el comercio — todo queda registrado en la bitácora de auditoría. La respuesta/summary trae `createdMerchantsCount` y `createdTagsCount`.
 
 ---
 

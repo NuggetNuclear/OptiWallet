@@ -22,7 +22,13 @@ export async function GET(
         m.category_id,
         m.aliases,
         mc.label AS category_label,
-        mc.emoji
+        mc.emoji,
+        COALESCE((
+          SELECT json_agg(json_build_object('id', mt.id, 'label', mt.label, 'emoji', mt.emoji) ORDER BY mt.label)
+          FROM merchant_tag_map mtm
+          JOIN merchant_tags mt ON mt.id = mtm.tag_id
+          WHERE mtm.merchant_id = m.id
+        ), '[]'::json) AS tags
       FROM merchants m
       JOIN merchant_categories mc ON m.category_id = mc.id
       WHERE m.id = ${merchantId}

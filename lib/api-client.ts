@@ -26,6 +26,21 @@ export type ApiCategory = {
   merchant_count: number;
 };
 
+/** Tag: atributo transversal granular (Sushi, Delivery, Pet-Friendly…). */
+export type ApiTag = {
+  id:             string;
+  label:          string;
+  emoji:          string | null;
+  merchant_count: number;
+};
+
+/** Tag denormalizado que viaja embebido en comercios/recomendaciones. */
+export type ApiMerchantTag = {
+  id:    string;
+  label: string;
+  emoji: string | null;
+};
+
 export type ApiMerchant = {
   id:               string;
   name:             string;
@@ -33,6 +48,7 @@ export type ApiMerchant = {
   aliases:          string[];
   category_label:   string;
   emoji:            string;
+  tags:             ApiMerchantTag[];
   /** Prior de popularidad 0–1 (cold-start del ranking). DEFAULT 0.5 si el script aún no corrió. */
   popularity_prior: number;
   max_discount:     number | null;
@@ -61,6 +77,7 @@ export type ApiRecommendation = {
   category_id:       string;
   category_label:    string;
   emoji:             string;
+  tags:              ApiMerchantTag[];
   card_id:           string;
   card_name:         string;
   card_type:         string;
@@ -137,13 +154,21 @@ export async function getCategoriesFromApi(): Promise<ApiCategory[]> {
   return res.json();
 }
 
+export async function getTagsFromApi(): Promise<ApiTag[]> {
+  const res = await fetch("/api/tags");
+  if (!res.ok) throw new Error(`API error ${res.status}`);
+  return res.json();
+}
+
 export async function getMerchantsFromApi(params?: {
   q?:        string;
   category?: string;
+  tags?:     string[];
 }): Promise<ApiMerchant[]> {
   const url = buildUrl("/api/merchants", {
     ...(params?.q        ? { q:        params.q }        : {}),
     ...(params?.category ? { category: params.category } : {}),
+    ...(params?.tags && params.tags.length ? { tags: params.tags.join(",") } : {}),
   });
   const res = await fetch(url);
   if (!res.ok) throw new Error(`API error ${res.status}`);
@@ -218,5 +243,50 @@ export function logPromoEvent(params: {
     keepalive: true,
   }).catch(() => {
     // Silencioso — analytics nunca rompe la app
+  });
+}
+
+// ──────────────────────────────────────────────────────────────
+// Reportes de promos (captura en dos fases)
+// ──────────────────────────────────────────────────────────────
+
+export type PromoReportReason = "expired" | "wrong_discount" | "not_found" | "other";
+
+/**
+ * Crea un reporte al instante en que el usuario toca 👎. Devuelve el id para poder
+ * refinarlo con un motivo después. Nunca lanza: si algo falla, devuelve null y el
+ * flujo del usuario sigue igual.
+ */
+export async function createPromoReport(params: {
+  promotionId: string;
+  merchantId:  string;
+  bankId:      string;
+  sessionId?:  string;
+}): Promise<number | null> {
+  if (typeof window === "undefined") return null;
+  try {
+    const res = await fetch("/api/promo-reports", {
+      method:  "POST",
+      headers: { "Content-Type": "application/json" },
+      body:    JSON.stringify(params),
+    });
+    if (!res.ok) return null;
+    const data = await res.json().catch(() => null);
+    return typeof data?.id === "number" ? data.id : null;
+  } catch {
+    return null;
+  }
+}
+
+/** Refina un reporte con el motivo elegido (y nota opcional). Fire-and-forget. */
+export function updatePromoReport(id: number, reason: PromoReportReason, note?: string): void {
+  if (typeof window === "undefined") return;
+  fetch(`/api/promo-reports/${id}`, {
+    method:  "PATCH",
+    headers: { "Content-Type": "application/json" },
+    body:    JSON.stringify({ reason, ...(note ? { note } : {}) }),
+    keepalive: true,
+  }).catch(() => {
+    // Silencioso — nunca rompe la app
   });
 }

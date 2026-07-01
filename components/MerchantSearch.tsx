@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, forwardRef, useImperativeHandle, useMemo, useRef, useState } from "react";
-import { useMerchants, useCategories } from "@/lib/hooks/use-api";
+import { useMerchants, useCategories, useTags } from "@/lib/hooks/use-api";
 import { SkeletonCard } from "./SkeletonCard";
 import type { ApiMerchant } from "@/lib/api-client";
 
@@ -19,6 +19,7 @@ export const MerchantSearch = forwardRef<MerchantSearchHandle, MerchantSearchPro
   function MerchantSearch({ onSelect, sortBy, onClose }, ref) {
   const [query, setQuery] = useState("");
   const [categoryFilter, setCategoryFilter] = useState<string | null>(null);
+  const [tagFilters, setTagFilters] = useState<string[]>([]);
   const inputRef = useRef<HTMLInputElement>(null);
 
   useImperativeHandle(ref, () => ({
@@ -34,8 +35,15 @@ export const MerchantSearch = forwardRef<MerchantSearchHandle, MerchantSearchPro
     }
   }, [onClose]);
 
-  const { data: merchants, loading: merchantsLoading } = useMerchants(query, categoryFilter);
+  const { data: merchants, loading: merchantsLoading } = useMerchants(query, categoryFilter, tagFilters);
   const { data: categories, loading: categoriesLoading } = useCategories();
+  const { data: tags } = useTags();
+
+  const tagStats = tags.filter((t) => t.merchant_count > 0);
+
+  function toggleTag(id: string) {
+    setTagFilters((prev) => prev.includes(id) ? prev.filter((t) => t !== id) : [...prev, id]);
+  }
 
   const sortedMerchants = useMemo(() => {
     const copy = [...merchants];
@@ -55,8 +63,8 @@ export const MerchantSearch = forwardRef<MerchantSearchHandle, MerchantSearchPro
 
   const categoryStats = categories.filter((c) => c.merchant_count > 0);
 
-  // Modo browse: sin query ni filtro activo → agrupar por categoría
-  const isBrowse = query === "" && categoryFilter === null;
+  // Modo browse: sin query ni filtros activos → agrupar por categoría
+  const isBrowse = query === "" && categoryFilter === null && tagFilters.length === 0;
 
   const byCategory = useMemo(() => {
     if (!isBrowse) return null;
@@ -131,9 +139,32 @@ export const MerchantSearch = forwardRef<MerchantSearchHandle, MerchantSearchPro
         </div>
       </div>
 
+      {/* Tag chips — filtros transversales; visibles siempre para poder acotar desde el inicio */}
+      {tagStats.length > 0 && (
+        <div className="no-scrollbar mt-4 -mx-5 flex gap-2 overflow-x-auto px-5 pb-1">
+          {tagFilters.length > 0 && (
+            <CategoryChip
+              label="Limpiar tags"
+              active={false}
+              onClick={() => setTagFilters([])}
+            />
+          )}
+          {tagStats.map((tag) => (
+            <CategoryChip
+              key={tag.id}
+              label={tag.label}
+              emoji={tag.emoji ?? undefined}
+              active={tagFilters.includes(tag.id)}
+              count={tag.merchant_count}
+              onClick={() => toggleTag(tag.id)}
+            />
+          ))}
+        </div>
+      )}
+
       {/* Category chips — solo en modo filtro/búsqueda */}
       {!isBrowse && (
-        <div className="no-scrollbar mt-4 -mx-5 flex gap-2 overflow-x-auto px-5 pb-1">
+        <div className="no-scrollbar mt-3 -mx-5 flex gap-2 overflow-x-auto px-5 pb-1">
           <CategoryChip
             label="Todos"
             active={categoryFilter === null}

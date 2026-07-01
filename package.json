@@ -12,6 +12,7 @@
     "db:schema": "dotenv -e .env -e .env.local -- node scripts/apply-schema.ts",
     "db:seed": "dotenv -e .env -e .env.local -- node scripts/seed.ts",
     "db:gen-seed": "dotenv -e .env -e .env.local -- node scripts/gen-seed.ts",
+    "db:migrate-tags": "dotenv -e .env -e .env.local -- node scripts/migrate-categories-to-tags.ts",
     "popularity:compute": "dotenv -e .env -e .env.local -- node scripts/compute-merchant-popularity.ts",
     "promotions:refresh": "dotenv -e .env -e .env.local -- node scripts/refresh-promos.ts",
     "test": "node --test \"lib/**/*.test.ts\" \"tests/**/*.test.ts\"",

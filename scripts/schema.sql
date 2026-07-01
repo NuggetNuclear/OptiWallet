@@ -30,6 +30,24 @@ CREATE TABLE IF NOT EXISTS merchants (
   aliases     TEXT[] NOT NULL DEFAULT '{}'
 );
 
+-- merchant_tags: atributos transversales granulares (Sushi, Delivery, Pet-Friendly…).
+-- A diferencia de category_id (uno por comercio), un comercio puede tener varios tags.
+CREATE TABLE IF NOT EXISTS merchant_tags (
+  id    TEXT PRIMARY KEY,
+  label TEXT NOT NULL,
+  emoji TEXT
+);
+
+-- merchant_tag_map: relación N:N comercio ↔ tag.
+-- ON DELETE CASCADE (a diferencia del RESTRICT del resto): borrar un tag o un
+-- comercio limpia sus filas de mapeo automáticamente, sin bloquear la operación.
+CREATE TABLE IF NOT EXISTS merchant_tag_map (
+  merchant_id TEXT NOT NULL REFERENCES merchants(id)     ON DELETE CASCADE,
+  tag_id      TEXT NOT NULL REFERENCES merchant_tags(id) ON DELETE CASCADE,
+  PRIMARY KEY (merchant_id, tag_id)
+);
+CREATE INDEX IF NOT EXISTS idx_merchant_tag_map_tag ON merchant_tag_map(tag_id);
+
 -- promotions
 CREATE TABLE IF NOT EXISTS promotions (
   id           TEXT PRIMARY KEY,
@@ -277,4 +295,29 @@ CREATE INDEX IF NOT EXISTS idx_promo_events_promo     ON promo_events(promotion_
 CREATE INDEX IF NOT EXISTS idx_promo_events_merchant  ON promo_events(merchant_id);
 CREATE INDEX IF NOT EXISTS idx_promo_events_occurred  ON promo_events(occurred_at DESC);
 CREATE INDEX IF NOT EXISTS idx_promo_events_type      ON promo_events(event_type);
+
+-- ── promo_reports (reportes de usuarios sobre promos: caducadas, incorrectas…) ──
+-- Captura en dos fases: el reporte se crea al instante cuando el usuario toca 👎
+-- (reason NULL); si luego elige un motivo, se refina con un PATCH. Si no elige, el
+-- reporte igual cuenta. Un admin los tria en /admin/ops/reports.
+--   reason: NULL (sin especificar) | 'expired' | 'wrong_discount' | 'not_found' | 'other'
+--   status: 'pending' → 'resolved' | 'dismissed' (acción del admin)
+--   session_id: hash anónimo — sin datos personales (igual que promo_events)
+CREATE TABLE IF NOT EXISTS promo_reports (
+  id           BIGSERIAL   PRIMARY KEY,
+  promotion_id TEXT        NOT NULL REFERENCES promotions(id) ON DELETE CASCADE,
+  merchant_id  TEXT        NOT NULL,   -- denormalizado para queries del panel
+  bank_id      TEXT        NOT NULL,   -- denormalizado
+  reason       TEXT        CHECK (reason IN ('expired', 'wrong_discount', 'not_found', 'other')),
+  note         TEXT,                    -- texto libre opcional (reason = 'other')
+  status       TEXT        NOT NULL DEFAULT 'pending' CHECK (status IN ('pending', 'resolved', 'dismissed')),
+  session_id   TEXT,                    -- anónimo
+  created_at   TIMESTAMPTZ NOT NULL DEFAULT now(),
+  resolved_at  TIMESTAMPTZ,
+  resolved_by  TEXT
+);
+
+CREATE INDEX IF NOT EXISTS idx_promo_reports_promo   ON promo_reports(promotion_id);
+CREATE INDEX IF NOT EXISTS idx_promo_reports_status  ON promo_reports(status);
+CREATE INDEX IF NOT EXISTS idx_promo_reports_created ON promo_reports(created_at DESC);
 

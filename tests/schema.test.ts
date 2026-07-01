@@ -39,4 +39,42 @@ describe("schema.sql — integridad del esquema de base de datos", () => {
       "Debe definir la columna card_ids en promotions (restricción a tarjetas específicas)",
     );
   });
+
+  it("define la tabla merchant_tags para atributos transversales", () => {
+    ok(
+      schemaContent.includes("CREATE TABLE IF NOT EXISTS merchant_tags"),
+      "Debe definir la tabla merchant_tags",
+    );
+  });
+
+  it("define la tabla de mapeo merchant_tag_map (N:N comercio ↔ tag)", () => {
+    ok(
+      schemaContent.includes("CREATE TABLE IF NOT EXISTS merchant_tag_map"),
+      "Debe definir la tabla merchant_tag_map",
+    );
+  });
+
+  it("merchant_tag_map limpia asociaciones con ON DELETE CASCADE", () => {
+    // La tabla de mapeo usa CASCADE (a diferencia del RESTRICT del resto) para que
+    // borrar un tag/comercio no quede bloqueado por sus asociaciones.
+    const mapIdx = schemaContent.indexOf("CREATE TABLE IF NOT EXISTS merchant_tag_map");
+    ok(mapIdx !== -1, "Debe existir la tabla merchant_tag_map");
+    const mapBlock = schemaContent.slice(mapIdx, mapIdx + 400);
+    ok(mapBlock.includes("ON DELETE CASCADE"), "merchant_tag_map debe usar ON DELETE CASCADE");
+  });
+
+  it("define la tabla promo_reports para reportes de usuarios", () => {
+    ok(
+      schemaContent.includes("CREATE TABLE IF NOT EXISTS promo_reports"),
+      "Debe definir la tabla promo_reports",
+    );
+  });
+
+  it("promo_reports acota status y reason con CHECK, y borra en cascada con la promo", () => {
+    const idx = schemaContent.indexOf("CREATE TABLE IF NOT EXISTS promo_reports");
+    ok(idx !== -1, "Debe existir la tabla promo_reports");
+    const block = schemaContent.slice(idx, idx + 900);
+    ok(block.includes("status IN ('pending', 'resolved', 'dismissed')"), "status debe estar acotado por CHECK");
+    ok(block.includes("REFERENCES promotions(id) ON DELETE CASCADE"), "debe referenciar promotions con ON DELETE CASCADE");
+  });
 });

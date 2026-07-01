@@ -6,13 +6,15 @@ import { useState } from "react";
 
 const NAV = [
   { section: "Operaciones", items: [
-    { href: "/admin/ops",        label: "Central"          },
-    { href: "/admin/ops/import", label: "Importar datos"   },
+    { href: "/admin/ops",         label: "Central"          },
+    { href: "/admin/ops/import",  label: "Importar datos"   },
+    { href: "/admin/ops/reports", label: "Reportes"         },
   ]},
   { section: "Base de datos", items: [
     { href: "/admin/data/banks",       label: "Bancos"      },
     { href: "/admin/data/cards",       label: "Tarjetas"    },
     { href: "/admin/data/categories",  label: "Categorías"  },
+    { href: "/admin/data/tags",        label: "Etiquetas"   },
     { href: "/admin/data/merchants",   label: "Comercios"   },
     { href: "/admin/data/promotions",  label: "Promociones" },
   ]},

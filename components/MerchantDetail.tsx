@@ -194,6 +194,19 @@ export function MerchantDetail({
             <div className="mt-1.5 font-mono text-[11px] uppercase tracking-widest text-ink-dim">
               {merchantData.category_label}
             </div>
+            {merchantData.tags && merchantData.tags.length > 0 && (
+              <div className="mt-2 flex flex-wrap gap-1.5">
+                {merchantData.tags.map((t) => (
+                  <span
+                    key={t.id}
+                    className="inline-flex items-center gap-1 rounded-full border border-line bg-bg-2 px-2.5 py-0.5 text-[11px] text-ink-dim"
+                  >
+                    {t.emoji && <span>{t.emoji}</span>}
+                    {t.label}
+                  </span>
+                ))}
+              </div>
+            )}
           </div>
         </div>
 

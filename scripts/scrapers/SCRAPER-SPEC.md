@@ -284,7 +284,7 @@ validaciones. Tenerlos presentes evita reinventar shapes.
 | `POST /api/admin/ops/staging/[id]/autofill` | IA rellena/corrige campos de una fila (mismo shape que `overrides`) | `—` (lee la fila) → objeto de campos; `503` si no hay IA |
 | `POST /api/admin/ops/staging/[id]/approve` | aprueba una fila → inserta en `promotions` | `{ merchant_mode, merchant_id?, new_merchant?, overrides? }` |
 | `POST /api/admin/ops/staging/[id]/reject` | descarta una fila | `—` |
-| `POST /api/admin/ops/[bankId]/approve-all` | aprobación masiva: auto-crea comercios/categorías nuevas vía IA (`suggestCategoriesBatch`) y luego inserta cada fila válida | `—` → `{ message, approvedCount, createdMerchantsCount, createdCategoriesCount, errors? }` |
+| `POST /api/admin/ops/[bankId]/approve-all` | aprobación masiva: auto-crea comercios vía IA (`suggestCategoriesBatch`) — categoría macro existente + tags granulares — y luego inserta cada fila válida | `—` → `{ message, approvedCount, createdMerchantsCount, createdTagsCount, errors? }` |
 | `POST /api/admin/ops/[bankId]/approve-all/stream` | igual que `approve-all` pero progreso incremental vía Server-Sent Events | `—` → `text/event-stream` |
 | `POST /api/admin/ops/[bankId]/reject-all` | descarta de una vez todo lo `pending` de un banco | `—` → `{ rejectedCount }` |
 

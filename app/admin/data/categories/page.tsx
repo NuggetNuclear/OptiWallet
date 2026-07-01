@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { AdminShell } from "../../components/AdminShell";
 import { DeleteModal } from "../../components/DeleteModal";
+import { MergeModal } from "../../components/MergeModal";
 
 interface Category { id: string; label: string; emoji: string; merchant_count?: number }
 
@@ -21,6 +22,8 @@ export default function CategoriesPage() {
   const [delTarget, setDelTarget] = useState<Category | null>(null);
   const [deps,    setDeps]    = useState<{ merchants: {id:string;name:string}[] } | null>(null);
   const [deleting,  setDeleting]  = useState(false);
+  const [mergeSrc, setMergeSrc] = useState<Category | null>(null);
+  const [merging,  setMerging]  = useState(false);
 
   async function load() {
     const r = await fetch("/api/admin/data/categories");
@@ -73,6 +76,22 @@ export default function CategoriesPage() {
     setDeleting(false);
   }
 
+  async function doMerge(targetId: string) {
+    if (!mergeSrc) return;
+    setError(""); setSuccess(""); setMerging(true);
+    try {
+      const res = await fetch(`/api/admin/data/categories/${mergeSrc.id}/merge`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ target_id: targetId }),
+      });
+      const data = await res.json();
+      if (!res.ok) { setError(data.error ?? "Error"); return; }
+      setSuccess(`Categorías fusionadas${data.merchants_moved ? ` · ${data.merchants_moved} comercio(s) movidos` : ""}`);
+      setMergeSrc(null); load();
+    } catch { setError("Error de red"); } finally { setMerging(false); }
+  }
+
   return (
     <AdminShell>
       {delTarget && (
@@ -82,6 +101,18 @@ export default function CategoriesPage() {
           onConfirm={doDelete}
           onCancel={() => { setDelTarget(null); setDeps(null); }}
           loading={deleting}
+        />
+      )}
+
+      {mergeSrc && (
+        <MergeModal
+          source={mergeSrc}
+          noun="categoría"
+          merchantCount={mergeSrc.merchant_count}
+          options={cats.filter((c) => c.id !== mergeSrc.id)}
+          onConfirm={doMerge}
+          onCancel={() => setMergeSrc(null)}
+          loading={merging}
         />
       )}
 
@@ -150,6 +181,7 @@ export default function CategoriesPage() {
                   <td>
                     <div className="admin-actions">
                       <button className="admin-btn admin-btn-ghost admin-btn-sm" onClick={() => openEdit(c)}>Editar</button>
+                      <button className="admin-btn admin-btn-ghost admin-btn-sm" onClick={() => { setError(""); setSuccess(""); setMergeSrc(c); }} disabled={cats.length < 2}>Fusionar</button>
                       <button className="admin-btn admin-btn-danger admin-btn-sm" onClick={() => openDelete(c)}>Eliminar</button>
                     </div>
                   </td>
