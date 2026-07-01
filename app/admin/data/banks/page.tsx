@@ -203,69 +203,71 @@ export default function BanksPage() {
       {success && <div className="admin-success">{success}</div>}
 
       {form && (
-        <div className="admin-card" style={{ marginBottom: 24 }}>
-          <p className="admin-card-title">{isNew ? "Nuevo banco" : `Editar: ${form.id}`}</p>
-          <div className="admin-form-grid">
-            {isNew && (
+        <div className="admin-modal-overlay" onClick={() => !saving && cancelForm()}>
+          <div className="admin-modal" style={{ width: 520 }} onClick={(e) => e.stopPropagation()}>
+            <h2 className="admin-modal-title">{isNew ? "Nuevo banco" : `Editar: ${form.id}`}</h2>
+            <div className="admin-form-grid">
+              {isNew && (
+                <div className="admin-form-row">
+                  <label className="admin-label">ID (slug)</label>
+                  <input className="admin-input" value={form.id}
+                    onChange={(e) => setForm({ ...form, id: e.target.value })} placeholder="bci" />
+                </div>
+              )}
               <div className="admin-form-row">
-                <label className="admin-label">ID (slug)</label>
-                <input className="admin-input" value={form.id}
-                  onChange={(e) => setForm({ ...form, id: e.target.value })} placeholder="bci" />
+                <label className="admin-label">Nombre</label>
+                <input className="admin-input" value={form.name}
+                  onChange={(e) => setForm({ ...form, name: e.target.value })} />
               </div>
-            )}
-            <div className="admin-form-row">
-              <label className="admin-label">Nombre</label>
-              <input className="admin-input" value={form.name}
-                onChange={(e) => setForm({ ...form, name: e.target.value })} />
-            </div>
-            <div className="admin-form-row">
-              <label className="admin-label">Nombre corto</label>
-              <input className="admin-input" value={form.short_name ?? ""}
-                onChange={(e) => setForm({ ...form, short_name: e.target.value || null })} placeholder="Opcional" />
-            </div>
-            <div className="admin-form-row">
-              <label className="admin-label">Color de marca (código HEX)</label>
-              <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-                <input
-                  type="color"
-                  className="admin-input"
-                  style={{ width: 44, height: 38, padding: 2, cursor: "pointer", border: "1px solid var(--line)" }}
-                  value={form.color ? `#${form.color.replace("#", "")}` : "#0b0d0c"}
-                  onChange={(e) => setForm({ ...form, color: e.target.value.replace("#", "") })}
-                />
-                <input
-                  type="text"
-                  className="admin-input"
-                  style={{ flex: 1, textTransform: "uppercase" }}
-                  placeholder="HEX (ej: FF0000 o #FF0000)"
-                  value={form.color ?? ""}
-                  onChange={(e) => {
-                    const val = e.target.value.replace(/#/g, "");
-                    setForm({ ...form, color: val || null });
-                  }}
-                />
-                {form.color && (
-                  <button
-                    type="button"
-                    className="admin-btn admin-btn-ghost admin-btn-sm"
-                    onClick={() => setForm({ ...form, color: null })}
-                  >
-                    Limpiar
-                  </button>
-                )}
+              <div className="admin-form-row">
+                <label className="admin-label">Nombre corto</label>
+                <input className="admin-input" value={form.short_name ?? ""}
+                  onChange={(e) => setForm({ ...form, short_name: e.target.value || null })} placeholder="Opcional" />
+              </div>
+              <div className="admin-form-row">
+                <label className="admin-label">Color de marca (código HEX)</label>
+                <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                  <input
+                    type="color"
+                    className="admin-input"
+                    style={{ width: 44, height: 38, padding: 2, cursor: "pointer", border: "1px solid var(--line)" }}
+                    value={form.color ? `#${form.color.replace("#", "")}` : "#0b0d0c"}
+                    onChange={(e) => setForm({ ...form, color: e.target.value.replace("#", "") })}
+                  />
+                  <input
+                    type="text"
+                    className="admin-input"
+                    style={{ flex: 1, textTransform: "uppercase" }}
+                    placeholder="HEX (ej: FF0000 o #FF0000)"
+                    value={form.color ?? ""}
+                    onChange={(e) => {
+                      const val = e.target.value.replace(/#/g, "");
+                      setForm({ ...form, color: val || null });
+                    }}
+                  />
+                  {form.color && (
+                    <button
+                      type="button"
+                      className="admin-btn admin-btn-ghost admin-btn-sm"
+                      onClick={() => setForm({ ...form, color: null })}
+                    >
+                      Limpiar
+                    </button>
+                  )}
+                </div>
               </div>
             </div>
-          </div>
-          <label className="admin-check-row" style={{ marginBottom: 16 }}>
-            <input type="checkbox" checked={form.available}
-              onChange={(e) => setForm({ ...form, available: e.target.checked })} />
-            Disponible (muestra en la app)
-          </label>
-          <div className="admin-form-actions">
-            <button className="admin-btn admin-btn-primary" onClick={save} disabled={saving}>
-              {saving ? "Guardando…" : "Guardar"}
-            </button>
-            <button className="admin-btn admin-btn-ghost" onClick={cancelForm}>Cancelar</button>
+            <label className="admin-check-row" style={{ marginBottom: 16, marginTop: 16 }}>
+              <input type="checkbox" checked={form.available}
+                onChange={(e) => setForm({ ...form, available: e.target.checked })} />
+              Disponible (muestra en la app)
+            </label>
+            <div className="admin-form-actions" style={{ marginTop: 20 }}>
+              <button className="admin-btn admin-btn-primary" onClick={save} disabled={saving}>
+                {saving ? "Guardando…" : "Guardar"}
+              </button>
+              <button className="admin-btn admin-btn-ghost" onClick={cancelForm} disabled={saving}>Cancelar</button>
+            </div>
           </div>
         </div>
       )}

@@ -133,39 +133,41 @@ export default function TagsPage() {
       {success && <div className="admin-success">{success}</div>}
 
       {form && (
-        <div className="admin-card" style={{ marginBottom: 24 }}>
-          <p className="admin-card-title">{isNew ? "Nueva etiqueta" : `Editar: ${form.id}`}</p>
-          <div className="admin-form-grid">
-            <div className="admin-form-row">
-              <label className="admin-label">ID (slug){!isNew && origId !== form.id && <span style={{ color: "var(--lime)", fontFamily: "var(--font-jetbrains)", fontSize: 10, marginLeft: 6 }}>← cambiado</span>}</label>
-              <input className="admin-input" value={form.id}
-                onChange={(e) => setForm({ ...form, id: e.target.value })} placeholder="sushi" />
+        <div className="admin-modal-overlay" onClick={() => !saving && setForm(null)}>
+          <div className="admin-modal" style={{ width: 520 }} onClick={(e) => e.stopPropagation()}>
+            <h2 className="admin-modal-title">{isNew ? "Nueva etiqueta" : `Editar: ${form.id}`}</h2>
+            <div className="admin-form-grid">
+              <div className="admin-form-row">
+                <label className="admin-label">ID (slug){!isNew && origId !== form.id && <span style={{ color: "var(--lime)", fontFamily: "var(--font-jetbrains)", fontSize: 10, marginLeft: 6 }}>← cambiado</span>}</label>
+                <input className="admin-input" value={form.id}
+                  onChange={(e) => setForm({ ...form, id: e.target.value })} placeholder="sushi" />
+              </div>
+              <div className="admin-form-row">
+                <label className="admin-label">Etiqueta</label>
+                <input className="admin-input" value={form.label}
+                  onChange={(e) => setForm({ ...form, label: e.target.value })} placeholder="Sushi" />
+              </div>
+              <div className="admin-form-row">
+                <label className="admin-label">Emoji <span style={{ fontSize: 11, color: "var(--ink-dim)" }}>(opcional)</span></label>
+                <input className="admin-input" value={form.emoji ?? ""}
+                  onChange={(e) => setForm({ ...form, emoji: e.target.value })} placeholder="🍣" style={{ fontSize: 20 }} />
+              </div>
             </div>
-            <div className="admin-form-row">
-              <label className="admin-label">Etiqueta</label>
-              <input className="admin-input" value={form.label}
-                onChange={(e) => setForm({ ...form, label: e.target.value })} placeholder="Sushi" />
+            {!isNew && form.id !== origId && (
+              <label className="admin-check-row" style={{ marginBottom: 16, marginTop: 16 }}>
+                <input type="checkbox" checked={cascade} onChange={(e) => setCascade(e.target.checked)} />
+                Propagar cambio de ID en cascade
+                <span style={{ fontSize: 11, color: "var(--ink-dim)", fontFamily: "var(--font-jetbrains)" }}>
+                  {" "}(reasigna el tag en todos los comercios vinculados)
+                </span>
+              </label>
+            )}
+            <div className="admin-form-actions" style={{ marginTop: 20 }}>
+              <button className="admin-btn admin-btn-primary" onClick={save} disabled={saving}>
+                {saving ? "Guardando…" : "Guardar"}
+              </button>
+              <button className="admin-btn admin-btn-ghost" onClick={() => setForm(null)} disabled={saving}>Cancelar</button>
             </div>
-            <div className="admin-form-row">
-              <label className="admin-label">Emoji <span style={{ fontSize: 11, color: "var(--ink-dim)" }}>(opcional)</span></label>
-              <input className="admin-input" value={form.emoji ?? ""}
-                onChange={(e) => setForm({ ...form, emoji: e.target.value })} placeholder="🍣" style={{ fontSize: 20 }} />
-            </div>
-          </div>
-          {!isNew && form.id !== origId && (
-            <label className="admin-check-row" style={{ marginBottom: 16 }}>
-              <input type="checkbox" checked={cascade} onChange={(e) => setCascade(e.target.checked)} />
-              Propagar cambio de ID en cascade
-              <span style={{ fontSize: 11, color: "var(--ink-dim)", fontFamily: "var(--font-jetbrains)" }}>
-                {" "}(reasigna el tag en todos los comercios vinculados)
-              </span>
-            </label>
-          )}
-          <div className="admin-form-actions">
-            <button className="admin-btn admin-btn-primary" onClick={save} disabled={saving}>
-              {saving ? "Guardando…" : "Guardar"}
-            </button>
-            <button className="admin-btn admin-btn-ghost" onClick={() => setForm(null)}>Cancelar</button>
           </div>
         </div>
       )}

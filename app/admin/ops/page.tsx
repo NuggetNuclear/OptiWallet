@@ -154,7 +154,7 @@ function MaintenancePanel() {
           placeholder="000000"
           value={totpCode}
           onChange={(e) => { setTotpCode(e.target.value.replace(/\D/g, "")); setError(""); setSuccess(""); }}
-          style={{ width: 100 }}
+          style={{ width: 140 }}
           disabled={busy || loading}
         />
         {!isOn ? (
@@ -507,9 +507,16 @@ const FETCHABLE_BANKS: Record<string, FetchConfig> = {
 
 /**
  * Bancos que solo tienen scraper local (no se pueden ejecutar desde el panel).
- * Muestra un badge informativo en vez de un botón de fetch.
+ * Muestra un botón para descargar el script desde GitHub.
  */
-const SCRIPT_ONLY_BANKS = new Set(["bci", "itau"]);
+const SCRIPT_ONLY_BANKS = new Set(["bci", "itau", "falabella", "santander"]);
+
+const SCRIPT_FILENAMES: Record<string, string> = {
+  bci: "bci_beneficios.py",
+  itau: "scraper_itau.py",
+  falabella: "banco_falabella.py",
+  santander: "banco_santander.py",
+};
 
 // ── Ops Center ──────────────────────────────────────────────────────────────
 
@@ -603,13 +610,16 @@ export default function OpsCenter() {
                           onFetched={loadOverview}
                         />
                       ) : SCRIPT_ONLY_BANKS.has(b.id) ? (
-                        <span
-                          className="admin-badge admin-badge-dim"
-                          title="Corre el script local y sube el JSON"
-                          style={{ cursor: "default", fontSize: 10 }}
+                        <a
+                          href={`https://raw.githubusercontent.com/NuggetNuclear/OptiWallet/main/scripts/scrapers/${SCRIPT_FILENAMES[b.id]}`}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="admin-btn admin-btn-ghost admin-btn-sm"
+                          title="Descargar script de scraping local"
+                          style={{ textDecoration: "none" }}
                         >
                           script local
-                        </span>
+                        </a>
                       ) : null}
                       <Link href={`/admin/ops/${b.id}`} className="admin-btn admin-btn-ghost admin-btn-sm">
                         Revisar →

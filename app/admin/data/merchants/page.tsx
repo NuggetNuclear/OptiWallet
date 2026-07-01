@@ -116,60 +116,62 @@ export default function MerchantsPage() {
       {success && <div className="admin-success">{success}</div>}
 
       {form && (
-        <div className="admin-card" style={{ marginBottom: 24 }}>
-          <p className="admin-card-title">{isNew ? "Nuevo comercio" : `Editar: ${form.id}`}</p>
-          <div className="admin-form-grid">
-            {isNew && (
+        <div className="admin-modal-overlay" onClick={() => !saving && setForm(null)}>
+          <div className="admin-modal" style={{ width: 580 }} onClick={(e) => e.stopPropagation()}>
+            <h2 className="admin-modal-title">{isNew ? "Nuevo comercio" : `Editar: ${form.id}`}</h2>
+            <div className="admin-form-grid">
+              {isNew && (
+                <div className="admin-form-row">
+                  <label className="admin-label">ID (slug)</label>
+                  <input className="admin-input" value={form.id}
+                    onChange={(e) => setForm({ ...form, id: e.target.value })} placeholder="papa-johns" />
+                </div>
+              )}
               <div className="admin-form-row">
-                <label className="admin-label">ID (slug)</label>
-                <input className="admin-input" value={form.id}
-                  onChange={(e) => setForm({ ...form, id: e.target.value })} placeholder="papa-johns" />
+                <label className="admin-label">Nombre</label>
+                <input className="admin-input" value={form.name}
+                  onChange={(e) => setForm({ ...form, name: e.target.value })} />
               </div>
-            )}
-            <div className="admin-form-row">
-              <label className="admin-label">Nombre</label>
-              <input className="admin-input" value={form.name}
-                onChange={(e) => setForm({ ...form, name: e.target.value })} />
-            </div>
-            <div className="admin-form-row">
-              <label className="admin-label">Categoría</label>
-              <select className="admin-input" value={form.category_id}
-                onChange={(e) => setForm({ ...form, category_id: e.target.value })}>
-                <option value="">— Seleccionar —</option>
-                {categories.map((c) => <option key={c.id} value={c.id}>{c.emoji} {c.label}</option>)}
-              </select>
-            </div>
-            <div className="admin-form-row span-2">
-              <label className="admin-label">Aliases (separados por coma)</label>
-              <input className="admin-input" value={aliasInput}
-                onChange={(e) => setAliasInput(e.target.value)}
-                placeholder="papa jones, papajohns" />
-            </div>
-            <div className="admin-form-row span-2">
-              <label className="admin-label">Etiquetas {selTags.length > 0 && <span style={{ color: "var(--ink-dim)", fontSize: 11 }}>({selTags.length})</span>}</label>
-              <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
-                {tags.length === 0 && <span style={{ fontSize: 12, color: "var(--ink-dim)" }}>No hay etiquetas. Créalas en Etiquetas.</span>}
-                {tags.map((t) => {
-                  const on = selTags.includes(t.id);
-                  return (
-                    <button
-                      key={t.id}
-                      type="button"
-                      onClick={() => toggleTag(t.id)}
-                      className={`admin-btn admin-btn-sm ${on ? "admin-btn-primary" : "admin-btn-ghost"}`}
-                    >
-                      {t.emoji ? `${t.emoji} ` : ""}{t.label}
-                    </button>
-                  );
-                })}
+              <div className="admin-form-row">
+                <label className="admin-label">Categoría</label>
+                <select className="admin-input" value={form.category_id}
+                  onChange={(e) => setForm({ ...form, category_id: e.target.value })}>
+                  <option value="">— Seleccionar —</option>
+                  {categories.map((c) => <option key={c.id} value={c.id}>{c.emoji} {c.label}</option>)}
+                </select>
+              </div>
+              <div className="admin-form-row span-2">
+                <label className="admin-label">Aliases (separados por coma)</label>
+                <input className="admin-input" value={aliasInput}
+                  onChange={(e) => setAliasInput(e.target.value)}
+                  placeholder="papa jones, papajohns" />
+              </div>
+              <div className="admin-form-row span-2">
+                <label className="admin-label">Etiquetas {selTags.length > 0 && <span style={{ color: "var(--ink-dim)", fontSize: 11 }}>({selTags.length})</span>}</label>
+                <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
+                  {tags.length === 0 && <span style={{ fontSize: 12, color: "var(--ink-dim)" }}>No hay etiquetas. Créalas en Etiquetas.</span>}
+                  {tags.map((t) => {
+                    const on = selTags.includes(t.id);
+                    return (
+                      <button
+                        key={t.id}
+                        type="button"
+                        onClick={() => toggleTag(t.id)}
+                        className={`admin-btn admin-btn-sm ${on ? "admin-btn-primary" : "admin-btn-ghost"}`}
+                      >
+                        {t.emoji ? `${t.emoji} ` : ""}{t.label}
+                      </button>
+                    );
+                  })}
+                </div>
               </div>
             </div>
-          </div>
-          <div className="admin-form-actions">
-            <button className="admin-btn admin-btn-primary" onClick={save} disabled={saving}>
-              {saving ? "Guardando…" : "Guardar"}
-            </button>
-            <button className="admin-btn admin-btn-ghost" onClick={() => setForm(null)}>Cancelar</button>
+            <div className="admin-form-actions" style={{ marginTop: 20 }}>
+              <button className="admin-btn admin-btn-primary" onClick={save} disabled={saving}>
+                {saving ? "Guardando…" : "Guardar"}
+              </button>
+              <button className="admin-btn admin-btn-ghost" onClick={() => setForm(null)} disabled={saving}>Cancelar</button>
+            </div>
           </div>
         </div>
       )}

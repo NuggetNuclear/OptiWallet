@@ -244,248 +244,250 @@ export default function PromotionsPage() {
       {success && <div className="admin-success">{success}</div>}
 
       {form && (
-        <div className="admin-card" style={{ marginBottom: 24 }}>
-          <p className="admin-card-title">{isNew ? "Nueva promoción" : `Editar: ${form.id}`}</p>
-
-          <fieldset className="admin-fieldset">
-            <legend className="admin-fieldset-legend">Identidad</legend>
-          <div className="admin-form-grid">
-            {isNew && (
+        <div className="admin-modal-overlay" onClick={() => !saving && setForm(null)}>
+          <div className="admin-modal" style={{ width: 640 }} onClick={(e) => e.stopPropagation()}>
+            <h2 className="admin-modal-title">{isNew ? "Nueva promoción" : `Editar: ${form.id}`}</h2>
+  
+            <fieldset className="admin-fieldset">
+              <legend className="admin-fieldset-legend">Identidad</legend>
+            <div className="admin-form-grid">
+              {isNew && (
+                <div className="admin-form-row">
+                  <label className="admin-label">ID (slug)</label>
+                  <input className="admin-input" value={form.id}
+                    onChange={(e) => setForm({ ...form, id: e.target.value })} />
+                </div>
+              )}
               <div className="admin-form-row">
-                <label className="admin-label">ID (slug)</label>
-                <input className="admin-input" value={form.id}
-                  onChange={(e) => setForm({ ...form, id: e.target.value })} />
+                <label className="admin-label">Banco</label>
+                <select className="admin-input" value={form.bank_id}
+                  onChange={(e) => setBank(e.target.value)}>
+                  <option value="">— Seleccionar —</option>
+                  {banks.map((b) => <option key={b.id} value={b.id}>{b.name}</option>)}
+                </select>
               </div>
-            )}
-            <div className="admin-form-row">
-              <label className="admin-label">Banco</label>
-              <select className="admin-input" value={form.bank_id}
-                onChange={(e) => setBank(e.target.value)}>
-                <option value="">— Seleccionar —</option>
-                {banks.map((b) => <option key={b.id} value={b.id}>{b.name}</option>)}
-              </select>
-            </div>
-            <div className="admin-form-row">
-              <label className="admin-label">Comercio</label>
-              <select className="admin-input" value={form.merchant_id}
-                onChange={(e) => setForm({ ...form, merchant_id: e.target.value })}>
-                <option value="">— Seleccionar —</option>
-                {merchants.map((m) => <option key={m.id} value={m.id}>{m.name}</option>)}
-              </select>
-            </div>
-          </div>
-          </fieldset>
-
-          <fieldset className="admin-fieldset">
-            <legend className="admin-fieldset-legend">Descuento</legend>
-          <div className="admin-form-grid">
-            <div className="admin-form-row span-2">
-              <label className="admin-label">Tipo de descuento</label>
-              <div className="admin-check-group" style={{ flexDirection: "row", gap: 16 }}>
-                <label className="admin-check-row">
-                  <input
-                    type="radio"
-                    name="discount_type"
-                    checked={form.discount !== null}
-                    onChange={() => setForm({ ...form, discount: 10, discount_per_unit: null, discount_unit: null })}
-                  />
-                  % Porcentaje
-                </label>
-                <label className="admin-check-row">
-                  <input
-                    type="radio"
-                    name="discount_type"
-                    checked={form.discount_unit === "liter"}
-                    onChange={() => setForm({ ...form, discount: null, discount_per_unit: 100, discount_unit: "liter" })}
-                  />
-                  $/litro (bencina por app)
-                </label>
-              </div>
-            </div>
-            {form.discount !== null ? (
               <div className="admin-form-row">
-                <label className="admin-label">Descuento (%)</label>
-                <input className="admin-input" type="number" min={1} max={100}
-                  value={form.discount} onChange={(e) => setForm({ ...form, discount: +e.target.value })} />
+                <label className="admin-label">Comercio</label>
+                <select className="admin-input" value={form.merchant_id}
+                  onChange={(e) => setForm({ ...form, merchant_id: e.target.value })}>
+                  <option value="">— Seleccionar —</option>
+                  {merchants.map((m) => <option key={m.id} value={m.id}>{m.name}</option>)}
+                </select>
               </div>
-            ) : (
+            </div>
+            </fieldset>
+  
+            <fieldset className="admin-fieldset">
+              <legend className="admin-fieldset-legend">Descuento</legend>
+            <div className="admin-form-grid">
+              <div className="admin-form-row span-2">
+                <label className="admin-label">Tipo de descuento</label>
+                <div className="admin-check-group" style={{ flexDirection: "row", gap: 16 }}>
+                  <label className="admin-check-row">
+                    <input
+                      type="radio"
+                      name="discount_type"
+                      checked={form.discount !== null}
+                      onChange={() => setForm({ ...form, discount: 10, discount_per_unit: null, discount_unit: null })}
+                    />
+                    % Porcentaje
+                  </label>
+                  <label className="admin-check-row">
+                    <input
+                      type="radio"
+                      name="discount_type"
+                      checked={form.discount_unit === "liter"}
+                      onChange={() => setForm({ ...form, discount: null, discount_per_unit: 100, discount_unit: "liter" })}
+                    />
+                    $/litro (bencina por app)
+                  </label>
+                </div>
+              </div>
+              {form.discount !== null ? (
+                <div className="admin-form-row">
+                  <label className="admin-label">Descuento (%)</label>
+                  <input className="admin-input" type="number" min={1} max={100}
+                    value={form.discount} onChange={(e) => setForm({ ...form, discount: +e.target.value })} />
+                </div>
+              ) : (
+                <div className="admin-form-row">
+                  <label className="admin-label">Descuento por litro (CLP)</label>
+                  <input className="admin-input" type="number" min={1}
+                    placeholder="ej. 100"
+                    value={form.discount_per_unit ?? ""}
+                    onChange={(e) => setForm({ ...form, discount_per_unit: e.target.value ? +e.target.value : null })} />
+                </div>
+              )}
               <div className="admin-form-row">
-                <label className="admin-label">Descuento por litro (CLP)</label>
-                <input className="admin-input" type="number" min={1}
-                  placeholder="ej. 100"
-                  value={form.discount_per_unit ?? ""}
-                  onChange={(e) => setForm({ ...form, discount_per_unit: e.target.value ? +e.target.value : null })} />
+                <label className="admin-label">Tope (CLP, opcional)</label>
+                <input className="admin-input" type="number" min={0}
+                  value={form.cap ?? ""} onChange={(e) => setForm({ ...form, cap: e.target.value ? +e.target.value : null })} />
               </div>
-            )}
-            <div className="admin-form-row">
-              <label className="admin-label">Tope (CLP, opcional)</label>
-              <input className="admin-input" type="number" min={0}
-                value={form.cap ?? ""} onChange={(e) => setForm({ ...form, cap: e.target.value ? +e.target.value : null })} />
+              <div className="admin-form-row">
+                <label className="admin-label">Compra mínima (CLP, opcional)</label>
+                <input className="admin-input" type="number" min={0}
+                  value={form.min_purchase ?? ""} onChange={(e) => setForm({ ...form, min_purchase: e.target.value ? +e.target.value : null })} />
+              </div>
+              <div className="admin-form-row">
+                <label className="admin-label">Modalidad</label>
+                <select className="admin-input" value={form.modality}
+                  onChange={(e) => setForm({ ...form, modality: e.target.value })}>
+                  <option value="presencial">Presencial</option>
+                  <option value="online">Online</option>
+                  <option value="both">Ambas</option>
+                </select>
+              </div>
             </div>
-            <div className="admin-form-row">
-              <label className="admin-label">Compra mínima (CLP, opcional)</label>
-              <input className="admin-input" type="number" min={0}
-                value={form.min_purchase ?? ""} onChange={(e) => setForm({ ...form, min_purchase: e.target.value ? +e.target.value : null })} />
+            </fieldset>
+  
+            <fieldset className="admin-fieldset">
+              <legend className="admin-fieldset-legend">Vigencia y origen</legend>
+            <div className="admin-form-grid">
+              <div className="admin-form-row">
+                <label className="admin-label">Inicio vigencia</label>
+                <input className="admin-input" type="date"
+                  value={form.start_date ?? ""} onChange={(e) => setForm({ ...form, start_date: e.target.value || null })} />
+              </div>
+              <div className="admin-form-row">
+                <label className="admin-label">Fin vigencia</label>
+                <input className="admin-input" type="date"
+                  value={form.end_date ?? ""} onChange={(e) => setForm({ ...form, end_date: e.target.value || null })} />
+              </div>
+              <div className="admin-form-row">
+                <label className="admin-label">Código (opcional)</label>
+                <input className="admin-input" value={form.code ?? ""}
+                  onChange={(e) => setForm({ ...form, code: e.target.value || null })} />
+              </div>
+              <div className="admin-form-row">
+                <label className="admin-label">Fuente</label>
+                <input className="admin-input" value={form.source}
+                  onChange={(e) => setForm({ ...form, source: e.target.value })} />
+              </div>
+              <div className="admin-form-row">
+                <label className="admin-label">Verificado el</label>
+                <input className="admin-input" type="date" value={form.verified_at}
+                  onChange={(e) => setForm({ ...form, verified_at: e.target.value })} />
+              </div>
+              <div className="admin-form-row span-2">
+                <label className="admin-label">Condiciones (opcional)</label>
+                <textarea className="admin-input" value={form.conditions ?? ""} rows={2}
+                  onChange={(e) => setForm({ ...form, conditions: e.target.value || null })} />
+              </div>
             </div>
-            <div className="admin-form-row">
-              <label className="admin-label">Modalidad</label>
-              <select className="admin-input" value={form.modality}
-                onChange={(e) => setForm({ ...form, modality: e.target.value })}>
-                <option value="presencial">Presencial</option>
-                <option value="online">Online</option>
-                <option value="both">Ambas</option>
-              </select>
+            </fieldset>
+  
+            <fieldset className="admin-fieldset">
+              <legend className="admin-fieldset-legend">Tarjetas</legend>
+            <div style={{ marginBottom: 16 }}>
+              <label className="admin-label">Tipos de tarjeta</label>
+              <div className="admin-check-group">
+                {["credit", "debit", "prepaid"].map((t) => (
+                  <label key={t} className="admin-check-row">
+                    <input type="checkbox" checked={form.card_types.includes(t)} onChange={() => toggleCardType(t)} />
+                    {CARD_TYPE_LABEL(t)}
+                  </label>
+                ))}
+              </div>
             </div>
-          </div>
-          </fieldset>
-
-          <fieldset className="admin-fieldset">
-            <legend className="admin-fieldset-legend">Vigencia y origen</legend>
-          <div className="admin-form-grid">
-            <div className="admin-form-row">
-              <label className="admin-label">Inicio vigencia</label>
-              <input className="admin-input" type="date"
-                value={form.start_date ?? ""} onChange={(e) => setForm({ ...form, start_date: e.target.value || null })} />
+  
+            {/* ─── Tarjeta única: restringir a tarjetas específicas ───────────── */}
+            <div
+              style={{
+                marginBottom: 16,
+                border: "1px solid var(--line)",
+                borderRadius: 10,
+                padding: 14,
+                background: form.card_ids.length > 0 ? "rgba(212,255,58,0.04)" : "transparent",
+              }}
+            >
+              <label className="admin-check-row" style={{ marginBottom: form.card_ids.length > 0 ? 12 : 0 }}>
+                <input
+                  type="checkbox"
+                  checked={form.card_ids.length > 0}
+                  disabled={!form.bank_id}
+                  onChange={(e) => {
+                    if (!form) return;
+                    if (e.target.checked) {
+                      // Pre-seleccionar la primera tarjeta del banco para que el check tenga efecto.
+                      const first = cards.find((c) => c.bank_id === form.bank_id);
+                      setForm({ ...form, card_ids: first ? [first.id] : [] });
+                    } else {
+                      setForm({ ...form, card_ids: [] });
+                    }
+                  }}
+                />
+                Solo para tarjetas específicas
+                <span style={{ fontSize: 11, color: "var(--ink-dim)", fontFamily: "var(--font-jetbrains)" }}>
+                  (ej. solo la Mastercard Black — ignora el filtro por tipo)
+                </span>
+              </label>
+  
+              {!form.bank_id && (
+                <p style={{ fontSize: 11, color: "var(--ink-dim)", margin: 0 }}>
+                  Selecciona un banco primero para elegir sus tarjetas.
+                </p>
+              )}
+  
+              {form.card_ids.length > 0 && form.bank_id && (
+                <div className="admin-check-group" style={{ marginTop: 4 }}>
+                  {cards.filter((c) => c.bank_id === form.bank_id).length === 0 ? (
+                    <p style={{ fontSize: 12, color: "var(--ink-dim)", margin: 0 }}>
+                      Este banco no tiene tarjetas cargadas.
+                    </p>
+                  ) : (
+                    cards
+                      .filter((c) => c.bank_id === form.bank_id)
+                      .map((c) => (
+                        <label key={c.id} className="admin-check-row">
+                          <input
+                            type="checkbox"
+                            checked={form.card_ids.includes(c.id)}
+                            onChange={() => toggleCardId(c.id)}
+                          />
+                          {c.name}
+                          <span style={{ fontSize: 10, color: "var(--ink-dim)", fontFamily: "var(--font-jetbrains)", textTransform: "uppercase" }}>
+                            {CARD_TYPE_LABEL(c.type)}
+                          </span>
+                        </label>
+                      ))
+                  )}
+                </div>
+              )}
             </div>
-            <div className="admin-form-row">
-              <label className="admin-label">Fin vigencia</label>
-              <input className="admin-input" type="date"
-                value={form.end_date ?? ""} onChange={(e) => setForm({ ...form, end_date: e.target.value || null })} />
+  
+            </fieldset>
+  
+            <fieldset className="admin-fieldset">
+              <legend className="admin-fieldset-legend">Disponibilidad</legend>
+            <div style={{ marginBottom: 16 }}>
+              <label className="admin-label">Días de la semana (vacío = todos)</label>
+              <div className="admin-check-group">
+                {DAYS.map((d, i) => (
+                  <label key={i} className="admin-check-row" style={{ fontSize: 12 }}>
+                    <input type="checkbox" checked={form.days_of_week.includes(i)} onChange={() => toggleDay(i)} />
+                    {d}
+                  </label>
+                ))}
+              </div>
             </div>
-            <div className="admin-form-row">
-              <label className="admin-label">Código (opcional)</label>
-              <input className="admin-input" value={form.code ?? ""}
-                onChange={(e) => setForm({ ...form, code: e.target.value || null })} />
-            </div>
-            <div className="admin-form-row">
-              <label className="admin-label">Fuente</label>
-              <input className="admin-input" value={form.source}
-                onChange={(e) => setForm({ ...form, source: e.target.value })} />
-            </div>
-            <div className="admin-form-row">
-              <label className="admin-label">Verificado el</label>
-              <input className="admin-input" type="date" value={form.verified_at}
-                onChange={(e) => setForm({ ...form, verified_at: e.target.value })} />
-            </div>
-            <div className="admin-form-row span-2">
-              <label className="admin-label">Condiciones (opcional)</label>
-              <textarea className="admin-input" value={form.conditions ?? ""} rows={2}
-                onChange={(e) => setForm({ ...form, conditions: e.target.value || null })} />
-            </div>
-          </div>
-          </fieldset>
-
-          <fieldset className="admin-fieldset">
-            <legend className="admin-fieldset-legend">Tarjetas</legend>
-          <div style={{ marginBottom: 16 }}>
-            <label className="admin-label">Tipos de tarjeta</label>
-            <div className="admin-check-group">
-              {["credit", "debit", "prepaid"].map((t) => (
-                <label key={t} className="admin-check-row">
-                  <input type="checkbox" checked={form.card_types.includes(t)} onChange={() => toggleCardType(t)} />
-                  {CARD_TYPE_LABEL(t)}
-                </label>
-              ))}
-            </div>
-          </div>
-
-          {/* ─── Tarjeta única: restringir a tarjetas específicas ───────────── */}
-          <div
-            style={{
-              marginBottom: 16,
-              border: "1px solid var(--line)",
-              borderRadius: 10,
-              padding: 14,
-              background: form.card_ids.length > 0 ? "rgba(212,255,58,0.04)" : "transparent",
-            }}
-          >
-            <label className="admin-check-row" style={{ marginBottom: form.card_ids.length > 0 ? 12 : 0 }}>
-              <input
-                type="checkbox"
-                checked={form.card_ids.length > 0}
-                disabled={!form.bank_id}
-                onChange={(e) => {
-                  if (!form) return;
-                  if (e.target.checked) {
-                    // Pre-seleccionar la primera tarjeta del banco para que el check tenga efecto.
-                    const first = cards.find((c) => c.bank_id === form.bank_id);
-                    setForm({ ...form, card_ids: first ? [first.id] : [] });
-                  } else {
-                    setForm({ ...form, card_ids: [] });
-                  }
-                }}
-              />
-              Solo para tarjetas específicas
-              <span style={{ fontSize: 11, color: "var(--ink-dim)", fontFamily: "var(--font-jetbrains)" }}>
-                (ej. solo la Mastercard Black — ignora el filtro por tipo)
-              </span>
+  
+            <label className="admin-check-row" style={{ marginBottom: 16 }}>
+              <input type="checkbox" checked={form.active} onChange={(e) => setForm({ ...form, active: e.target.checked })} />
+              Activa
             </label>
-
-            {!form.bank_id && (
-              <p style={{ fontSize: 11, color: "var(--ink-dim)", margin: 0 }}>
-                Selecciona un banco primero para elegir sus tarjetas.
-              </p>
-            )}
-
-            {form.card_ids.length > 0 && form.bank_id && (
-              <div className="admin-check-group" style={{ marginTop: 4 }}>
-                {cards.filter((c) => c.bank_id === form.bank_id).length === 0 ? (
-                  <p style={{ fontSize: 12, color: "var(--ink-dim)", margin: 0 }}>
-                    Este banco no tiene tarjetas cargadas.
-                  </p>
-                ) : (
-                  cards
-                    .filter((c) => c.bank_id === form.bank_id)
-                    .map((c) => (
-                      <label key={c.id} className="admin-check-row">
-                        <input
-                          type="checkbox"
-                          checked={form.card_ids.includes(c.id)}
-                          onChange={() => toggleCardId(c.id)}
-                        />
-                        {c.name}
-                        <span style={{ fontSize: 10, color: "var(--ink-dim)", fontFamily: "var(--font-jetbrains)", textTransform: "uppercase" }}>
-                          {CARD_TYPE_LABEL(c.type)}
-                        </span>
-                      </label>
-                    ))
-                )}
-              </div>
-            )}
-          </div>
-
-          </fieldset>
-
-          <fieldset className="admin-fieldset">
-            <legend className="admin-fieldset-legend">Disponibilidad</legend>
-          <div style={{ marginBottom: 16 }}>
-            <label className="admin-label">Días de la semana (vacío = todos)</label>
-            <div className="admin-check-group">
-              {DAYS.map((d, i) => (
-                <label key={i} className="admin-check-row" style={{ fontSize: 12 }}>
-                  <input type="checkbox" checked={form.days_of_week.includes(i)} onChange={() => toggleDay(i)} />
-                  {d}
-                </label>
-              ))}
+  
+            <label className="admin-check-row" style={{ marginBottom: 16 }}>
+              <input type="checkbox" checked={form.stackable} onChange={(e) => setForm({ ...form, stackable: e.target.checked })} />
+              Apilable <span style={{ fontSize: 11, color: "var(--ink-dim)", fontFamily: "var(--font-jetbrains)" }}>(puede combinarse con otras promos simultáneamente)</span>
+            </label>
+            </fieldset>
+  
+            <div className="admin-form-actions" style={{ marginTop: 20 }}>
+              <button className="admin-btn admin-btn-primary" onClick={save} disabled={saving}>
+                {saving ? "Guardando…" : "Guardar"}
+              </button>
+              <button className="admin-btn admin-btn-ghost" onClick={() => setForm(null)} disabled={saving}>Cancelar</button>
             </div>
-          </div>
-
-          <label className="admin-check-row" style={{ marginBottom: 16 }}>
-            <input type="checkbox" checked={form.active} onChange={(e) => setForm({ ...form, active: e.target.checked })} />
-            Activa
-          </label>
-
-          <label className="admin-check-row" style={{ marginBottom: 16 }}>
-            <input type="checkbox" checked={form.stackable} onChange={(e) => setForm({ ...form, stackable: e.target.checked })} />
-            Apilable <span style={{ fontSize: 11, color: "var(--ink-dim)", fontFamily: "var(--font-jetbrains)" }}>(puede combinarse con otras promos simultáneamente)</span>
-          </label>
-          </fieldset>
-
-          <div className="admin-form-actions">
-            <button className="admin-btn admin-btn-primary" onClick={save} disabled={saving}>
-              {saving ? "Guardando…" : "Guardar"}
-            </button>
-            <button className="admin-btn admin-btn-ghost" onClick={() => setForm(null)}>Cancelar</button>
           </div>
         </div>
       )}

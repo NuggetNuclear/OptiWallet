@@ -83,44 +83,46 @@ export default function CardsPage() {
       {success && <div className="admin-success">{success}</div>}
 
       {form && (
-        <div className="admin-card" style={{ marginBottom: 24 }}>
-          <p className="admin-card-title">{isNew ? "Nueva tarjeta" : `Editar: ${form.id}`}</p>
-          <div className="admin-form-grid">
-            {isNew && (
+        <div className="admin-modal-overlay" onClick={() => !saving && setForm(null)}>
+          <div className="admin-modal" style={{ width: 520 }} onClick={(e) => e.stopPropagation()}>
+            <h2 className="admin-modal-title">{isNew ? "Nueva tarjeta" : `Editar: ${form.id}`}</h2>
+            <div className="admin-form-grid">
+              {isNew && (
+                <div className="admin-form-row">
+                  <label className="admin-label">ID (slug)</label>
+                  <input className="admin-input" value={form.id}
+                    onChange={(e) => setForm({ ...form, id: e.target.value })} placeholder="bci-credit" />
+                </div>
+              )}
               <div className="admin-form-row">
-                <label className="admin-label">ID (slug)</label>
-                <input className="admin-input" value={form.id}
-                  onChange={(e) => setForm({ ...form, id: e.target.value })} placeholder="bci-credit" />
+                <label className="admin-label">Nombre</label>
+                <input className="admin-input" value={form.name}
+                  onChange={(e) => setForm({ ...form, name: e.target.value })} />
               </div>
-            )}
-            <div className="admin-form-row">
-              <label className="admin-label">Nombre</label>
-              <input className="admin-input" value={form.name}
-                onChange={(e) => setForm({ ...form, name: e.target.value })} />
+              <div className="admin-form-row">
+                <label className="admin-label">Banco</label>
+                <select className="admin-input" value={form.bank_id}
+                  onChange={(e) => setForm({ ...form, bank_id: e.target.value })}>
+                  <option value="">— Seleccionar —</option>
+                  {banks.map((b) => <option key={b.id} value={b.id}>{b.name}</option>)}
+                </select>
+              </div>
+              <div className="admin-form-row">
+                <label className="admin-label">Tipo</label>
+                <select className="admin-input" value={form.type}
+                  onChange={(e) => setForm({ ...form, type: e.target.value as "credit" | "debit" | "prepaid" })}>
+                  <option value="credit">Crédito</option>
+                  <option value="debit">Débito</option>
+                  <option value="prepaid">Prepago</option>
+                </select>
+              </div>
             </div>
-            <div className="admin-form-row">
-              <label className="admin-label">Banco</label>
-              <select className="admin-input" value={form.bank_id}
-                onChange={(e) => setForm({ ...form, bank_id: e.target.value })}>
-                <option value="">— Seleccionar —</option>
-                {banks.map((b) => <option key={b.id} value={b.id}>{b.name}</option>)}
-              </select>
+            <div className="admin-form-actions" style={{ marginTop: 20 }}>
+              <button className="admin-btn admin-btn-primary" onClick={save} disabled={saving}>
+                {saving ? "Guardando…" : "Guardar"}
+              </button>
+              <button className="admin-btn admin-btn-ghost" onClick={() => setForm(null)} disabled={saving}>Cancelar</button>
             </div>
-            <div className="admin-form-row">
-              <label className="admin-label">Tipo</label>
-              <select className="admin-input" value={form.type}
-                onChange={(e) => setForm({ ...form, type: e.target.value as "credit" | "debit" | "prepaid" })}>
-                <option value="credit">Crédito</option>
-                <option value="debit">Débito</option>
-                <option value="prepaid">Prepago</option>
-              </select>
-            </div>
-          </div>
-          <div className="admin-form-actions">
-            <button className="admin-btn admin-btn-primary" onClick={save} disabled={saving}>
-              {saving ? "Guardando…" : "Guardar"}
-            </button>
-            <button className="admin-btn admin-btn-ghost" onClick={() => setForm(null)}>Cancelar</button>
           </div>
         </div>
       )}
