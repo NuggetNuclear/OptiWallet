@@ -20,6 +20,9 @@ export default function AdminUsersPage() {
   const [deleting, setDeleting] = useState<string | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<AdminUser | null>(null);
   const [error, setError] = useState("");
+  // Quién soy: gobierna qué acciones de gestión se muestran (root vs. no-root).
+  const [me, setMe] = useState<{ id: string; is_root: boolean } | null>(null);
+  const isRoot = me?.is_root ?? false;
 
   async function load() {
     const res = await fetch("/api/admin/users");
@@ -27,7 +30,13 @@ export default function AdminUsersPage() {
     setLoading(false);
   }
 
-  useEffect(() => { (async () => { await load(); })(); }, []);
+  useEffect(() => {
+    (async () => {
+      const meRes = await fetch("/api/admin/auth/me");
+      if (meRes.ok) setMe(await meRes.json());
+      await load();
+    })();
+  }, []);
 
   async function doDelete() {
     if (!deleteTarget) return;
@@ -60,9 +69,11 @@ export default function AdminUsersPage() {
           <h1 className="admin-title">Administradores</h1>
           <p className="admin-subtitle">Cuentas con acceso al panel</p>
         </div>
-        <Link href="/admin/users/new">
-          <button className="admin-btn admin-btn-primary">+ Nuevo admin</button>
-        </Link>
+        {isRoot && (
+          <Link href="/admin/users/new">
+            <button className="admin-btn admin-btn-primary">+ Nuevo admin</button>
+          </Link>
+        )}
       </div>
 
       {error && <div className="admin-error">{error}</div>}
@@ -104,14 +115,32 @@ export default function AdminUsersPage() {
                   </td>
                   <td>
                     <div className="admin-actions">
-                      <Link href={`/admin/users/${u.id}`}>
-                        <button className="admin-btn admin-btn-ghost admin-btn-sm">Editar</button>
-                      </Link>
+                      {/* Editar: root gestiona a cualquiera; un no-root solo a sí mismo. */}
+                      {isRoot || u.id === me?.id ? (
+                        <Link href={`/admin/users/${u.id}`}>
+                          <button className="admin-btn admin-btn-ghost admin-btn-sm">Editar</button>
+                        </Link>
+                      ) : (
+                        <button
+                          className="admin-btn admin-btn-ghost admin-btn-sm"
+                          disabled
+                          title="Solo un administrador raíz puede gestionar otras cuentas"
+                        >
+                          Editar
+                        </button>
+                      )}
+                      {/* Eliminar: solo root, nunca a una cuenta raíz ni a sí mismo. */}
                       <button
                         className="admin-btn admin-btn-danger admin-btn-sm"
                         onClick={() => setDeleteTarget(u)}
-                        disabled={u.is_root}
-                        title={u.is_root ? "Administrador raíz — no se puede eliminar" : undefined}
+                        disabled={!isRoot || u.is_root || u.id === me?.id}
+                        title={
+                          u.is_root
+                            ? "Administrador raíz — no se puede eliminar"
+                            : !isRoot
+                              ? "Solo un administrador raíz puede eliminar cuentas"
+                              : undefined
+                        }
                       >
                         Eliminar
                       </button>

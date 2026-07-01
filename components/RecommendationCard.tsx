@@ -300,17 +300,16 @@ export function GroupedAlternativeCard({
   useEffect(() => {
     if (!hasFiredRef.current) {
       hasFiredRef.current = true;
-      // Register views for all cards in the group
-      cards.forEach((card) => {
-        events.promotionViewed({
-          promotionId: promotion.id,
-          merchantId: merchant.id || "",
-          bankId: bankId,
-          location: "alternative",
-        });
+      // Una impresión por grupo (no una por tarjeta): la promo es la misma,
+      // duplicar el evento por cada tarjeta inflaba las vistas.
+      events.promotionViewed({
+        promotionId: promotion.id,
+        merchantId: merchant.id || "",
+        bankId: bankId,
+        location: "alternative",
       });
     }
-  }, [promotion.id, merchant.id, cards, bankId]);
+  }, [promotion.id, merchant.id, bankId]);
 
   return (
     <div className="rounded-2xl border border-line bg-bg-2 overflow-hidden transition-colors hover:border-line-strong">

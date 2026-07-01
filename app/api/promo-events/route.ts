@@ -1,6 +1,13 @@
 import { sql } from "@/lib/db";
 import { isValidId } from "@/lib/validate";
+import { clientIp, fixedWindowRateLimit } from "@/lib/rate-limit";
 import { NextRequest, NextResponse } from "next/server";
+
+// Cuántos eventos aceptamos por sesión (o IP) por minuto. Una carga del feed
+// dispara ~15-30 'view'; 120/min deja margen holgado para uso real y corta
+// floods sintéticos que inflarían el ranking (fase 3) o la tabla.
+const RATE_LIMIT = 120;
+const RATE_WINDOW_MS = 60_000;
 
 // POST /api/promo-events
 // Registra una impresión ('view') o tap ('tap') de una promoción.
@@ -51,6 +58,12 @@ export async function POST(req: NextRequest) {
     typeof sessionId === "string" && sessionId.length <= 128
       ? sessionId
       : null;
+
+  // Rate limit por sesión (fallback a IP si no viene sessionId). Silencioso:
+  // devolvemos 204 igual que el resto — el cliente es fire-and-forget.
+  if (fixedWindowRateLimit(`promo-events:${sid ?? clientIp(req)}`, RATE_LIMIT, RATE_WINDOW_MS)) {
+    return new NextResponse(null, { status: 204 });
+  }
 
   try {
     await sql`

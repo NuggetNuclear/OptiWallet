@@ -4,13 +4,17 @@ import { encryptSecret } from "@/lib/admin-crypto";
 import { requireAdmin, clientIp } from "@/lib/admin-guard";
 import { logAdminAction } from "@/lib/admin-log";
 import QRCode from "qrcode";
+import { randomBytes } from "node:crypto";
 import { NextRequest, NextResponse } from "next/server";
 
 const NO_CACHE = { "Cache-Control": "no-store" };
 
 function slugify(email: string): string {
-  const prefix = email.split("@")[0].toLowerCase().replace(/[^a-z0-9]/g, "-");
-  const suffix = Math.random().toString(36).slice(2, 6);
+  // Cap the prefix so the final id stays within the 64-char id limit
+  // ("admin-" + 40 + "-" + 6 = 52). Crypto-random suffix (not Math.random) so
+  // ids aren't guessable and collisions are astronomically unlikely.
+  const prefix = email.split("@")[0].toLowerCase().replace(/[^a-z0-9]/g, "-").slice(0, 40);
+  const suffix = randomBytes(3).toString("hex");
   return `admin-${prefix}-${suffix}`;
 }
 
@@ -36,6 +40,10 @@ export async function POST(req: NextRequest) {
   if (!session) {
     return NextResponse.json({ error: "No autorizado" }, { status: 401, headers: NO_CACHE });
   }
+  // Crear administradores es una acción reservada al admin raíz.
+  if (!session.is_root) {
+    return NextResponse.json({ error: "Solo un administrador raíz puede crear cuentas" }, { status: 403, headers: NO_CACHE });
+  }
   try {
     const body = await req.json().catch(() => null);
     const { email, password } = body ?? {};
@@ -52,7 +60,14 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "Ya existe un admin con ese email" }, { status: 409, headers: NO_CACHE });
     }
 
-    const id           = slugify(email);
+    // Generate a unique id (crypto-random suffix); retry on the vanishingly rare
+    // collision instead of surfacing a PK violation as a 500.
+    let id = slugify(email);
+    for (let attempt = 0; attempt < 5; attempt++) {
+      const clash = await sql`SELECT 1 FROM admin_users WHERE id = ${id}`;
+      if (!clash.length) break;
+      id = slugify(email);
+    }
     const passwordHash = await hashPassword(password);
     const totpSecret   = generateTotpSecret();
     const totpUri      = generateTotpUri(email, totpSecret);

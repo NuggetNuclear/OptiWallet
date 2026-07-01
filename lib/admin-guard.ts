@@ -19,13 +19,18 @@ import "server-only";
 import { NextRequest } from "next/server";
 import { sql } from "./db";
 import { getAdminFromRequest } from "./admin-session";
-import type { AdminSessionPayload } from "./admin-types";
+import type { AdminContext } from "./admin-types";
+
+// clientIp lives in the dependency-free rate-limit module now; re-exported here
+// so existing `import { clientIp } from "@/lib/admin-guard"` callers keep working.
+export { clientIp } from "./rate-limit";
 
 /**
- * Returns the session payload only if the cookie is valid AND the admin still
- * exists with an active TOTP enrollment. Returns null otherwise (fail closed).
+ * Returns the admin context (session + live `is_root`) only if the cookie is
+ * valid AND the admin still exists with an active TOTP enrollment. Returns null
+ * otherwise (fail closed).
  */
-export async function requireAdmin(req: NextRequest): Promise<AdminSessionPayload | null> {
+export async function requireAdmin(req: NextRequest): Promise<AdminContext | null> {
   const session = await getAdminFromRequest(req);
   if (!session) return null;
 
@@ -44,10 +49,29 @@ export async function requireAdmin(req: NextRequest): Promise<AdminSessionPayloa
     // working — the totp check above already fails closed on any real DB error.
     if ((session.tv ?? 0) !== (await readTokenVersion(session.adminId))) return null;
 
-    return session;
+    // `is_root` is resolved fail-CLOSED (see readIsRoot): on a pre-migration DB
+    // nobody is root, so root-only actions are blocked rather than granted.
+    return { ...session, is_root: await readIsRoot(session.adminId) };
   } catch (err) {
     console.error("requireAdmin DB check failed:", err);
     return null;
+  }
+}
+
+/**
+ * Live `is_root` flag for an admin. Read separately (not in requireAdmin's main
+ * SELECT) so a pre-migration DB missing the `is_root` column doesn't throw and
+ * lock everyone out — it just fails CLOSED to `false` (no root privileges)
+ * until `npm run db:schema` adds the column. This is the opposite default from
+ * readTokenVersion (which fails open) because granting root on error would be a
+ * privilege escalation, whereas withholding it is merely restrictive.
+ */
+export async function readIsRoot(adminId: string): Promise<boolean> {
+  try {
+    const rows = await sql`SELECT is_root FROM admin_users WHERE id = ${adminId}`;
+    return Boolean((rows[0] as { is_root?: boolean } | undefined)?.is_root);
+  } catch {
+    return false; // column not migrated yet — treat as non-root
   }
 }
 
@@ -89,27 +113,6 @@ const MAX_ATTEMPTS = 5;
 const WINDOW_MS = 15 * 60 * 1000; // 15 minutes
 
 /**
- * Best-effort client IP for rate limiting.
- *
- * The LEFTMOST `X-Forwarded-For` entry is client-controllable (an attacker can
- * prepend arbitrary values), so trusting it lets them rotate it and bypass the
- * per-IP throttle. We prefer `x-real-ip` (set by Vercel's edge, not the client)
- * and otherwise fall back to the RIGHTMOST XFF hop — the one appended by the
- * closest trusted proxy, which is the hardest for the client to forge.
- */
-export function clientIp(req: NextRequest): string {
-  const realIp = req.headers.get("x-real-ip")?.trim();
-  if (realIp) return realIp;
-
-  const xff = req.headers.get("x-forwarded-for");
-  if (xff) {
-    const hops = xff.split(",").map((h) => h.trim()).filter(Boolean);
-    if (hops.length) return hops[hops.length - 1];
-  }
-  return "unknown";
-}
-
-/**
  * True if this IP has reached the failed-attempt ceiling inside the window.
  * Reused across all auth/code-verification endpoints.
  */
@@ -127,11 +130,15 @@ export async function isRateLimited(ip: string): Promise<boolean> {
 export async function recordFailedAttempt(ip: string): Promise<void> {
   await sql`INSERT INTO admin_login_attempts (ip_address) VALUES (${ip})`;
   // Opportunistic pruning: rows older than the rate-limit window are useless and
-  // would otherwise accumulate forever. Best-effort — never block the auth path.
-  try {
-    const cutoff = new Date(Date.now() - WINDOW_MS).toISOString();
-    await sql`DELETE FROM admin_login_attempts WHERE attempted_at < ${cutoff}::timestamptz`;
-  } catch (err) {
-    console.warn("admin_login_attempts prune skipped:", err);
+  // would otherwise accumulate forever. Probabilistic (~10% of calls) so a burst
+  // of failed attempts doesn't fire a full-table DELETE on every single insert.
+  // Best-effort — never block the auth path.
+  if (Math.random() < 0.1) {
+    try {
+      const cutoff = new Date(Date.now() - WINDOW_MS).toISOString();
+      await sql`DELETE FROM admin_login_attempts WHERE attempted_at < ${cutoff}::timestamptz`;
+    } catch (err) {
+      console.warn("admin_login_attempts prune skipped:", err);
+    }
   }
 }

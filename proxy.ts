@@ -9,8 +9,12 @@ export async function proxy(req: NextRequest) {
   const { pathname } = req.nextUrl;
 
   // ── 0. Maintenance mode ───────────────────────────────────────────────────
-  // El admin panel y sus APIs quedan SIEMPRE accesibles para poder desactivarlo.
+  // El admin panel queda SIEMPRE accesible para poder desactivar el modo.
   // La página /mantencion misma también se excluye para no crear un loop.
+  // Nota: el `matcher` de abajo NO incluye rutas /api/*, así que este middleware
+  // nunca corre sobre APIs — el chequeo de `/api/admin` es defensa redundante
+  // por si el matcher se amplía en el futuro (las APIs admin ya se protegen con
+  // requireAdmin(), no dependen de este guard).
   const isAdminRoute = pathname.startsWith("/admin") || pathname.startsWith("/api/admin");
   const isMaintenancePage = pathname === "/mantencion";
   const isAsset = pathname.startsWith("/_next") || pathname.startsWith("/favicon") || pathname === "/manifest.json";

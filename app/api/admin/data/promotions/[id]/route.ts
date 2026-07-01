@@ -9,6 +9,7 @@ import {
   isNonNegativeIntOrNull,
   isValidDateOrNull,
   isValidDiscountConfig,
+  isValidHttpUrl,
 } from "@/lib/validate";
 import { NextRequest, NextResponse } from "next/server";
 
@@ -70,7 +71,7 @@ export async function PATCH(req: NextRequest, { params }: Params) {
     if (has("start_date") && !isValidDateOrNull(fields.start_date)) return NextResponse.json({ error: "start_date inválida (YYYY-MM-DD)" }, { status: 400, headers: NO_CACHE });
     if (has("end_date") && !isValidDateOrNull(fields.end_date)) return NextResponse.json({ error: "end_date inválida (YYYY-MM-DD)" }, { status: 400, headers: NO_CACHE });
     if (has("verified_at") && !isValidDateOrNull(fields.verified_at)) return NextResponse.json({ error: "verified_at inválida (YYYY-MM-DD)" }, { status: 400, headers: NO_CACHE });
-    if (has("source") && (typeof fields.source !== "string" || !fields.source.trim())) return NextResponse.json({ error: "source inválido" }, { status: 400, headers: NO_CACHE });
+    if (has("source") && !isValidHttpUrl(fields.source)) return NextResponse.json({ error: "source debe ser una URL http(s) válida" }, { status: 400, headers: NO_CACHE });
     if (has("active") && typeof fields.active !== "boolean") return NextResponse.json({ error: "active inválido" }, { status: 400, headers: NO_CACHE });
     if (has("stackable") && typeof fields.stackable !== "boolean") return NextResponse.json({ error: "stackable inválido" }, { status: 400, headers: NO_CACHE });
     if (has("code") && fields.code !== null && typeof fields.code !== "string") return NextResponse.json({ error: "code inválido" }, { status: 400, headers: NO_CACHE });
