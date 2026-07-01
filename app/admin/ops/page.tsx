@@ -72,9 +72,14 @@ function MaintenancePanel() {
   const [success, setSuccess] = useState("");
 
   async function loadStatus() {
-    const r = await fetch("/api/admin/maintenance");
-    if (r.ok) setStatus(await r.json());
-    setLoading(false);
+    try {
+      const r = await fetch("/api/admin/maintenance");
+      if (r.ok) setStatus(await r.json());
+    } catch (err) {
+      console.error("Error fetching maintenance status:", err);
+    } finally {
+      setLoading(false);
+    }
   }
   useEffect(() => { loadStatus(); }, []); // eslint-disable-line react-hooks/set-state-in-effect
 
@@ -527,7 +532,11 @@ export default function OpsCenter() {
   function loadOverview() {
     fetch("/api/admin/ops/overview")
       .then((r) => (r.ok ? r.json() : null))
-      .then((d) => { setData(d); setLoading(false); });
+      .then((d) => { setData(d); setLoading(false); })
+      .catch((err) => {
+        console.error("Error fetching ops overview:", err);
+        setLoading(false);
+      });
   }
 
   useEffect(() => { loadOverview(); }, []);

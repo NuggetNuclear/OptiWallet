@@ -18,9 +18,13 @@ export default function AdminLoginPage() {
 
   // Redirect if already logged in
   useEffect(() => {
-    fetch("/api/admin/auth/me").then((r) => {
-      if (r.ok) router.replace("/admin");
-    });
+    fetch("/api/admin/auth/me")
+      .then((r) => {
+        if (r.ok) router.replace("/admin");
+      })
+      .catch(() => {
+        // Sin red: no bloqueamos el login, el usuario simplemente lo reintenta.
+      });
   }, [router]);
 
   async function submitPassword(e: React.FormEvent) {

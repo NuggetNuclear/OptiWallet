@@ -27,9 +27,14 @@ export default function TagsPage() {
   const [merging,  setMerging]  = useState(false);
 
   async function load() {
-    const r = await fetch("/api/admin/data/tags");
-    if (r.ok) setTags(await r.json());
-    setLoading(false);
+    try {
+      const r = await fetch("/api/admin/data/tags");
+      if (r.ok) setTags(await r.json());
+    } catch (err) {
+      console.error("Error fetching tags:", err);
+    } finally {
+      setLoading(false);
+    }
   }
   useEffect(() => { (async () => { await load(); })(); }, []);
 
@@ -64,17 +69,26 @@ export default function TagsPage() {
 
   async function openDelete(t: Tag) {
     setDelTarget(t);
-    const r = await fetch(`/api/admin/data/tags/${t.id}/deps`);
-    if (r.ok) setDeps(await r.json());
+    try {
+      const r = await fetch(`/api/admin/data/tags/${t.id}/deps`);
+      if (r.ok) setDeps(await r.json());
+    } catch (err) {
+      console.error("Error fetching tag dependencies:", err);
+    }
   }
 
   async function doDelete() {
     if (!delTarget) return;
     setDeleting(true);
-    const res = await fetch(`/api/admin/data/tags/${delTarget.id}?confirmed=true`, { method: "DELETE" });
-    if (res.ok) { setSuccess("Tag eliminado"); setDelTarget(null); setDeps(null); load(); }
-    else { const d = await res.json(); setError(d.error ?? "Error"); setDelTarget(null); setDeps(null); }
-    setDeleting(false);
+    try {
+      const res = await fetch(`/api/admin/data/tags/${delTarget.id}?confirmed=true`, { method: "DELETE" });
+      if (res.ok) { setSuccess("Tag eliminado"); setDelTarget(null); setDeps(null); load(); }
+      else { const d = await res.json(); setError(d.error ?? "Error"); setDelTarget(null); setDeps(null); }
+    } catch {
+      setError("Error de red"); setDelTarget(null); setDeps(null);
+    } finally {
+      setDeleting(false);
+    }
   }
 
   async function doMerge(targetId: string) {

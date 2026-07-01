@@ -10,8 +10,9 @@ tests/                          # Suite principal
 ├── admin-crypto.test.ts        # Cifrado AES-256-GCM de secretos TOTP + fail-closed
 ├── analytics.test.ts           # Wrapper Plausible: trackEvent + helpers tipados
 ├── api-client.test.ts          # Wrappers de fetch: URLs, params, códigos HTTP
+├── rate-limit.test.ts          # Limiter de ventana fija en memoria (lib/rate-limit.ts)
 ├── recommendations.test.ts     # Motor de ahorro: savings (%/litro), ranking, stacking
-├── schema.test.ts              # Integridad de scripts/schema.sql
+├── schema.test.ts              # Integridad de scripts/schema.sql (incl. merchant_tags, merchant_tag_map, promo_reports)
 ├── standalone.test.ts          # Detección PWA standalone + sincronización de cookie
 └── validate.test.ts            # Sanitización de IDs + validadores de writes admin
 
@@ -45,10 +46,17 @@ node --test tests/validate.test.ts   # un archivo específico
 - **rankRecommendations**: lista vacía, 1 elemento, sin monto (ordena por %), con monto bajo/alto (CLP real), desempate por %, excluida por minPurchase, todas con savings=0, inmutabilidad; contexto por litros y promos mixtas (litros activan el contexto, desempate por valor bruto)
 - **calculateStackedSavings**: amount=0, promos vacías, una promo, cascada correcta, excluida en remanente, tope en cascada, tope=0, todas excluidas, inmutabilidad, ignora no-apilables, promo por-litro no reduce el monto base
 
-### `lib/api-client.ts` — 24 tests
-- **URLs**: cada endpoint con sus variantes (sin/con params opcionales, cardIds múltiples/único, merchantId presente/ausente, encoding de caracteres especiales)
+### `lib/api-client.ts` — 30 tests
+- **URLs**: cada endpoint con sus variantes (sin/con params opcionales, cardIds múltiples/único, merchantId presente/ausente, encoding de caracteres especiales), incl. `getTagsFromApi` y el query param `?tags=` de `getMerchantsFromApi`
 - **Fecha local vs UTC**: `getRecommendationsFromApi` a las 23:30 → debe producir fecha de hoy, no del día siguiente
 - **HTTP errors**: 404 en `getMerchantByIdFromApi` → null; 404/422/500/503 en el resto → `throw Error("API error N")`
+- **Reportes**: `createPromoReport` / `updatePromoReport` — construcción del body y manejo de respuesta
+
+### `lib/rate-limit.ts` — ventana fija en memoria
+- **`fixedWindowRateLimit`**: permite hasta `limit` llamadas y bloquea desde `limit+1`; cada `key` se cuenta por separado (no hay cross-talk entre sesiones/IPs); `limit: 0` bloquea desde la primera llamada. Usado por `POST /api/promo-events` (120/min) y `POST /api/promo-reports` (20/min) — ver `docs/SECURITY.md`.
+
+### `scripts/schema.sql` — integridad del esquema (`tests/schema.test.ts`)
+Asserts basados en `includes()`/parsing de texto sobre el archivo (no requiere DB): existencia de `merchant_tags` y `merchant_tag_map` (join N:N tags↔comercios), `ON DELETE CASCADE` en `merchant_tag_map`, existencia de `promo_reports` y su `CHECK` de `status`/`reason` + `ON DELETE CASCADE` hacia `promotions`.
 
 ### `lib/standalone.ts` — 14 tests
 - **isStandalone**: SSR (window undefined), matchMedia, iOS (navigator.standalone), ambos true, ninguno

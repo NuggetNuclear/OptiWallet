@@ -28,6 +28,10 @@ export default function TotpSetupPage() {
           setTotpUri(data.totp_uri);
         }
       })
+      .catch((err) => {
+        console.error("Error loading TOTP setup:", err);
+        setError("Error de red");
+      })
       .finally(() => setLoadingQr(false));
   }, [router]);
 

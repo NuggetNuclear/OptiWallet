@@ -3,6 +3,7 @@ import { verifyTotp } from "@/lib/admin-auth";
 import { decryptSecret } from "@/lib/admin-crypto";
 import { requireAdmin, clientIp, isRateLimited, recordFailedAttempt } from "@/lib/admin-guard";
 import { logAdminAction } from "@/lib/admin-log";
+import { areValidIds } from "@/lib/validate";
 import { NextRequest, NextResponse } from "next/server";
 
 const NO_CACHE = { "Cache-Control": "no-store" };
@@ -27,6 +28,9 @@ export async function POST(req: NextRequest) {
 
     if (!ids || !Array.isArray(ids) || ids.length === 0) {
       return NextResponse.json({ error: "IDs de promociones requeridos" }, { status: 400, headers: NO_CACHE });
+    }
+    if (!ids.every((v: unknown): v is string => typeof v === "string") || !areValidIds(ids)) {
+      return NextResponse.json({ error: "IDs de promociones inválidos" }, { status: 400, headers: NO_CACHE });
     }
 
     if (!code || typeof code !== "string") {

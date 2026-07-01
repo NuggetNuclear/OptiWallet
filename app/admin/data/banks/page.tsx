@@ -26,9 +26,14 @@ export default function BanksPage() {
   const [checkingDeps, setCheckingDeps] = useState(false);
 
   async function load() {
-    const r = await fetch("/api/admin/data/banks");
-    if (r.ok) setBanks(await r.json());
-    setLoading(false);
+    try {
+      const r = await fetch("/api/admin/data/banks");
+      if (r.ok) setBanks(await r.json());
+    } catch (err) {
+      console.error("Error fetching banks:", err);
+    } finally {
+      setLoading(false);
+    }
   }
   useEffect(() => { (async () => { await load(); })(); }, []);
 
@@ -63,17 +68,26 @@ export default function BanksPage() {
 
   async function openDelete(b: Bank) {
     setDelTarget(b);
-    const r = await fetch(`/api/admin/data/banks/${b.id}/deps`);
-    if (r.ok) setDeps(await r.json());
+    try {
+      const r = await fetch(`/api/admin/data/banks/${b.id}/deps`);
+      if (r.ok) setDeps(await r.json());
+    } catch (err) {
+      console.error("Error fetching bank dependencies:", err);
+    }
   }
 
   async function doDelete() {
     if (!delTarget) return;
     setDeleting(true);
-    const res = await fetch(`/api/admin/data/banks/${delTarget.id}?confirmed=true`, { method: "DELETE" });
-    if (res.ok) { setSuccess("Banco eliminado"); setDelTarget(null); setDeps(null); load(); }
-    else { const d = await res.json(); setError(d.error ?? "Error"); setDelTarget(null); setDeps(null); }
-    setDeleting(false);
+    try {
+      const res = await fetch(`/api/admin/data/banks/${delTarget.id}?confirmed=true`, { method: "DELETE" });
+      if (res.ok) { setSuccess("Banco eliminado"); setDelTarget(null); setDeps(null); load(); }
+      else { const d = await res.json(); setError(d.error ?? "Error"); setDelTarget(null); setDeps(null); }
+    } catch {
+      setError("Error de red"); setDelTarget(null); setDeps(null);
+    } finally {
+      setDeleting(false);
+    }
   }
 
   async function openToggle(b: Bank) {

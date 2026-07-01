@@ -1,6 +1,6 @@
 # Panel de Administración — OptiWallet
 
-> Última actualización: 2026-06-30 · v1.0.0-beta.2
+> Última actualización: 2026-07-01 · v1.0.0-beta.2
 
 Este documento cubre todo lo necesario para operar, desplegar y extender el panel de administración de OptiWallet: arquitectura, seguridad, referencia de API, walkthrough de despliegue y guía de uso.
 
@@ -25,15 +25,18 @@ Este documento cubre todo lo necesario para operar, desplegar y extender el pane
 
 El panel admin es un subsite protegido en `/admin` que permite a administradores autorizados:
 
-- **CRUD completo** sobre las 5 tablas de la base de datos: `banks`, `cards`, `merchant_categories`, `merchants`, `promotions`. (Las columnas de popularidad de `merchants` —`popularity_prior`, `merchant_tier`, `places_*`— no se editan a mano: las puebla el script `npm run popularity:compute`.)
+- **CRUD completo** sobre 6 tablas de la base de datos: `banks`, `cards`, `merchant_categories`, `merchants`, `promotions`, `merchant_tags`. (Las columnas de popularidad de `merchants` —`popularity_prior`, `merchant_tier`, `places_*`— no se editan a mano: las puebla el script `npm run popularity:compute`.)
+- **Categorías vs. tags**: `merchant_categories` son ~8 categorías macro, una por comercio (`category_id`). `merchant_tags` son etiquetas granulares transversales (N:N vía `merchant_tag_map`, `ON DELETE CASCADE`) — un comercio puede tener varias. Ambas entidades soportan **fusión** (`POST .../[id]/merge`): reasigna comercios/tags al destino y elimina el origen.
 - **Resolución de dependencias** antes de operaciones destructivas (ver qué registros dependen de lo que vas a borrar).
 - **Gestión de admins** (modelo de roles root / no-root):
   - **Solo el admin raíz** (`is_root = true`, el bootstrapeado por CLI) puede **crear**, **eliminar** o **modificar otras cuentas** (cambiar contraseña / resetear TOTP de otro admin).
-  - **Cualquier admin** puede gestionar **su propia** cuenta (cambiar su contraseña, resetear su TOTP) — con step-up re-auth.
+  - **Cualquier admin** puede gestionar **su propia** cuenta (cambiar su contraseña, resetear su TOTP, editar su nombre) — con step-up re-auth para contraseña/TOTP (el nombre no lo exige, no es sensible).
   - Una cuenta raíz está protegida: no puede ser eliminada ni modificada por otro admin (ni siquiera por otro root); solo se gestiona a sí misma.
   - Es una barrera de servidor (`requireAdmin` resuelve `is_root` desde la DB en cada request); el frontend además oculta las acciones no permitidas.
+  - Cada admin tiene un `name` (nombre visible) obligatorio, mostrado en el sidebar del panel.
 - **Autenticación robusta**: contraseña + TOTP (Google Authenticator), sesión HMAC-firmada, rate limiting por IP.
-- **Central de operaciones**: scraping de promociones por banco → cola de revisión (`promo_staging`) → aprobación (individual o masiva, con consola de progreso en vivo) → `promotions`. Ver [`docs/SCRAPING.md`](./SCRAPING.md).
+- **Central de operaciones**: scraping de promociones por banco → cola de revisión (`promo_staging`) → aprobación (individual o masiva, con consola de progreso en vivo) → `promotions`. El fetch de Banco de Chile transmite su progreso en vivo por SSE (misma consola tipo terminal que la aprobación masiva). Ver [`docs/SCRAPING.md`](./SCRAPING.md).
+- **Bandeja de reportes de usuarios**: los 👎 de la app pública generan reportes (`promo_reports`) que se triagean en `/admin/ops/reports` — agrupados por promo, con desactivación/resolución y priorización opcional por IA.
 - **Modo mantenimiento**: toggle protegido por TOTP que redirige a todos los usuarios públicos a `/mantencion` (el panel admin sigue accesible).
 - **Registro de actividad**: bitácora de auditoría de las últimas 500 acciones / 30 días, con filtros y auto-refresh.
 
@@ -46,28 +49,32 @@ app/admin/                    ← UI del panel (Next.js App Router, server + cli
 ├── layout.tsx                ← Shell del admin (metadata noindex, import de admin.css)
 ├── admin.css                 ← Estilos scoped al panel
 ├── components/
-│   ├── AdminNav.tsx          ← Sidebar de navegación (Operaciones / Base de datos / Sistema)
+│   ├── AdminNav.tsx          ← Sidebar de navegación (Operaciones / Base de datos / Sistema), oculta acciones no-root
 │   ├── AdminShell.tsx        ← Wrapper que verifica sesión (llama a /api/admin/auth/me)
+│   ├── AdminFloatingAction.tsx ← Envuelve el botón de acción primaria del header ("+ Nueva promo", etc.); al hacer scroll pasa a flotar fijo sin salto de layout
 │   ├── ConfirmModal.tsx      ← Modal de confirmación genérico (acciones sin dependencias)
 │   ├── DeleteModal.tsx       ← Modal de confirmación con lista de dependencias
-│   └── TerminalConsole.tsx   ← Consola estilo terminal: streaming SSE en vivo (aprobación masiva)
+│   ├── MergeModal.tsx        ← Modal reusable para fusionar categorías o tags (elige destino, confirma)
+│   └── TerminalConsole.tsx   ← Consola estilo terminal: streaming SSE en vivo (aprobación masiva, fetch Banco de Chile)
 ├── login/page.tsx            ← Formulario dos fases: contraseña → código TOTP
 ├── totp-setup/page.tsx       ← Enrolamiento TOTP (primer login)
 ├── page.tsx                  ← Dashboard: estadísticas + navegación
-├── users/                    ← Gestión de admins
+├── users/                    ← Gestión de admins (crear/eliminar: solo root)
 │   ├── page.tsx
 │   ├── new/page.tsx
 │   └── [id]/page.tsx
 ├── audit/page.tsx            ← Registro de actividad (lee /api/admin/audit, filtros + auto-refresh)
 ├── ops/                      ← Central de operaciones: scraping → staging → revisión
-│   ├── page.tsx              ← Overview por banco + panel de modo mantenimiento + botón Fetch
+│   ├── page.tsx              ← Overview por banco + panel de modo mantenimiento + botón Fetch (streaming SSE)
 │   ├── [bankId]/page.tsx     ← Cola de revisión de staging de un banco (aprobar/rechazar/autofill)
-│   └── import/page.tsx       ← Importar JSON de scraper subido manualmente
+│   ├── import/page.tsx       ← Importar JSON de scraper subido manualmente
+│   └── reports/page.tsx      ← Bandeja de reportes de usuarios (triage, priorización IA opcional)
 └── data/                     ← CRUD de datos
     ├── banks/page.tsx
     ├── cards/page.tsx
-    ├── categories/page.tsx
+    ├── categories/page.tsx   ← incluye "Fusionar" (merge)
     ├── merchants/page.tsx
+    ├── tags/page.tsx         ← CRUD de merchant_tags, incluye "Fusionar" (merge)
     └── promotions/page.tsx   ← incluye selección múltiple + borrado masivo (TOTP)
 
 app/api/admin/                ← API Routes del panel (todas protegidas con sesión)
@@ -77,46 +84,57 @@ app/api/admin/                ← API Routes del panel (todas protegidas con ses
 │   ├── logout/route.ts       ← POST: cierre de sesión
 │   └── me/route.ts           ← GET: perfil de la sesión activa
 ├── users/
-│   ├── route.ts              ← GET (lista, incluye is_root), POST (crear admin — solo root)
+│   ├── route.ts              ← GET (lista, incluye is_root + name), POST (crear admin — solo root, requiere name)
 │   └── [id]/
-│       ├── route.ts          ← GET, PATCH (contraseña/TOTP), DELETE — modificar/eliminar otras cuentas es solo root; root protegido
+│       ├── route.ts          ← GET, PATCH (contraseña/TOTP/nombre), DELETE — modificar/eliminar otras cuentas es solo root; root protegido
 │       └── totp-setup/route.ts ← GET (QR), POST (activar TOTP)
 ├── audit/route.ts            ← GET: últimas 500 entradas / 30 días de admin_audit_log
 ├── maintenance/route.ts      ← GET (estado), POST (toggle, exige TOTP) del modo mantenimiento
 ├── ops/                      ← Central de operaciones (scraping → staging → promotions)
 │   ├── overview/route.ts             ← GET: resumen por banco (pendientes, activas, último fetch)
 │   ├── fetch/route.ts                ← POST: corre el scraper server-side y auto-importa a staging
+│   ├── fetch/stream/route.ts         ← POST: mismo fetch server-side, progreso vía SSE (consola en vivo)
 │   ├── import/route.ts               ← POST: sube JSON de scraper (ejecutado localmente) a staging
 │   ├── suggest-merchant/route.ts     ← POST: sugerencias de comercio/categoría (IA o matching)
+│   ├── reports/
+│   │   ├── route.ts                  ← GET: reportes de usuarios agrupados por promo
+│   │   ├── resolve/route.ts          ← POST: marca reportes pendientes de una promo como resueltos/descartados
+│   │   ├── deactivate/route.ts       ← POST: desactiva la promo reportada + resuelve sus reportes pendientes
+│   │   └── triage/route.ts           ← POST: prioriza la cola con IA (503 sin proveedor configurado)
 │   ├── [bankId]/
 │   │   ├── staging/route.ts          ← GET: cola de staging de un banco por status
 │   │   ├── approve-all/route.ts      ← POST: aprobación masiva (respuesta única al final)
 │   │   ├── approve-all/stream/route.ts ← POST: misma aprobación masiva, progreso vía SSE
 │   │   └── reject-all/route.ts       ← POST: rechazo masivo de todo lo pendiente del banco
 │   └── staging/[id]/
-│       ├── approve/route.ts          ← POST: aprueba una fila (resuelve/crea comercio + overrides)
+│       ├── approve/route.ts          ← POST: aprueba una fila (resuelve/crea comercio + overrides, incl. tag_ids)
 │       ├── reject/route.ts           ← POST: rechaza una fila
 │       └── autofill/route.ts         ← POST: IA sugiere todos los campos desde el texto de condiciones
 └── data/
     ├── banks/route.ts + [id]/route.ts + [id]/deps/route.ts
     ├── cards/route.ts + [id]/route.ts
-    ├── categories/route.ts + [id]/route.ts + [id]/deps/route.ts
+    ├── categories/route.ts + [id]/route.ts + [id]/deps/route.ts + [id]/merge/route.ts
     ├── merchants/route.ts + [id]/route.ts + [id]/deps/route.ts
+    ├── tags/route.ts + [id]/route.ts + [id]/deps/route.ts + [id]/merge/route.ts
     └── promotions/route.ts + [id]/route.ts + bulk-delete/route.ts
 
 lib/
 ├── admin-types.ts            ← Interfaces: AdminUser, AdminSessionPayload
 ├── admin-auth.ts             ← bcryptjs + otpauth (Node.js only, server-only)
 ├── admin-crypto.ts           ← Cifrado AES-256-GCM de secretos TOTP en reposo (Node.js)
-├── admin-guard.ts            ← requireAdmin() (validación contra DB) + rate limiting compartido
+├── admin-guard.ts            ← requireAdmin() (validación + is_root desde DB) + rate limiting compartido
 ├── admin-session.ts          ← HMAC-SHA256 + cookie helpers (edge-compatible, server-only)
 ├── admin-log.ts              ← logAdminAction(): inserta en admin_audit_log (best-effort, no bloquea)
 ├── maintenance.ts            ← isMaintenanceMode()/setMaintenanceMode() — cache 30s, falla abierto
-└── staging.ts                ← normalizeRow()/promoId()/slugify(): shape común scraper → promo_staging
+├── staging.ts                ← normalizeRow()/promoId()/slugify(): shape común scraper → promo_staging
+├── rate-limit.ts             ← fixedWindowRateLimit() + clientIp(): limiter en memoria, dependency-free (compartido con endpoints públicos, ver docs/SECURITY.md)
+├── ops/fetch-bank.ts         ← runBankFetch(): generador async que corre el scraper server-side y yield-ea progreso; consumido tanto por fetch/route.ts como por fetch/stream/route.ts
+└── ai/report-triage.ts       ← Prioriza reportes pendientes con IA (heurística de fallback: conteo + vigencia vencida)
 
 scripts/
-├── create-admin.ts           ← CLI: crea el primer administrador (bootstrap, marcado is_root=true)
-└── encrypt-totp.ts           ← CLI: migra secretos TOTP en texto plano a cifrado (idempotente)
+├── create-admin.ts           ← CLI: crea el primer administrador (bootstrap, marcado is_root=true, pide nombre)
+├── encrypt-totp.ts           ← CLI: migra secretos TOTP en texto plano a cifrado (idempotente)
+└── migrate-categories-to-tags.ts ← CLI (`npm run db:migrate-tags`): migra una DB en vivo del modelo de categorías planas al de macro-categorías + tags (idempotente)
 ```
 
 > **Central de operaciones (scraping).** El flujo completo scraper → staging →
@@ -591,6 +609,7 @@ Error de credenciales (mismo mensaje para email inválido Y contraseña incorrec
   {
     "id": "admin-abc123",
     "email": "admin@example.com",
+    "name": "Gabriel Rojas",
     "totp_enabled": true,
     "is_root": true,
     "created_at": "2026-06-13T00:00:00Z",
@@ -600,13 +619,20 @@ Error de credenciales (mismo mensaje para email inválido Y contraseña incorrec
 // Nunca incluye password_hash ni totp_secret
 // is_root: true solo para el admin bootstrapeado por `npm run admin:create`
 // (el de created_at más antiguo) — está protegido contra DELETE.
+// name: obligatorio desde la creación; admins migrados desde antes de esta
+// columna reciben un placeholder derivado del email (ver scripts/schema.sql)
+// hasta que lo editen desde /admin/users/[id].
 ```
 
 #### `POST /api/admin/users`
 
+**Solo root.** 403 si el admin que ejecuta la acción no tiene `is_root = true`
+("Solo un administrador raíz puede crear cuentas") — crear cuentas es
+exclusivo del admin raíz.
+
 ```json
 // Request
-{ "email": "nuevo@example.com", "password": "contraseña-segura" }
+{ "name": "Nuevo Admin", "email": "nuevo@example.com", "password": "contraseña-segura" }
 
 // Response: 201
 {
@@ -617,12 +643,18 @@ Error de credenciales (mismo mensaje para email inválido Y contraseña incorrec
 }
 ```
 
+`name` es obligatorio (`400 { "error": "El nombre es obligatorio" }` si falta o
+viene vacío). El `id` se genera con un slug del email + sufijo
+criptográficamente aleatorio (no `Math.random()`), con reintento ante una
+colisión improbable de PK.
+
 #### `GET /api/admin/users/[id]`
 
 ```json
 {
   "id": "admin-abc123",
   "email": "admin@example.com",
+  "name": "Gabriel Rojas",
   "totp_enabled": true,
   "created_at": "2026-06-13T00:00:00Z",
   "last_login_at": "2026-06-13T10:00:00Z"
@@ -631,8 +663,16 @@ Error de credenciales (mismo mensaje para email inválido Y contraseña incorrec
 
 #### `PATCH /api/admin/users/[id]`
 
-Ambas operaciones (cambiar contraseña, resetear TOTP) exigen `current_password`:
-la contraseña **actual del admin que ejecuta la acción** (step-up re-auth). Una
+**Gestionar OTRA cuenta es solo root**; una cuenta raíz solo puede
+gestionarse a sí misma (ni siquiera otro root la toca). Gestionar **tu propia**
+cuenta está abierto a cualquier admin. Errores de permiso:
+```json
+{ "error": "Solo un administrador raíz puede modificar otras cuentas" }        // 403
+{ "error": "Esta cuenta raíz está protegida y solo puede gestionarse a sí misma" } // 403
+```
+
+Cambiar contraseña o resetear TOTP exigen además `current_password`: la
+contraseña **actual del admin que ejecuta la acción** (step-up re-auth). Una
 cookie robada por sí sola ya no basta. Throttled con el presupuesto de rate limit.
 
 Cambiar contraseña:
@@ -651,11 +691,21 @@ Resetear TOTP:
 { "status": "ok" }
 ```
 
+Cambiar nombre (no exige `current_password` — no es un dato sensible, solo pasa
+el chequeo de permisos de arriba):
+```json
+// Request
+{ "name": "Nuevo Nombre" }
+// Response
+{ "status": "ok" }
+```
+
 Errores de re-auth:
 ```json
 { "error": "Debes confirmar tu contraseña actual" }     // 400
 { "error": "Contraseña actual incorrecta" }             // 401
 { "error": "Demasiados intentos. Espera 15 minutos." }  // 429
+{ "error": "El nombre no puede estar vacío" }           // 400
 ```
 
 #### `DELETE /api/admin/users/[id]`
@@ -777,6 +827,24 @@ Con `?confirmed=true`:
 
 `GET /api/admin/data/categories/[id]/deps` → `{ merchants: [...] }`
 
+#### `POST /api/admin/data/categories/[id]/merge`
+
+Fusiona la categoría `id` en otra existente: reasigna **todos** sus comercios al destino y elimina la categoría origen. Generaliza el rename-cascade de arriba a "combinar dos categorías en una".
+
+```json
+// Request
+{ "target_id": "comida" }
+
+// Response
+{ "status": "ok", "target_id": "comida", "merchants_moved": 7 }
+
+// Errores
+{ "error": "target_id inválido" }                       // 400
+{ "error": "No puedes fusionar una categoría consigo misma" } // 400
+{ "error": "Categoría origen no encontrada" }            // 404
+{ "error": "Categoría destino no encontrada" }            // 404
+```
+
 ### Data API — Comercios
 
 `GET /api/admin/data/merchants` — acepta query param `?category=slug` para filtrar por categoría.
@@ -793,6 +861,39 @@ Con `?confirmed=true`:
 `name` tiene un largo máximo (`MERCHANT_NAME_MAX_LENGTH`, definido en `lib/staging.ts`) — 400 si se excede.
 
 `GET /api/admin/data/merchants/[id]/deps` → `{ promotions: [...] }`
+
+### Data API — Tags
+
+Etiquetas granulares transversales (`merchant_tags`) — a diferencia de las categorías, un comercio puede tener varias.
+
+#### `GET /api/admin/data/tags`
+
+```json
+[{ "id": "delivery-apps", "label": "Delivery", "emoji": "🛵", "merchant_count": 14 }]
+```
+
+#### `POST /api/admin/data/tags`
+
+```json
+// Request — emoji es opcional en tags (a diferencia de categorías, donde no lo es)
+{ "id": "sushi", "label": "Sushi", "emoji": "🍣" }
+// Response: 201 { "id": "sushi" }
+```
+
+`GET/PATCH/DELETE /api/admin/data/tags/[id]` — igual patrón que el resto del CRUD (`DELETE` con `?confirmed=true`).
+
+`GET /api/admin/data/tags/[id]/deps` → `{ merchants: [...] }`
+
+#### `POST /api/admin/data/tags/[id]/merge`
+
+Mismo comportamiento que el merge de categorías, pero sobre la relación N:N: reasigna las asociaciones `merchant_tag_map` del tag origen al destino (sin duplicar si un comercio ya tiene ambos) y elimina el tag origen.
+
+```json
+// Request
+{ "target_id": "delivery-apps" }
+// Response
+{ "status": "ok", "target_id": "delivery-apps", "merchants_moved": 3 }
+```
 
 ### Data API — Promociones
 
@@ -910,17 +1011,27 @@ Todos requieren sesión admin (`requireAdmin`). Resumen funcional (detalle compl
 |---|---|---|
 | `/api/admin/ops/overview` | GET | Resumen por banco: pendientes, activas, último fetch, casos borde |
 | `/api/admin/ops/fetch` | POST | Corre el scraper de un banco server-side (`{ bank_id, cookie? }`); auto-importa a staging. `428` si el sitio del banco exige cookie (anti-bot Imperva) |
+| `/api/admin/ops/fetch/stream` | POST | Mismo fetch server-side que arriba, pero responde `text/event-stream` (SSE): eventos `log`/`cookie_required`/`done` a medida que avanza (conectar → descargar → diff de cache → parsear → importar → resumen). Comparte el generador `runBankFetch()` (`lib/ops/fetch-bank.ts`) con la ruta JSON — mismo contrato externo (201/400/428) |
 | `/api/admin/ops/import` | POST | Sube el JSON de un scraper corrido localmente (`{ bank_id, clean[], edge_counts? }`, máx 5000 filas) a staging |
 | `/api/admin/ops/suggest-merchant` | POST | Sugerencias de comercio existente (matching/embeddings) + categoría propuesta (IA) para resolver una fila de staging |
 | `/api/admin/ops/[bankId]/staging` | GET | Lista las filas de staging de un banco (`?status=pending\|approved\|rejected`) |
 | `/api/admin/ops/[bankId]/approve-all` | POST | Aprobación masiva de todo lo pendiente del banco — respuesta única al terminar |
 | `/api/admin/ops/[bankId]/approve-all/stream` | POST | Misma aprobación masiva, pero responde `text/event-stream` (SSE): un evento `{"type":"log",...}` por paso y un evento final `{"type":"done","summary":{...}}` — alimenta la consola `TerminalConsole` en el panel |
 | `/api/admin/ops/[bankId]/reject-all` | POST | Rechaza todo lo pendiente del banco |
-| `/api/admin/ops/staging/[id]/approve` | POST | Aprueba una fila: resuelve o crea el comercio, acepta `overrides` para corregir campos antes de insertar en `promotions` |
+| `/api/admin/ops/staging/[id]/approve` | POST | Aprueba una fila: resuelve o crea el comercio (acepta `new_merchant.tag_ids` opcional), acepta `overrides` para corregir campos antes de insertar en `promotions` |
 | `/api/admin/ops/staging/[id]/reject` | POST | Rechaza una fila individual |
 | `/api/admin/ops/staging/[id]/autofill` | POST | IA sugiere todos los campos editables a partir del texto de condiciones de la fila. `503` si no hay proveedor de IA configurado (`lib/ai/provider.ts`) |
 
 Tanto `approve-all` como `approve-all/stream` resuelven comercios no mapeados automáticamente: clasifican cada nombre nuevo con IA (`suggestCategoriesBatch`), asignan una **categoría macro existente** (sin crear categorías nuevas; fallback a `otros`), le adjuntan hasta 3 **tags** granulares (creando los que falten) y crean el comercio — todo queda registrado en la bitácora de auditoría. La respuesta/summary trae `createdMerchantsCount` y `createdTagsCount`.
+
+#### Ops — Bandeja de reportes de usuarios
+
+| Endpoint | Método | Propósito |
+|---|---|---|
+| `/api/admin/ops/reports` | GET | Reportes agrupados por promoción (`?status=pending\|resolved\|dismissed`, default `pending`): conteo total, desglose por `reason`, última fecha, notas y estado de la promo (`active`, `end_date`) |
+| `/api/admin/ops/reports/resolve` | POST | `{ promotion_id, status: "resolved" \| "dismissed" }` — marca todos los reportes **pendientes** de esa promo con el status indicado |
+| `/api/admin/ops/reports/deactivate` | POST | `{ promotion_id }` — pone `active = false` en la promo y resuelve automáticamente sus reportes pendientes |
+| `/api/admin/ops/reports/triage` | POST | Prioriza la cola con IA (`lib/ai/report-triage.ts`): estima si cada promo está "probablemente muerta" y da un rationale. `503` sin proveedor de IA configurado — el orden por heurística (conteo desc + vigencia vencida) sigue funcionando sin IA |
 
 ---
 
@@ -936,6 +1047,13 @@ banks
 merchant_categories
   └─ merchants (category_id → merchant_categories.id)
         └─ promotions (merchant_id → merchants.id)
+
+merchant_tags
+  └─ merchant_tag_map (tag_id → merchant_tags.id, ON DELETE CASCADE)
+        — N:N con merchants; a diferencia del resto, borrar un tag no lo
+          bloquea el CRUD (no hay modal de dependencias): las filas de
+          mapeo se limpian solas. El endpoint /deps sigue existiendo para
+          que el admin vea qué comercios lo usan antes de borrar.
 
 promotions ← nodo hoja (nada depende de promotions)
 cards      ← nodo hoja en el schema (nada tiene FK hacia cards)

@@ -82,10 +82,16 @@ export default function ReportsPage() {
   async function load(s: Status) {
     setLoading(true);
     setTriage({});
-    const r = await fetch(`/api/admin/ops/reports?status=${s}`);
-    if (r.ok) setRows(await r.json());
-    else setRows([]);
-    setLoading(false);
+    try {
+      const r = await fetch(`/api/admin/ops/reports?status=${s}`);
+      if (r.ok) setRows(await r.json());
+      else setRows([]);
+    } catch (err) {
+      console.error("Error loading reports:", err);
+      setRows([]);
+    } finally {
+      setLoading(false);
+    }
   }
   useEffect(() => { (async () => { await load(status); })(); }, [status]);
 

@@ -7,6 +7,7 @@ import { Fraunces, Sora, JetBrains_Mono } from "next/font/google";
 import "./globals.css";
 import { ServiceWorkerRegistrar } from "@/components/ServiceWorkerRegistrar";
 import { StandaloneCookieSync } from "@/components/StandaloneCookieSync";
+import { OfflineBanner } from "@/components/OfflineBanner";
 
 // Plausible (US-ANA): analytics cookieless y agregado — sin banner de consentimiento.
 // Script v2: <script async src=...> + un stub inline que llama plausible.init().
@@ -76,6 +77,8 @@ export default function RootLayout({
         <ServiceWorkerRegistrar />
         {/* Cookie ow_standalone en sync con el modo real (ver lib/standalone.ts) */}
         <StandaloneCookieSync />
+        {/* Banner "Sin conexión" — navigator.onLine + eventos online/offline */}
+        <OfflineBanner />
         {PLAUSIBLE_SRC && (
           <>
             <Script

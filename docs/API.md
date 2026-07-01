@@ -1,6 +1,6 @@
 # API Reference — OptiWallet
 
-> Última actualización: 2026-06-30 · v1.0.0-beta.2
+> Última actualización: 2026-07-01 · v1.0.0-beta.2
 
 Referencia de los endpoints de la API. Todos son **Route Handlers** (serverless Node.js en Vercel) que consultan **Neon PostgreSQL** directamente.
 
@@ -247,6 +247,7 @@ Búsqueda fuzzy de comercios por nombre/aliases, con filtro opcional por categor
 |---|---|---|---|
 | `q` | `string` (query) | No | Texto de búsqueda (max 80 caracteres, case-insensitive). Busca en `name` y `aliases`. |
 | `category` | `string` (query) | No | Filtrar por `category_id`. Se valida con `isValidId`. |
+| `tags` | `string` (query) | No | Lista de IDs de tags separados por coma (máx. 30), ej. `?tags=sushi,delivery-apps`. Un comercio matchea si tiene **cualquiera** de los tags pedidos (semántica OR / ANY-of). Cada ID se valida con `areValidIds`. |
 
 ### Respuesta
 
@@ -260,7 +261,8 @@ Búsqueda fuzzy de comercios por nombre/aliases, con filtro opcional por categor
     "category_label": "Comida Rápida",
     "emoji": "🍔",
     "popularity_prior": 0.72,
-    "max_discount": 25
+    "max_discount": 25,
+    "tags": [{ "id": "delivery-apps", "label": "Delivery", "emoji": "🛵" }]
   }
 ]
 ```
@@ -269,12 +271,13 @@ Búsqueda fuzzy de comercios por nombre/aliases, con filtro opcional por categor
 |---|---|---|
 | `id` | `string` | Slug del comercio |
 | `name` | `string` | Nombre oficial |
-| `category_id` | `string` | FK a la categoría |
+| `category_id` | `string` | FK a la categoría macro |
 | `aliases` | `string[]` | Nombres alternativos para búsqueda fuzzy |
 | `category_label` | `string` | Nombre de la categoría (JOIN) |
 | `emoji` | `string` | Emoji de la categoría (JOIN) |
 | `popularity_prior` | `number` | Prior de popularidad 0–1 (cold-start del ranking). Default 0.5 si aún no se ha computado. |
 | `max_discount` | `number \| null` | Mayor descuento activo del comercio (`discount` o `discount_per_unit`, lo que esté seteado). `0` si no tiene promos activas. Subconsulta server-side, no requiere JOIN del caller. |
+| `tags` | `{id, label, emoji}[]` | Etiquetas granulares transversales del comercio (ver *Capa de datos* → `merchant_tags`/`merchant_tag_map` en `docs/ARCHITECTURE.md`). `[]` si no tiene ninguna. |
 
 **Límite:** máximo 50 resultados.
 
@@ -287,13 +290,14 @@ Búsqueda fuzzy de comercios por nombre/aliases, con filtro opcional por categor
 - El texto se convierte a lowercase.
 - Se escapan comodines de LIKE (`%`, `_`, `\`) para evitar inyección de patrones.
 - Se busca con `LIKE '%q%'` en `name` y en cada alias (`unnest(aliases)`).
-- Sin `q`, retorna todos los comercios (con filtro de categoría si aplica).
+- Sin `q`, retorna todos los comercios (con filtro de categoría y/o tags si aplica).
 
 ### Errores
 
 | Caso | Status | Body |
 |---|---|---|
 | `category` inválida | 400 | `{"error":"category inválida"}` |
+| `tags` inválidos | 400 | `{"error":"tags inválidos"}` |
 
 ---
 
@@ -318,9 +322,12 @@ Retorna un comercio específico por su ID exacto.
   "category_id": "comida-rapida",
   "aliases": ["papa jones", "papajohns"],
   "category_label": "Comida Rápida",
-  "emoji": "🍔"
+  "emoji": "🍔",
+  "tags": [{ "id": "delivery-apps", "label": "Delivery", "emoji": "🛵" }]
 }
 ```
+
+`tags` tiene el mismo shape que en `GET /api/merchants` — ver esa sección.
 
 ### Respuesta (404)
 
@@ -461,6 +468,7 @@ Retorna todas las promociones **activas y vigentes** de un comercio, con el nomb
     "category_id": "comida-rapida",
     "category_label": "Comida Rápida",
     "emoji": "🍔",
+    "tags": [{ "id": "delivery-apps", "label": "Delivery", "emoji": "🛵" }],
     "card_id": "bci-credit",
     "card_name": "BCI Crédito",
     "card_type": "credit",
@@ -492,6 +500,7 @@ Retorna todas las promociones **activas y vigentes** de un comercio, con el nomb
 | `category_id` | `string` | ID de la categoría |
 | `category_label` | `string` | Nombre de la categoría |
 | `emoji` | `string` | Emoji de la categoría |
+| `tags` | `{id, label, emoji}[]` | Etiquetas granulares del comercio. `[]` si no tiene ninguna. |
 | `card_id` | `string` | ID de la tarjeta del usuario |
 | `card_name` | `string` | Nombre de la tarjeta |
 | `card_type` | `string` | Tipo (`credit` / `debit` / `prepaid`) |
@@ -642,3 +651,47 @@ Ninguno.
 **Fallback:** si la query no retorna filas, responde `{"promotions":0,"merchants":0,"banks":0}`.
 
 **Cache:** `s-maxage=60, stale-while-revalidate=300`
+
+---
+
+## GET /api/tags
+
+Retorna todas las etiquetas (tags) granulares con conteo de comercios asociados. Complementa a `GET /api/categories`: una categoría es única por comercio (macro), un tag es N:N (transversal — un comercio puede tener varios).
+
+**Archivo:** `app/api/tags/route.ts`
+
+### Parámetros
+
+Ninguno.
+
+### Respuesta
+
+```json
+[
+  { "id": "delivery-apps", "label": "Delivery", "emoji": "🛵", "merchant_count": 14 },
+  { "id": "sushi", "label": "Sushi", "emoji": "🍣", "merchant_count": 6 }
+]
+```
+
+| Campo | Tipo | Descripción |
+|---|---|---|
+| `id` | `string` | Slug del tag |
+| `label` | `string` | Nombre visible |
+| `emoji` | `string \| null` | Emoji representativo (opcional en tags, a diferencia de categorías) |
+| `merchant_count` | `number` | Cantidad de comercios con este tag |
+
+**Orden:** alfabético por `label`.
+
+**Cache:** `s-maxage=60, stale-while-revalidate=120`
+
+### SQL
+
+```sql
+SELECT mt.id, mt.label, mt.emoji, count(mtm.merchant_id)::int AS merchant_count
+FROM merchant_tags mt
+LEFT JOIN merchant_tag_map mtm ON mtm.tag_id = mt.id
+GROUP BY mt.id, mt.label, mt.emoji
+ORDER BY mt.label
+```
+
+Ver `?tags=` en `GET /api/merchants` para filtrar comercios por tag, y la sección de administración de tags (CRUD + fusión) en [`docs/ADMIN.md`](ADMIN.md#data-api--tags).

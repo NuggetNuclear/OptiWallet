@@ -1,6 +1,6 @@
 # Scraping → staging → revisión → promociones
 
-> Última actualización: 2026-06-30 · v1.0.0-beta.2
+> Última actualización: 2026-07-01 · v1.0.0-beta.2
 
 Central de operaciones para poblar `promotions` desde las páginas de beneficios
 de cada banco, con revisión humana obligatoria antes de producción.
@@ -117,6 +117,15 @@ exitosa se persiste en `app_settings` (`bch_cookie_banco-chile`) para
 reutilizarla en corridas futuras. El fetch además compara contra
 `scraper_raw_cache` (por `uuid` de cada entrada) para solo reparsear lo que
 cambió desde la última corrida.
+
+El núcleo scraper→staging vive extraído como un generador async,
+`runBankFetch()` en `lib/ops/fetch-bank.ts`, que yield-ea el progreso paso a
+paso (conectar → descargar → diff de cache → parsear → importar → resumen).
+La ruta JSON de arriba y la variante `POST /api/admin/ops/fetch/stream`
+(responde `text/event-stream`, mismo patrón que `approve-all/stream`) consumen
+el mismo generador — contrato externo idéntico (201/400/428) — así el panel
+puede mostrar el fetch en vivo en la misma `TerminalConsole` que usa
+"Auto-aprobar backlog", en vez de un spinner opaco.
 
 ```bash
 node scripts/scrapers/banco-chile.mjs

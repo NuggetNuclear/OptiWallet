@@ -1,6 +1,6 @@
 # Seguridad — OptiWallet
 
-> Última actualización: 2026-06-30 · v1.0.0-beta.2
+> Última actualización: 2026-07-01 · v1.0.0-beta.2
 
 Este documento describe la postura de seguridad de OptiWallet, las defensas implementadas, y las recomendaciones operativas pendientes. Para la seguridad específica del panel de administración, ver [`docs/ADMIN.md`](ADMIN.md#seguridad-del-panel).
 
@@ -30,7 +30,7 @@ OptiWallet tiene una superficie de ataque **intencionalmente reducida**:
 |---|---|
 | Autenticación de usuario final | No hay cuentas de usuario. Sin login, sin sesiones, sin tokens. |
 | Datos sensibles | No se almacenan datos personales del usuario. La wallet es `localStorage` local. |
-| API pública | Solo `GET`. Las únicas excepciones que escriben señales de usuario (sin mutar el catálogo) son `POST /api/promo-events` (analytics) y `POST`/`PATCH /api/promo-reports` (reportes). |
+| API pública | Solo `GET`. Las únicas excepciones que escriben señales de usuario (sin mutar el catálogo) son `POST /api/promo-events` (analytics) y `POST`/`PATCH /api/promo-reports` (reportes). Ambas comparten el mismo rate limiter en memoria (`lib/rate-limit.ts`) — ver *Recomendaciones operativas*. |
 | API admin (`/api/admin/*`) | Escritura completa, protegida por sesión HMAC-SHA256 + TOTP. Ver sección siguiente. |
 | Base de datos | Neon PostgreSQL serverless. El connection string solo vive en el servidor y en Vercel secrets. |
 | Uploads | No hay uploads de archivos. |
@@ -356,7 +356,7 @@ Mejoras de seguridad recomendadas para post-beta:
 
 | Mejora | Estado | Detalle |
 |---|---|---|
-| **Rate limiting (API pública)** | ⚠️ Parcial | El endpoint de analítica `POST /api/promo-events` implementa rate limiting en memoria (`lib/rate-limit.ts`) limitado a 120 peticiones/sesión/minuto. Los endpoints públicos de lectura (`GET`) no tienen rate limit en la app (mitigados por caché de edge en Vercel); se recomienda activar Vercel WAF para mitigación global. |
+| **Rate limiting (API pública)** | ⚠️ Parcial | Los dos endpoints públicos de escritura implementan rate limiting en memoria vía el módulo compartido `lib/rate-limit.ts` (`fixedWindowRateLimit`, ventana fija por sesión con fallback a IP): `POST /api/promo-events` a 120/min, `POST /api/promo-reports` a 20/min. Es un dampener por instancia de Vercel (no un límite estricto global — ver el comentario en el módulo), suficiente para floods casuales/accidentales. Los endpoints públicos de lectura (`GET`) no tienen rate limit en la app (mitigados por caché de edge en Vercel); se recomienda activar Vercel WAF para mitigación global. |
 | **CSP con nonces** | ❌ Pendiente | Reemplazar `'unsafe-inline'` por nonces dinámicos en `script-src`. Requiere evaluar el impacto en static optimization. |
 | **Error boundaries** | ✅ Implementado | `app/error.tsx` (boundary global, reporta a Sentry) y `app/global-error.tsx` (boundary de último recurso con estilos inline). Ver [`ARCHITECTURE.md`](ARCHITECTURE.md). |
 
@@ -368,7 +368,7 @@ Mejoras de seguridad recomendadas para post-beta:
 | **Subresource Integrity** | ❌ Pendiente | SRI para assets estáticos (next/font ya los self-hostea, pero bundles de third-party futuros deberían tener SRI). |
 | **DB user de solo lectura** | ❌ Pendiente | El connection string actual tiene permisos de escritura (necesarios para `apply-schema.ts`). En producción, se podría usar un usuario con `SELECT` only. |
 | **Banner de actualización SW** | ✅ Implementado | Cuando el SW detecta una nueva versión, se muestra un banner pill flotante glassmorphism para actualizar e instalar la nueva versión de inmediato. |
-| **UI offline** | ❌ Pendiente | Sin indicador visual cuando no hay conexión. El SW sirve cache silenciosamente. |
+| **UI offline** | ✅ Implementado | `OfflineBanner` (banner fijo superior, `lib/hooks/use-online-status.ts`) avisa apenas `navigator.onLine` pasa a `false` — antes el SW servía la cache sin ningún indicador visual. |
 
 ### Prioridad baja
 

@@ -16,6 +16,7 @@ node --test tests/validate.test.ts  # Single test file
 npm run db:schema            # Apply schema.sql to Neon DB (idempotent, non-destructive)
 npm run db:seed              # DESTRUCTIVE: drop + recreate tables + load mock data
 npm run db:gen-seed          # Regenerate scripts/seed.ts banks/cards sections from current DB contents
+npm run db:migrate-tags      # One-time, idempotent: flat categories -> macro-categories + tags on a live DB
 npm run popularity:compute   # Bootstrap merchant popularity via Google Places API (requires GOOGLE_PLACES_API_KEY)
 npm run promotions:refresh   # Rotate today's active promotion_codes into promotions.code/active (cron-style daily job)
 npm run swagger:update       # Re-vendor the self-hosted Swagger UI assets in public/swagger/
@@ -61,7 +62,7 @@ Pages under `/blog`, `/contacto`, `/cookies`, etc. are server components using `
 
 Next.js 16 uses `proxy.ts` as the middleware convention — `middleware.ts` is deprecated in this version. It handles three concerns in order:
 
-1. **Maintenance mode**: for all public routes (not `/admin*`, not `/api/admin*`, not `/mantencion`), checks `app_settings.maintenance_mode` in the DB (cached 30s in memory via `lib/maintenance.ts`). If active → `307 /mantencion`. Fails open: if the DB doesn’t respond, traffic is not blocked.
+1. **Maintenance mode**: for all public routes (not `/admin*`, not `/api/admin*`, not `/mantencion`), checks `app_settings.maintenance_mode` in the DB (cached 30s in memory via `lib/maintenance.ts`). If active → `307 /mantencion`. Fails open: if the DB doesn't respond, traffic is not blocked.
 2. **Admin guard**: for `/admin/*` (except `/admin/login`), validates the HMAC-signed `ow_admin_session` cookie
 3. **PWA redirect**: if cookie `ow_standalone=1` is present on `/`, redirects to `/app`
 
@@ -81,6 +82,7 @@ Schema source of truth: `scripts/schema.sql`. **Critical gotcha with schema chan
 - **`days_of_week`**: integer array where 0=Sunday…6=Saturday. **Empty array `{}` means all days** (not zero days).
 - **`card_ids` on promotions**: if non-empty, the promo applies ONLY to those exact card IDs ("tarjeta única"), and `card_types` is ignored. If empty, applies to any card of the matching bank whose type is in `card_types`. This logic lives as a pure function `promoAppliesToCard` in `lib/recommendations.ts` and mirrors the JOIN condition in `/api/recommendations`.
 - **Date handling**: always use `toISODateLocal` from `lib/format.ts` instead of `toISOString()`. In Chile (UTC-3/UTC-4), `toISOString()` rolls over to tomorrow after ~21:00.
+- **Categories vs. tags**: a merchant has exactly one `category_id` (one of ~8 broad macro-categories, e.g. `comida`, `retail`). Cross-cutting attributes (`sushi`, `delivery-apps`, `combustible`) live in `merchant_tags` / `merchant_tag_map` — an N:N join, `ON DELETE CASCADE` (unlike the rest of the schema, which relies on FK `RESTRICT`). A DB seeded before this split is migrated once with `npm run db:migrate-tags` (`scripts/migrate-categories-to-tags.ts`, idempotent). The scraping bulk-approve flow never invents new macro categories — it only assigns an existing one (fallback `otros`) and proposes tags.
 
 ### PWA standalone redirect (three-piece system)
 
@@ -105,13 +107,21 @@ Client-side savings calculation and re-ranking lives in `lib/recommendations.ts`
 
 ### Admin panel
 
-Protected subsite at `/admin` with two-factor auth (bcrypt password + TOTP via `otpauth`). First admin is created with `npm run admin:create` (CLI only — no web setup page). Subsequent admins are created from within the authenticated panel at `/admin/users/new`.
+Protected subsite at `/admin` with two-factor auth (bcrypt password + TOTP via `otpauth`). First admin is created with `npm run admin:create` (CLI only — no web setup page, asks for name + email + password). Subsequent admins are created from within the authenticated panel at `/admin/users/new`.
 
 Auth flow: `POST /api/admin/auth/login` → issues pending-MFA token (5 min) → `POST /api/admin/auth/verify-totp` → issues session cookie (8h, HMAC-SHA256, HttpOnly, SameSite=Strict).
 
-All admin API routes call `requireAdmin()` (`lib/admin-guard.ts`) which validates the cookie AND re-queries the DB — a deleted or TOTP-reset admin loses access immediately.
+All admin API routes call `requireAdmin()` (`lib/admin-guard.ts`) which validates the cookie AND re-queries the DB — a deleted or TOTP-reset admin loses access immediately. `requireAdmin()` also resolves `is_root` from the DB per request (fail-closed: without the `admin_users.is_root` column migrated, nobody is root).
 
 TOTP secrets are stored AES-256-GCM encrypted in the DB (`lib/admin-crypto.ts`). The `ADMIN_TOTP_ENC_KEY` must be identical between the machine running `admin:create` and the Vercel environment.
+
+**Root vs. non-root admins**: only the bootstrapped root admin (`is_root = true`, the one created via `admin:create`) can create, delete, or modify *other* accounts. A non-root admin can only manage their own account (password/TOTP reset, with step-up re-auth). A root account can only ever manage itself — not even another root can touch it. `admin_users` also carries a `name` (display name, required at creation, editable without step-up since it isn't sensitive).
+
+**Data CRUD** at `/admin/data/{banks,cards,categories,merchants,promotions,tags}` — `tags` (`merchant_tags`) got its own CRUD page alongside categories; both categories and tags support a "Fusionar" (merge) action (`POST .../[id]/merge`) that reassigns merchants/tags to a target and deletes the source, via the shared `MergeModal` component.
+
+**Reports inbox** (`/admin/ops/reports`): users can flag a promo as expired/wrong/not-found from the public app (`POST /api/promo-reports`, two-phase capture — reason is optional and added later via `PATCH`). Admins triage reports grouped by promo (`/api/admin/ops/reports`), with actions to deactivate the promo, resolve, or dismiss, and an optional AI-assisted prioritization pass (`lib/ai/report-triage.ts`, 503 without an AI provider — same gating pattern as staging autofill).
+
+**Banco de Chile fetch** streams live progress into a terminal-style console via SSE (`POST /api/admin/ops/fetch/stream`, mirrors the `approve-all/stream` pattern), backed by the extracted async generator `lib/ops/fetch-bank.ts` (`runBankFetch`). The plain JSON route (`/api/admin/ops/fetch`) consumes the same generator for the same external contract.
 
 ### AI provider abstraction (`lib/ai/provider.ts`)
 
@@ -131,12 +141,12 @@ Used only by the scraping review flow's merchant resolver (`lib/ai/merchant-sugg
 
 ### `server-only` boundaries
 
-`lib/db.ts`, `lib/admin-auth.ts`, `lib/admin-session.ts`, `lib/admin-guard.ts`, `lib/admin-log.ts`, `lib/maintenance.ts`, `lib/staging.ts`, and `lib/ai/provider.ts` are marked `import "server-only"`. Importing any of these from a Client Component will cause a build-time error. `lib/admin-crypto.ts` uses `node:crypto` which achieves the same boundary implicitly.
+`lib/db.ts`, `lib/admin-auth.ts`, `lib/admin-session.ts`, `lib/admin-guard.ts`, `lib/admin-log.ts`, `lib/maintenance.ts`, `lib/staging.ts`, `lib/ai/provider.ts`, `lib/ai/report-triage.ts`, and `lib/ops/fetch-bank.ts` are marked `import "server-only"`. Importing any of these from a Client Component will cause a build-time error. `lib/admin-crypto.ts` uses `node:crypto` which achieves the same boundary implicitly. `lib/rate-limit.ts` is deliberately dependency-free and NOT server-only — it's imported by public route handlers directly.
 
 ## Further reading
 
 - `docs/ARCHITECTURE.md` — deep dives: standalone system, service worker lifecycle, component hierarchy, page transitions
-- `docs/API.md` — all 9 public endpoints with request/response examples
+- `docs/API.md` — all 12 public endpoints with request/response examples
 - `docs/ADMIN.md` — admin panel: auth flows, CRUD hierarchy, key rotation, first deploy walkthrough
 - `docs/SCRAPING.md` — scraping pipeline: scrapers → staging → review
 - `docs/SECURITY.md` — CSP rationale, SQL parameterization, secrets handling

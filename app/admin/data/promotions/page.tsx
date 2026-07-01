@@ -66,34 +66,39 @@ export default function PromotionsPage() {
     if (filterBank) params.set("bankId", filterBank);
     if (filterMerchant) params.set("merchantId", filterMerchant);
     if (showActive) params.set("active", "true");
-    const [pr, br, mr, cr] = await Promise.all([
-      fetch(`/api/admin/data/promotions?${params}`),
-      fetch("/api/admin/data/banks"),
-      fetch("/api/admin/data/merchants"),
-      fetch("/api/admin/data/cards"),
-    ]);
-    let list: Promo[] = [];
-    if (pr.ok) { list = await pr.json(); setPromos(list); }
-    if (br.ok) setBanks(await br.json());
-    if (mr.ok) setMerchants(await mr.json());
-    if (cr.ok) setCards(await cr.json());
-    setLoading(false);
-    setSelectedIds([]);
+    try {
+      const [pr, br, mr, cr] = await Promise.all([
+        fetch(`/api/admin/data/promotions?${params}`),
+        fetch("/api/admin/data/banks"),
+        fetch("/api/admin/data/merchants"),
+        fetch("/api/admin/data/cards"),
+      ]);
+      let list: Promo[] = [];
+      if (pr.ok) { list = await pr.json(); setPromos(list); }
+      if (br.ok) setBanks(await br.json());
+      if (mr.ok) setMerchants(await mr.json());
+      if (cr.ok) setCards(await cr.json());
+      setSelectedIds([]);
 
-    // Deep-link desde Reportes: abre la promo objetivo en el editor una sola vez.
-    if (pendingEdit) {
-      const target = list.find((p) => p.id === pendingEdit);
-      if (target) {
-        openEdit(target);
-        if (typeof window !== "undefined") {
-          window.scrollTo({ top: 0, behavior: "smooth" });
-          // Limpia ?edit de la URL para que un refresh no reabra el editor.
-          const url = new URL(window.location.href);
-          url.searchParams.delete("edit");
-          window.history.replaceState(null, "", url.toString());
+      // Deep-link desde Reportes: abre la promo objetivo en el editor una sola vez.
+      if (pendingEdit) {
+        const target = list.find((p) => p.id === pendingEdit);
+        if (target) {
+          openEdit(target);
+          if (typeof window !== "undefined") {
+            window.scrollTo({ top: 0, behavior: "smooth" });
+            // Limpia ?edit de la URL para que un refresh no reabra el editor.
+            const url = new URL(window.location.href);
+            url.searchParams.delete("edit");
+            window.history.replaceState(null, "", url.toString());
+          }
         }
+        setPendingEdit(null);
       }
-      setPendingEdit(null);
+    } catch (err) {
+      console.error("Error fetching promotions:", err);
+    } finally {
+      setLoading(false);
     }
   }
   useEffect(() => { (async () => { await load(); })(); }, [filterBank, filterMerchant, showActive]); // eslint-disable-line react-hooks/exhaustive-deps
@@ -143,10 +148,15 @@ export default function PromotionsPage() {
   async function doDelete() {
     if (!delTarget) return;
     setDeleting(true);
-    const res = await fetch(`/api/admin/data/promotions/${delTarget.id}`, { method: "DELETE" });
-    if (res.ok) { setSuccess("Promoción eliminada"); setDelTarget(null); load(); }
-    else { const d = await res.json(); setError(d.error ?? "Error"); setDelTarget(null); }
-    setDeleting(false);
+    try {
+      const res = await fetch(`/api/admin/data/promotions/${delTarget.id}`, { method: "DELETE" });
+      if (res.ok) { setSuccess("Promoción eliminada"); setDelTarget(null); load(); }
+      else { const d = await res.json(); setError(d.error ?? "Error"); setDelTarget(null); }
+    } catch {
+      setError("Error de red"); setDelTarget(null);
+    } finally {
+      setDeleting(false);
+    }
   }
 
   async function doBulkDelete() {

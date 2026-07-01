@@ -4,6 +4,7 @@ import { logAdminAction } from "@/lib/admin-log";
 import {
   isValidId,
   isValidCardTypes,
+  isValidCardIds,
   isValidDaysOfWeek,
   isNonNegativeIntOrNull,
   isValidDateOrNull,
@@ -126,6 +127,9 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
     }
     if (!isValidCardTypes(card_types)) {
       return NextResponse.json({ error: "card_types debe tener al menos un tipo válido" }, { status: 400, headers: NO_CACHE });
+    }
+    if (!isValidCardIds(card_ids)) {
+      return NextResponse.json({ error: "card_ids debe ser un array de IDs de tarjeta válidos" }, { status: 400, headers: NO_CACHE });
     }
     if (!["presencial", "online", "both"].includes(modality)) {
       return NextResponse.json({ error: "modality inválido" }, { status: 400, headers: NO_CACHE });

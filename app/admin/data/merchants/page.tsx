@@ -30,15 +30,20 @@ export default function MerchantsPage() {
   const [search,   setSearch]   = useState("");
 
   async function load() {
-    const [mr, cr, tr] = await Promise.all([
-      fetch("/api/admin/data/merchants"),
-      fetch("/api/admin/data/categories"),
-      fetch("/api/admin/data/tags"),
-    ]);
-    if (mr.ok) setMerchants(await mr.json());
-    if (cr.ok) setCategories(await cr.json());
-    if (tr.ok) setTags(await tr.json());
-    setLoading(false);
+    try {
+      const [mr, cr, tr] = await Promise.all([
+        fetch("/api/admin/data/merchants"),
+        fetch("/api/admin/data/categories"),
+        fetch("/api/admin/data/tags"),
+      ]);
+      if (mr.ok) setMerchants(await mr.json());
+      if (cr.ok) setCategories(await cr.json());
+      if (tr.ok) setTags(await tr.json());
+    } catch (err) {
+      console.error("Error fetching merchants:", err);
+    } finally {
+      setLoading(false);
+    }
   }
   useEffect(() => { (async () => { await load(); })(); }, []);
 
@@ -76,17 +81,26 @@ export default function MerchantsPage() {
 
   async function openDelete(m: Merchant) {
     setDelTarget(m);
-    const r = await fetch(`/api/admin/data/merchants/${m.id}/deps`);
-    if (r.ok) setDeps(await r.json());
+    try {
+      const r = await fetch(`/api/admin/data/merchants/${m.id}/deps`);
+      if (r.ok) setDeps(await r.json());
+    } catch (err) {
+      console.error("Error fetching merchant dependencies:", err);
+    }
   }
 
   async function doDelete() {
     if (!delTarget) return;
     setDeleting(true);
-    const res = await fetch(`/api/admin/data/merchants/${delTarget.id}?confirmed=true`, { method: "DELETE" });
-    if (res.ok) { setSuccess("Comercio eliminado"); setDelTarget(null); setDeps(null); load(); }
-    else { const d = await res.json(); setError(d.error ?? "Error"); setDelTarget(null); setDeps(null); }
-    setDeleting(false);
+    try {
+      const res = await fetch(`/api/admin/data/merchants/${delTarget.id}?confirmed=true`, { method: "DELETE" });
+      if (res.ok) { setSuccess("Comercio eliminado"); setDelTarget(null); setDeps(null); load(); }
+      else { const d = await res.json(); setError(d.error ?? "Error"); setDelTarget(null); setDeps(null); }
+    } catch {
+      setError("Error de red"); setDelTarget(null); setDeps(null);
+    } finally {
+      setDeleting(false);
+    }
   }
 
   const visible = merchants.filter((m) =>

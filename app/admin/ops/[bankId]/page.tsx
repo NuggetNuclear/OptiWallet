@@ -85,17 +85,23 @@ export default function BankReview() {
 
   async function load() {
     setLoading(true);
-    const [sr, mr, cr, cdr] = await Promise.all([
-      fetch(`/api/admin/ops/${bankId}/staging?status=${status}`),
-      fetch("/api/admin/data/merchants"),
-      fetch("/api/admin/data/categories"),
-      fetch("/api/admin/data/cards"),
-    ]);
-    if (sr.ok) setRows(await sr.json());
-    if (mr.ok) setMerchants(await mr.json());
-    if (cr.ok) setCategories(await cr.json());
-    if (cdr.ok) setCards(await cdr.json());
-    setLoading(false);
+    try {
+      const [sr, mr, cr, cdr] = await Promise.all([
+        fetch(`/api/admin/ops/${bankId}/staging?status=${status}`),
+        fetch("/api/admin/data/merchants"),
+        fetch("/api/admin/data/categories"),
+        fetch("/api/admin/data/cards"),
+      ]);
+      if (sr.ok) setRows(await sr.json());
+      if (mr.ok) setMerchants(await mr.json());
+      if (cr.ok) setCategories(await cr.json());
+      if (cdr.ok) setCards(await cdr.json());
+    } catch (err) {
+      console.error("Error loading staging data:", err);
+      setError("Error de red al cargar los datos.");
+    } finally {
+      setLoading(false);
+    }
   }
   useEffect(() => { (async () => { await load(); })(); }, [bankId, status]); // eslint-disable-line react-hooks/exhaustive-deps
 

@@ -23,13 +23,18 @@ export default function CardsPage() {
   const [deleting,  setDeleting]  = useState(false);
 
   async function load() {
-    const [cr, br] = await Promise.all([
-      fetch("/api/admin/data/cards"),
-      fetch("/api/admin/data/banks"),
-    ]);
-    if (cr.ok) setCards(await cr.json());
-    if (br.ok) setBanks(await br.json());
-    setLoading(false);
+    try {
+      const [cr, br] = await Promise.all([
+        fetch("/api/admin/data/cards"),
+        fetch("/api/admin/data/banks"),
+      ]);
+      if (cr.ok) setCards(await cr.json());
+      if (br.ok) setBanks(await br.json());
+    } catch (err) {
+      console.error("Error fetching cards:", err);
+    } finally {
+      setLoading(false);
+    }
   }
   useEffect(() => { (async () => { await load(); })(); }, []);
 
@@ -57,10 +62,15 @@ export default function CardsPage() {
   async function doDelete() {
     if (!delTarget) return;
     setDeleting(true);
-    const res = await fetch(`/api/admin/data/cards/${delTarget.id}`, { method: "DELETE" });
-    if (res.ok) { setSuccess("Tarjeta eliminada"); setDelTarget(null); load(); }
-    else { const d = await res.json(); setError(d.error ?? "Error"); setDelTarget(null); }
-    setDeleting(false);
+    try {
+      const res = await fetch(`/api/admin/data/cards/${delTarget.id}`, { method: "DELETE" });
+      if (res.ok) { setSuccess("Tarjeta eliminada"); setDelTarget(null); load(); }
+      else { const d = await res.json(); setError(d.error ?? "Error"); setDelTarget(null); }
+    } catch {
+      setError("Error de red"); setDelTarget(null);
+    } finally {
+      setDeleting(false);
+    }
   }
 
   const bankName = (id: string) => banks.find((b) => b.id === id)?.name ?? id;

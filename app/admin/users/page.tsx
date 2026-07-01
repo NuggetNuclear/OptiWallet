@@ -27,15 +27,24 @@ export default function AdminUsersPage() {
   const isRoot = me?.is_root ?? false;
 
   async function load() {
-    const res = await fetch("/api/admin/users");
-    if (res.ok) setUsers(await res.json());
-    setLoading(false);
+    try {
+      const res = await fetch("/api/admin/users");
+      if (res.ok) setUsers(await res.json());
+    } catch (err) {
+      console.error("Error fetching admin users:", err);
+    } finally {
+      setLoading(false);
+    }
   }
 
   useEffect(() => {
     (async () => {
-      const meRes = await fetch("/api/admin/auth/me");
-      if (meRes.ok) setMe(await meRes.json());
+      try {
+        const meRes = await fetch("/api/admin/auth/me");
+        if (meRes.ok) setMe(await meRes.json());
+      } catch (err) {
+        console.error("Error fetching current admin session:", err);
+      }
       await load();
     })();
   }, []);
@@ -43,16 +52,22 @@ export default function AdminUsersPage() {
   async function doDelete() {
     if (!deleteTarget) return;
     setDeleting(deleteTarget.id);
-    const res = await fetch(`/api/admin/users/${deleteTarget.id}`, { method: "DELETE" });
-    if (res.ok) {
+    try {
+      const res = await fetch(`/api/admin/users/${deleteTarget.id}`, { method: "DELETE" });
+      if (res.ok) {
+        setDeleteTarget(null);
+        load();
+      } else {
+        const data = await res.json();
+        setError(data.error ?? "Error");
+        setDeleteTarget(null);
+      }
+    } catch {
+      setError("Error de red");
       setDeleteTarget(null);
-      load();
-    } else {
-      const data = await res.json();
-      setError(data.error ?? "Error");
-      setDeleteTarget(null);
+    } finally {
+      setDeleting(null);
     }
-    setDeleting(null);
   }
 
   return (

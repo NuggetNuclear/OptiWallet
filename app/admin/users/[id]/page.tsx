@@ -27,7 +27,8 @@ export default function EditAdminPage() {
       .then((u: AdminUser | null) => {
         setUser(u);
         if (u) setName(u.name);
-      });
+      })
+      .catch((err) => console.error("Error fetching admin user:", err));
   }, [id]);
 
   async function saveName(e: React.FormEvent) {

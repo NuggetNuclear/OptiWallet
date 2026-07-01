@@ -22,11 +22,12 @@ export const openApiSpec = {
     { url: "http://localhost:3000", description: "Desarrollo local" },
   ],
   tags: [
-    { name: "Catálogo", description: "Bancos, tarjetas, categorías y comercios" },
+    { name: "Catálogo", description: "Bancos, tarjetas, categorías, etiquetas y comercios" },
     { name: "Promociones", description: "Promos activas por comercio" },
     { name: "Recomendaciones", description: "Motor de recomendación por wallet, fecha y comercio" },
     { name: "Meta", description: "Estadísticas públicas del dataset" },
     { name: "Analítica", description: "Eventos anónimos de uso (alimentan el ranking de popularidad)" },
+    { name: "Reportes", description: "Reportes de usuarios sobre promociones (caducadas, incorrectas, etc.)" },
   ],
   paths: {
     "/api/banks": {
@@ -118,6 +119,13 @@ export const openApiSpec = {
             required: false,
             description: "Filtra por ID de categoría",
             schema: { $ref: "#/components/schemas/Id" },
+          },
+          {
+            name: "tags",
+            in: "query",
+            required: false,
+            description: "IDs de etiquetas separados por coma (máx. 30). Un comercio matchea si tiene cualquiera de los tags pedidos (ANY-of).",
+            schema: { type: "string", example: "sushi,delivery-apps" },
           },
         ],
         responses: {
@@ -271,6 +279,93 @@ export const openApiSpec = {
         },
       },
     },
+    "/api/tags": {
+      get: {
+        tags: ["Catálogo"],
+        summary: "Lista de etiquetas",
+        description:
+          "Etiquetas granulares transversales (a diferencia de las categorías, un comercio " +
+          `puede tener varias), con conteo de comercios asociados. ${cacheNote}`,
+        operationId: "getTags",
+        responses: {
+          "200": {
+            description: "Lista de etiquetas",
+            content: {
+              "application/json": {
+                schema: { type: "array", items: { $ref: "#/components/schemas/Tag" } },
+              },
+            },
+          },
+          "500": { $ref: "#/components/responses/InternalError" },
+        },
+      },
+    },
+    "/api/promo-reports": {
+      post: {
+        tags: ["Reportes"],
+        summary: "Crear un reporte de promoción (fase 1)",
+        description:
+          "Fire-and-forget: crea el reporte al instante cuando el usuario marca una " +
+          "promo como problemática, sin motivo todavía (reason queda NULL). Devuelve " +
+          "el id para refinarlo opcionalmente con PATCH. Rate limit 20/min por " +
+          "sesión/IP — input inválido o sobre el límite responde 204 en vez de error.",
+        operationId: "createPromoReport",
+        requestBody: {
+          required: true,
+          content: {
+            "application/json": {
+              schema: { $ref: "#/components/schemas/PromoReportCreate" },
+            },
+          },
+        },
+        responses: {
+          "200": {
+            description: "Reporte creado",
+            content: {
+              "application/json": {
+                schema: {
+                  type: "object",
+                  properties: { id: { type: "integer", example: 42 } },
+                  required: ["id"],
+                },
+              },
+            },
+          },
+          "204": { description: "Input inválido o rate-limit — ignorado silenciosamente" },
+        },
+      },
+    },
+    "/api/promo-reports/{id}": {
+      patch: {
+        tags: ["Reportes"],
+        summary: "Refinar un reporte con un motivo (fase 2)",
+        description:
+          "Agrega el motivo (y nota opcional) a un reporte creado por POST /api/promo-reports. " +
+          "Solo aplica si el reporte existe, aún no tiene motivo y se creó hace menos de 15 " +
+          "minutos (ventana anti-manipulación). Siempre responde 204.",
+        operationId: "updatePromoReport",
+        parameters: [
+          {
+            name: "id",
+            in: "path",
+            required: true,
+            description: "ID numérico del reporte (devuelto por el POST)",
+            schema: { type: "integer" },
+          },
+        ],
+        requestBody: {
+          required: true,
+          content: {
+            "application/json": {
+              schema: { $ref: "#/components/schemas/PromoReportUpdate" },
+            },
+          },
+        },
+        responses: {
+          "204": { description: "Actualizado (o ignorado silenciosamente si no aplica)" },
+        },
+      },
+    },
   },
   components: {
     parameters: {
@@ -335,6 +430,16 @@ export const openApiSpec = {
         },
         required: ["id", "label", "emoji", "merchant_count"],
       },
+      Tag: {
+        type: "object",
+        properties: {
+          id: { $ref: "#/components/schemas/Id" },
+          label: { type: "string", example: "Delivery" },
+          emoji: { type: ["string", "null"], example: "🛵" },
+          merchant_count: { type: "integer", description: "Solo presente en GET /api/tags", example: 14 },
+        },
+        required: ["id", "label", "emoji"],
+      },
       Merchant: {
         type: "object",
         properties: {
@@ -345,8 +450,10 @@ export const openApiSpec = {
           category_label: { type: "string", example: "Supermercados" },
           emoji: { type: "string", example: "🛒" },
           popularity_prior: { type: "number", description: "Prior de popularidad 0–1 (cold-start del ranking)", example: 0.72 },
+          max_discount: { type: ["integer", "null"], description: "Mayor descuento activo del comercio (discount o discount_per_unit). 0 si no tiene promos activas. Solo en GET /api/merchants.", example: 25 },
+          tags: { type: "array", items: { $ref: "#/components/schemas/Tag" }, description: "Etiquetas granulares transversales del comercio." },
         },
-        required: ["id", "name", "category_id", "aliases", "category_label", "emoji", "popularity_prior"],
+        required: ["id", "name", "category_id", "aliases", "category_label", "emoji", "popularity_prior", "tags"],
       },
       Promotion: {
         type: "object",
@@ -421,6 +528,7 @@ export const openApiSpec = {
           category_id: { $ref: "#/components/schemas/Id" },
           category_label: { type: "string", example: "Supermercados" },
           emoji: { type: "string", example: "🛒" },
+          tags: { type: "array", items: { $ref: "#/components/schemas/Tag" }, description: "Etiquetas granulares del comercio." },
           card_id: { $ref: "#/components/schemas/Id" },
           card_name: { type: "string", example: "Mastercard Black" },
           card_type: { type: "string", enum: ["credit", "debit", "prepaid"] },
@@ -431,7 +539,7 @@ export const openApiSpec = {
           "stackable", "cap", "min_purchase", "days_of_week", "start_date",
           "end_date", "modality", "code", "conditions", "source", "verified_at",
           "merchant_id", "merchant_name", "popularity_prior", "category_id",
-          "category_label", "emoji", "card_id", "card_name", "card_type", "bank_id",
+          "category_label", "emoji", "tags", "card_id", "card_name", "card_type", "bank_id",
         ],
       },
       Stats: {
@@ -454,6 +562,24 @@ export const openApiSpec = {
           sessionId: { type: "string", maxLength: 128, description: "Hash anónimo opcional (no identifica al usuario)" },
         },
         required: ["promotionId", "merchantId", "bankId", "eventType", "location"],
+      },
+      PromoReportCreate: {
+        type: "object",
+        properties: {
+          promotionId: { $ref: "#/components/schemas/Id" },
+          merchantId: { $ref: "#/components/schemas/Id" },
+          bankId: { $ref: "#/components/schemas/Id" },
+          sessionId: { type: "string", maxLength: 128, description: "Hash anónimo opcional (no identifica al usuario)" },
+        },
+        required: ["promotionId", "merchantId", "bankId"],
+      },
+      PromoReportUpdate: {
+        type: "object",
+        properties: {
+          reason: { type: "string", enum: ["expired", "wrong_discount", "not_found", "other"] },
+          note: { type: "string", maxLength: 280, description: "Texto libre opcional, solo con reason='other'" },
+        },
+        required: ["reason"],
       },
     },
   },

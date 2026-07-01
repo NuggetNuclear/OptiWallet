@@ -23,6 +23,9 @@ export function AdminShell({ children }: { children: React.ReactNode }) {
           setSession(data);
         }
       })
+      .catch(() => {
+        router.replace("/admin/login");
+      })
       .finally(() => setLoading(false));
   }, [router]);
 

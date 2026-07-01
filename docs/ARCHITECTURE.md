@@ -1,6 +1,6 @@
 # Arquitectura de OptiWallet
 
-> Última actualización: 2026-06-30 · v1.0.0-beta.2
+> Última actualización: 2026-07-01 · v1.0.0-beta.2
 
 Este documento describe la arquitectura técnica completa de OptiWallet. Para la visión general y el setup local, ver [`README.md`](../README.md).
 
@@ -38,7 +38,7 @@ OptiWallet es una **PWA** construida con **Next.js 16 App Router**. El frontend 
 │    ├─ page.tsx         → Landing (client)            │
 │    ├─ app/page.tsx     → Web app (client)            │
 │    ├─ admin/*          → Panel admin (server+client) │
-│    ├─ api/*            → 9 Route Handlers públicos   │
+│    ├─ api/*            → 12 Route Handlers públicos  │
 │    ├─ api/admin/*      → API admin (auth requerida)  │
 │    └─ blog/, contacto/ → Páginas internas (server)   │
 │                                                     │
@@ -82,13 +82,18 @@ OptiWallet es una **PWA** construida con **Next.js 16 App Router**. El frontend 
 | `/admin` | Server + client components | `app/admin/` | Dashboard del panel de administración (requiere sesión). |
 | `/admin/login` | Client component | `app/admin/login/page.tsx` | Login dos fases: contraseña → TOTP. |
 | `/admin/totp-setup` | Client component | `app/admin/totp-setup/page.tsx` | Enrolamiento TOTP (primer login). |
-| `/admin/users` | Client component | `app/admin/users/page.tsx` | CRUD de admins. |
-| `/admin/data/*` | Client components | `app/admin/data/*/page.tsx` | CRUD de `banks`, `cards`, `categories`, `merchants`, `promotions`. |
+| `/admin/users` | Client component | `app/admin/users/page.tsx` | CRUD de admins (crear/eliminar: solo root). |
+| `/admin/audit` | Client component | `app/admin/audit/page.tsx` | Registro de actividad (audit log), filtros + auto-refresh. |
+| `/admin/data/*` | Client components | `app/admin/data/*/page.tsx` | CRUD de `banks`, `cards`, `categories`, `merchants`, `tags`, `promotions`. |
+| `/admin/ops` | Client component | `app/admin/ops/page.tsx` | Central de operaciones: overview por banco + modo mantenimiento + fetch (streaming). |
+| `/admin/ops/[bankId]` | Client component | `app/admin/ops/[bankId]/page.tsx` | Cola de revisión de staging de un banco. |
+| `/admin/ops/import` | Client component | `app/admin/ops/import/page.tsx` | Importar JSON de scraper subido manualmente. |
+| `/admin/ops/reports` | Client component | `app/admin/ops/reports/page.tsx` | Bandeja de reportes de usuarios (triage, priorización IA opcional). |
 | `/api/admin/auth/*` | Route Handlers | `app/api/admin/auth/` | Login, verify-totp, logout, me. |
 | `/api/admin/users/*` | Route Handlers | `app/api/admin/users/` | CRUD de admin users + TOTP setup. |
-| `/api/admin/data/*` | Route Handlers | `app/api/admin/data/` | CRUD + deps de las 5 entidades. |
+| `/api/admin/data/*` | Route Handlers | `app/api/admin/data/` | CRUD + deps + merge de las 6 entidades (incl. `tags`). |
 | `/api/admin/maintenance` | Route Handler | `app/api/admin/maintenance/route.ts` | Toggle modo mantenimiento (GET estado, POST on/off). |
-| `/api/admin/ops/*` | Route Handlers | `app/api/admin/ops/` | Import scraper JSON, staging review, suggest merchant (IA). |
+| `/api/admin/ops/*` | Route Handlers | `app/api/admin/ops/` | Fetch (JSON/SSE), import scraper JSON, staging review, suggest merchant (IA), bandeja de reportes. |
 | `/api/admin/audit` | Route Handler | `app/api/admin/audit/route.ts` | Consulta audit log paginado. |
 | `/mantencion` | Server component | `app/mantencion/page.tsx` | Pantalla de mantenimiento (redirigida por proxy.ts). |
 
@@ -518,7 +523,7 @@ RootLayout (app/layout.tsx)
 │   │   │   ├── SkeletonCard × 3   [mientras cargan recomendaciones]
 │   │   │   └── FeedRow × N
 │   │   ├── MerchantSearch
-│   │   │   ├── CategoryChip × N
+│   │   │   ├── CategoryChip × N   [también reutilizado para el filtro de tags, ?tags= ANY-of]
 │   │   │   ├── SkeletonCard × 3   [mientras cargan comercios]
 │   │   │   └── MerchantRow × N
 │   │   └── Footer (disclaimer)
@@ -528,7 +533,9 @@ RootLayout (app/layout.tsx)
 │   │   ├── Merchant hero
 │   │   ├── Amount input
 │   │   ├── RecommendationCard (ganadora)
-│   │   ├── AlternativeCard × N
+│   │   │   └── PromoFeedback     [👍/👎 compartido → POST /api/promo-reports]
+│   │   ├── GroupedAlternativeCard × N
+│   │   │   └── PromoFeedback     [mismo componente, antes duplicado por card]
 │   │   ├── PromoRow × N (todas las promos)
 │   │   └── Disclaimer
 │   │

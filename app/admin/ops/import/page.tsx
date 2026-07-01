@@ -26,7 +26,10 @@ export default function ImportPage() {
   const [result, setResult] = useState<ImportResult | null>(null);
 
   useEffect(() => {
-    fetch("/api/admin/data/banks").then((r) => r.ok ? r.json() : []).then(setBanks);
+    fetch("/api/admin/data/banks")
+      .then((r) => r.ok ? r.json() : [])
+      .then(setBanks)
+      .catch((err) => console.error("Error fetching banks:", err));
   }, []);
 
   function ingest(text: string) {

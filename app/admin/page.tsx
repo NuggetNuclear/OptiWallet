@@ -24,7 +24,10 @@ export default function AdminDashboard() {
   const [stats, setStats] = useState<Stats | null>(null);
 
   useEffect(() => {
-    fetch("/api/stats").then((r) => r.ok ? r.json() : null).then(setStats);
+    fetch("/api/stats")
+      .then((r) => r.ok ? r.json() : null)
+      .then(setStats)
+      .catch((err) => console.error("Error fetching stats:", err));
   }, []);
 
   return (
