@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { AdminShell } from "../components/AdminShell";
+import { TerminalConsole, type TerminalLine } from "../components/TerminalConsole";
 // ── Types ───────────────────────────────────────────────────────────────────
 
 interface FetchConfig {
@@ -44,12 +45,6 @@ interface FetchResult {
   edge_count: number;
   edge_counts?: Record<string, number>;
 }
-interface CookieRequired {
-  error: "cookie_required";
-  message: string;
-  instructions: string[];
-}
-
 // ── Helpers ─────────────────────────────────────────────────────────────────
 
 function fmtDate(d: string | null): string {
@@ -197,61 +192,82 @@ function FetchButton({
   config?: FetchConfig;
   onFetched: () => void;
 }) {
-  const [state, setState] = useState<"idle" | "confirm" | "fetching" | "cookie" | "success" | "error">("idle");
+  const [mode, setMode] = useState<"idle" | "confirm" | "streaming" | "cookie" | "success">("idle");
+  const [lines, setLines] = useState<TerminalLine[]>([]);
+  const [done, setDone] = useState(false);
   const [cookieValue, setCookieValue] = useState("");
   const [instructions, setInstructions] = useState<string[]>([]);
   const [result, setResult] = useState<FetchResult | null>(null);
   const [error, setError] = useState("");
 
-  async function doFetch(cookie?: string) {
-    setState("fetching");
+  // Ejecuta el scraper por SSE y transmite el progreso al TerminalConsole
+  // (mismo mecanismo que "Auto-aprobar backlog").
+  async function startStream(cookie?: string) {
+    setMode("streaming");
+    setLines([]);
+    setDone(false);
     setError("");
+    let needsCookie = false;
     try {
-      const res = await fetch("/api/admin/ops/fetch", {
+      const res = await fetch("/api/admin/ops/fetch/stream", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ bank_id: bankId, cookie: cookie || undefined }),
       });
-
-      if (res.status === 428) {
-        // Cookie required — show modal.
-        const data: CookieRequired = await res.json();
-        setInstructions(data.instructions || []);
-        setState("cookie");
+      if (!res.ok || !res.body) {
+        const data = await res.json().catch(() => ({}));
+        setLines([{ msg: data.error ?? "Error al conectar con el servidor.", level: "error" }]);
+        setDone(true);
         return;
       }
-
-      const data = await res.json();
-      if (!res.ok) {
-        setError(data.error ?? "Error desconocido");
-        setState("error");
-        return;
+      const reader = res.body.getReader();
+      const decoder = new TextDecoder();
+      let buf = "";
+      while (true) {
+        const { done: rdone, value } = await reader.read();
+        if (rdone) break;
+        buf += decoder.decode(value, { stream: true });
+        const parts = buf.split("\n\n");
+        buf = parts.pop() ?? "";
+        for (const part of parts) {
+          for (const line of part.split("\n")) {
+            if (!line.startsWith("data: ")) continue;
+            try {
+              const ev = JSON.parse(line.slice(6));
+              if (ev.type === "log") {
+                setLines((prev) => [...prev, { msg: ev.msg, level: ev.level ?? "info" }]);
+              } else if (ev.type === "cookie_required") {
+                needsCookie = true;
+                setInstructions(ev.instructions ?? []);
+              } else if (ev.type === "done") {
+                if (ev.error) setLines((prev) => [...prev, { msg: ev.error, level: "error" }]);
+                else if (ev.summary) { setResult(ev.summary as FetchResult); onFetched(); }
+                setDone(true);
+              }
+            } catch { /* evento malformado — ignorar */ }
+          }
+        }
       }
-
-      setResult(data as FetchResult);
-      setState("success");
-      onFetched();
+      // El server cierra el stream tras pedir cookie: abrimos el modal.
+      if (needsCookie) setMode("cookie");
     } catch {
-      setError("Error de red al contactar el servidor");
-      setState("error");
+      setLines((prev) => [...prev, { msg: "Error de red.", level: "error" }]);
+      setDone(true);
     }
   }
 
-  function handleCookieSubmit() {
-    if (!cookieValue.trim()) return;
-    doFetch(cookieValue.trim());
-  }
-
   function reset() {
-    setState("idle");
+    setMode("idle");
     setResult(null);
     setError("");
+    setLines([]);
+    setDone(false);
     setCookieValue("");
     setInstructions([]);
   }
 
   // ── Inline button (default state) ──
-  if (state === "idle") {
+  if (mode === "idle") {
     const hasWalkthrough = !!config.walkthrough;
     return (
       <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
@@ -262,7 +278,7 @@ function FetchButton({
         )}
         <button
           className="admin-btn admin-btn-ghost admin-btn-sm"
-          onClick={() => hasWalkthrough ? setState("confirm") : doFetch()}
+          onClick={() => hasWalkthrough ? setMode("confirm") : startStream()}
           title={`Fetch automático desde ${bankName}`}
         >
           Fetch
@@ -272,7 +288,7 @@ function FetchButton({
   }
 
   // ── Pre-confirm walkthrough modal ──
-  if (state === "confirm" && config.walkthrough) {
+  if (mode === "confirm" && config.walkthrough) {
     const wt = config.walkthrough;
     return (
       <>
@@ -339,7 +355,7 @@ function FetchButton({
             <div className="admin-form-actions">
               <button
                 className="admin-btn admin-btn-primary"
-                onClick={() => { setState("idle"); doFetch(); }}
+                onClick={() => startStream()}
               >
                 Iniciar fetch
               </button>
@@ -358,32 +374,26 @@ function FetchButton({
     );
   }
 
-  // ── Loading state ──
-  if (state === "fetching") {
+  // ── Streaming terminal (mismo look que "Auto-aprobar backlog") ──
+  if (mode === "streaming") {
     return (
-      <button className="admin-btn admin-btn-ghost admin-btn-sm" disabled style={{ gap: 6 }}>
-        <span className="admin-spinner" style={{ width: 12, height: 12, borderWidth: 1.5 }} aria-hidden="true" />
-        {config.walkthrough?.estimatedTime
-          ? `Scrapeando… (~${config.walkthrough.estimatedTime})`
-          : "Scrapeando…"}
-      </button>
-    );
-  }
-
-  // ── Error state ──
-  if (state === "error") {
-    return (
-      <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
-        <span style={{ fontSize: 11, color: "var(--copper)" }}>{error}</span>
-        <button className="admin-btn admin-btn-ghost admin-btn-sm" onClick={reset}>
-          Reintentar
+      <>
+        <TerminalConsole
+          title={`fetch · ${bankId}`}
+          lines={lines}
+          done={done}
+          onClose={() => { setLines([]); setDone(false); setMode(result ? "success" : "idle"); }}
+        />
+        <button className="admin-btn admin-btn-ghost admin-btn-sm" disabled style={{ gap: 6 }}>
+          <span className="admin-spinner" style={{ width: 12, height: 12, borderWidth: 1.5 }} aria-hidden="true" />
+          Scrapeando…
         </button>
-      </div>
+      </>
     );
   }
 
   // ── Success state ──
-  if (state === "success" && result) {
+  if (mode === "success" && result) {
     return (
       <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
         <span className="admin-badge admin-badge-green" style={{ fontSize: 10 }}>
@@ -405,7 +415,7 @@ function FetchButton({
   }
 
   // ── Cookie modal ──
-  if (state === "cookie") {
+  if (mode === "cookie") {
     return (
       <>
         <div className="admin-modal-overlay" onClick={(e) => { if (e.target === e.currentTarget) reset(); }}>
@@ -462,8 +472,8 @@ function FetchButton({
             <div className="admin-form-actions">
               <button
                 className="admin-btn admin-btn-primary"
-                onClick={handleCookieSubmit}
-                disabled={!cookieValue.trim() || state !== "cookie"}
+                onClick={() => { if (cookieValue.trim()) startStream(cookieValue.trim()); }}
+                disabled={!cookieValue.trim()}
               >
                 Reintentar con cookie
               </button>
