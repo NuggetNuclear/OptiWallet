@@ -507,7 +507,19 @@ function FetchButton({
  * desde el panel. La config de cada uno controla el UX (walkthrough, tiempo).
  */
 const FETCHABLE_BANKS: Record<string, FetchConfig> = {
-  "banco-chile": {},
+  "banco-chile": {
+    walkthrough: {
+      steps: [
+        "Se conecta al sitio de beneficios de Banco de Chile.",
+        "Descarga todas las categorías y promociones publicadas.",
+        "Compara con la caché local para procesar solo lo nuevo o modificado.",
+        "Parsea y valida cada promo (descuento, fechas, tarjetas).",
+        "Importa las promos limpias a staging para tu revisión.",
+      ],
+      warning: "No cierres esta pestaña mientras corre. Si el banco activa su verificación anti-bot (Imperva), te pediremos pegar una cookie para reintentar.",
+      estimatedTime: "1–2 min",
+    },
+  },
 };
 
 /**
