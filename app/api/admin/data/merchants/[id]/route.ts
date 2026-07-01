@@ -15,7 +15,13 @@ export async function GET(req: NextRequest, { params }: Params) {
   if (!isValidId(id)) return NextResponse.json({ error: "ID inválido" }, { status: 400, headers: NO_CACHE });
   try {
     const rows = await sql`
-      SELECT m.id, m.name, m.category_id, m.aliases, mc.label AS category_label, mc.emoji
+      SELECT m.id, m.name, m.category_id, m.aliases, mc.label AS category_label, mc.emoji,
+        COALESCE((
+          SELECT json_agg(json_build_object('id', mt.id, 'label', mt.label, 'emoji', mt.emoji) ORDER BY mt.label)
+          FROM merchant_tag_map mtm
+          JOIN merchant_tags mt ON mt.id = mtm.tag_id
+          WHERE mtm.merchant_id = m.id
+        ), '[]'::json) AS tags
       FROM merchants m
       JOIN merchant_categories mc ON m.category_id = mc.id
       WHERE m.id = ${id}
@@ -43,8 +49,10 @@ export async function PATCH(req: NextRequest, { params }: Params) {
     if (has("name") && (typeof fields.name !== "string" || !fields.name.trim())) return NextResponse.json({ error: "name inválido" }, { status: 400, headers: NO_CACHE });
     if (has("category_id") && !isValidId(fields.category_id as string)) return NextResponse.json({ error: "category_id inválido" }, { status: 400, headers: NO_CACHE });
     if (has("aliases") && !Array.isArray(fields.aliases)) return NextResponse.json({ error: "aliases debe ser un array" }, { status: 400, headers: NO_CACHE });
+    if (has("tag_ids") && (!Array.isArray(fields.tag_ids) || !(fields.tag_ids as unknown[]).every((t) => typeof t === "string" && isValidId(t))))
+      return NextResponse.json({ error: "tag_ids inválido" }, { status: 400, headers: NO_CACHE });
 
-    const changed = ["name", "category_id", "aliases"].filter(has);
+    const changed = ["name", "category_id", "aliases", "tag_ids"].filter(has);
     const rows = await sql`SELECT id, name, category_id, aliases FROM merchants WHERE id = ${id}`;
     if (!rows.length) return NextResponse.json(null, { status: 404, headers: NO_CACHE });
     if (!changed.length) return NextResponse.json({ status: "ok" }, { headers: NO_CACHE });
@@ -67,6 +75,15 @@ export async function PATCH(req: NextRequest, { params }: Params) {
         aliases = ${next.aliases as string[]}
       WHERE id = ${id}
     `;
+
+    // Sincronizar tags: reemplazo total (delete-then-insert) solo si se enviaron.
+    if (has("tag_ids")) {
+      const tagArray = Array.from(new Set(fields.tag_ids as string[]));
+      await sql`DELETE FROM merchant_tag_map WHERE merchant_id = ${id}`;
+      for (const t of tagArray) {
+        await sql`INSERT INTO merchant_tag_map (merchant_id, tag_id) VALUES (${id}, ${t}) ON CONFLICT DO NOTHING`;
+      }
+    }
 
     await logAdminAction(session, "update", "merchant", id, `Campos: ${changed.join(", ")}`, clientIp(req));
     return NextResponse.json({ status: "ok" }, { headers: NO_CACHE });

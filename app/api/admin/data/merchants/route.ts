@@ -17,7 +17,13 @@ export async function GET(req: NextRequest) {
       return NextResponse.json({ error: "category inválida" }, { status: 400, headers: NO_CACHE });
     }
     const rows = await sql`
-      SELECT m.id, m.name, m.category_id, m.aliases, mc.label AS category_label, mc.emoji
+      SELECT m.id, m.name, m.category_id, m.aliases, mc.label AS category_label, mc.emoji,
+        COALESCE((
+          SELECT json_agg(json_build_object('id', mt.id, 'label', mt.label, 'emoji', mt.emoji) ORDER BY mt.label)
+          FROM merchant_tag_map mtm
+          JOIN merchant_tags mt ON mt.id = mtm.tag_id
+          WHERE mtm.merchant_id = m.id
+        ), '[]'::json) AS tags
       FROM merchants m
       JOIN merchant_categories mc ON m.category_id = mc.id
       WHERE (${category ?? ""} = '' OR m.category_id = ${category ?? ""})
@@ -37,19 +43,25 @@ export async function POST(req: NextRequest) {
   }
   try {
     const body = await req.json().catch(() => null);
-    const { id, name, category_id, aliases } = body ?? {};
+    const { id, name, category_id, aliases, tag_ids } = body ?? {};
 
     if (!id || !isValidId(id)) return NextResponse.json({ error: "ID inválido" }, { status: 400, headers: NO_CACHE });
     if (!name || typeof name !== "string" || !name.trim()) return NextResponse.json({ error: "name requerido" }, { status: 400, headers: NO_CACHE });
     if (name.trim().length > MERCHANT_NAME_MAX_LENGTH) return NextResponse.json({ error: `El nombre del comercio no puede superar ${MERCHANT_NAME_MAX_LENGTH} caracteres` }, { status: 400, headers: NO_CACHE });
     if (!category_id || !isValidId(category_id)) return NextResponse.json({ error: "category_id inválido" }, { status: 400, headers: NO_CACHE });
+    if (tag_ids !== undefined && (!Array.isArray(tag_ids) || !tag_ids.every((t: unknown) => typeof t === "string" && isValidId(t))))
+      return NextResponse.json({ error: "tag_ids inválido" }, { status: 400, headers: NO_CACHE });
 
     const aliasArray = Array.isArray(aliases) ? aliases.filter((a: unknown) => typeof a === "string") : [];
+    const tagArray: string[] = Array.isArray(tag_ids) ? Array.from(new Set(tag_ids as string[])) : [];
 
     await sql`
       INSERT INTO merchants (id, name, category_id, aliases)
       VALUES (${id}, ${name}, ${category_id}, ${aliasArray})
     `;
+    for (const t of tagArray) {
+      await sql`INSERT INTO merchant_tag_map (merchant_id, tag_id) VALUES (${id}, ${t}) ON CONFLICT DO NOTHING`;
+    }
     await logAdminAction(session, "create", "merchant", id, `Comercio "${name}" creado en categoría ${category_id}`, clientIp(req));
     return NextResponse.json({ id }, { status: 201, headers: NO_CACHE });
   } catch (err) {

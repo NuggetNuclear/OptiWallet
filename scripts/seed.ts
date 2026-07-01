@@ -74,8 +74,22 @@ const CARDS = [
   { id: "tenpo-prepaid", bank_id: "tenpo", name: "Tenpo Prepago", type: "prepaid" },
 ];
 
+// Categorías macro (broad buckets). Cada comercio pertenece a EXACTAMENTE una.
+// El detalle fino (sushi, farmacias, delivery…) vive ahora como TAGS.
 const CATEGORIES = [
   { id: "supermercados", label: "Supermercados", emoji: "🛒" },
+  { id: "gastronomia", label: "Gastronomía", emoji: "🍽️" },
+  { id: "compras", label: "Compras", emoji: "🛍️" },
+  { id: "salud-belleza", label: "Salud y Belleza", emoji: "💆" },
+  { id: "entretencion", label: "Entretención", emoji: "🎬" },
+  { id: "automotriz-servicios", label: "Automotriz y Servicios", emoji: "🚗" },
+  { id: "viajes", label: "Viajes", emoji: "✈️" },
+  { id: "otros", label: "Otros", emoji: "🏷️" }
+];
+
+// Tags: atributos transversales que un comercio puede tener en cantidad variable.
+// Provienen de las antiguas categorías granulares.
+const TAGS = [
   { id: "combustible", label: "Combustible", emoji: "⛽" },
   { id: "restaurantes", label: "Restaurantes", emoji: "🍽️" },
   { id: "cafes-pastelerias", label: "Cafés y Pastelerías", emoji: "☕" },
@@ -105,13 +119,12 @@ const CATEGORIES = [
   { id: "delivery-apps", label: "Apps de Delivery", emoji: "🛵" },
   { id: "licores-botillerias", label: "Licores y Botillerías", emoji: "🍾" },
   { id: "juguetes-ninos", label: "Juguetes y Niños", emoji: "🧸" },
-  { id: "librerias-papelerias", label: "Librerías y Papelerías", emoji: "📖" },
-  { id: "otros", label: "Otros", emoji: "🏷️" }
+  { id: "librerias-papelerias", label: "Librerías y Papelerías", emoji: "📖" }
 ];
 
 async function reset() {
   console.log("🗑️  Dropeando tablas…");
-  for (const table of ["promotion_codes", "scraper_raw_cache", "promo_staging", "scraper_runs", "promotions", "cards", "merchants", "merchant_categories", "banks"]) {
+  for (const table of ["promotion_codes", "scraper_raw_cache", "promo_staging", "scraper_runs", "promotions", "merchant_tag_map", "merchant_tags", "cards", "merchants", "merchant_categories", "banks"]) {
     await sql.query(`DROP TABLE IF EXISTS ${table} CASCADE`);
   }
   console.log("📋 Reaplicando schema.sql…");
@@ -130,6 +143,13 @@ async function seed() {
     await sql.query(
       `INSERT INTO merchant_categories (id, label, emoji) VALUES ($1, $2, $3)`,
       [cat.id, cat.label, cat.emoji]
+    );
+  }
+
+  for (const tag of TAGS) {
+    await sql.query(
+      `INSERT INTO merchant_tags (id, label, emoji) VALUES ($1, $2, $3)`,
+      [tag.id, tag.label, tag.emoji]
     );
   }
 

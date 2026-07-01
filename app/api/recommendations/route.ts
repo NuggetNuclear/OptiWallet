@@ -60,6 +60,12 @@ export async function GET(req: NextRequest) {
         m.category_id,
         mc.label         AS category_label,
         mc.emoji,
+        COALESCE((
+          SELECT json_agg(json_build_object('id', mt.id, 'label', mt.label, 'emoji', mt.emoji) ORDER BY mt.label)
+          FROM merchant_tag_map mtm
+          JOIN merchant_tags mt ON mt.id = mtm.tag_id
+          WHERE mtm.merchant_id = m.id
+        ), '[]'::json) AS tags,
         c.id             AS card_id,
         c.name           AS card_name,
         c.type           AS card_type,

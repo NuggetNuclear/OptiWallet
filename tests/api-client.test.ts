@@ -4,6 +4,7 @@ import {
   getBanksFromApi,
   getCardsFromApi,
   getCategoriesFromApi,
+  getTagsFromApi,
   getMerchantsFromApi,
   getRecommendationsFromApi,
   getMerchantByIdFromApi,
@@ -60,6 +61,12 @@ describe("Cliente de API — URLs", () => {
     strictEqual(lastUrl, "/api/categories");
   });
 
+  // getTagsFromApi
+  it("getTagsFromApi -> /api/tags", async () => {
+    await getTagsFromApi();
+    strictEqual(lastUrl, "/api/tags");
+  });
+
   // getMerchantsFromApi
   it("getMerchantsFromApi sin params -> /api/merchants", async () => {
     await getMerchantsFromApi();
@@ -79,6 +86,16 @@ describe("Cliente de API — URLs", () => {
   it("getMerchantsFromApi con q y category -> ambos params", async () => {
     await getMerchantsFromApi({ q: "lider", category: "supermercado" });
     strictEqual(lastUrl, "/api/merchants?q=lider&category=supermercado");
+  });
+
+  it("getMerchantsFromApi con tags -> ?tags=a,b (separados por coma)", async () => {
+    await getMerchantsFromApi({ tags: ["sushi", "delivery-apps"] });
+    strictEqual(lastUrl, "/api/merchants?tags=sushi%2Cdelivery-apps");
+  });
+
+  it("getMerchantsFromApi con tags vacío -> NO incluye el param", async () => {
+    await getMerchantsFromApi({ tags: [] });
+    ok(!lastUrl.includes("tags"), "URL no debe incluir tags cuando la lista está vacía");
   });
 
   // getRecommendationsFromApi

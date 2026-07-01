@@ -13,6 +13,7 @@ const NAV = [
     { href: "/admin/data/banks",       label: "Bancos"      },
     { href: "/admin/data/cards",       label: "Tarjetas"    },
     { href: "/admin/data/categories",  label: "Categorías"  },
+    { href: "/admin/data/tags",        label: "Etiquetas"   },
     { href: "/admin/data/merchants",   label: "Comercios"   },
     { href: "/admin/data/promotions",  label: "Promociones" },
   ]},

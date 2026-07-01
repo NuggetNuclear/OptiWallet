@@ -15,6 +15,7 @@ export type AuditAction =
   | "import"
   | "approve"
   | "reject"
+  | "merge"
   | "maintenance_on"
   | "maintenance_off";
 
@@ -22,6 +23,7 @@ export type AuditEntity =
   | "bank"
   | "card"
   | "category"
+  | "tag"
   | "merchant"
   | "promotion"
   | "admin_user"

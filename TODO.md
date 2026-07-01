@@ -32,6 +32,10 @@
 - [x] **Dependencias limpiadas**: `vitest` y `tsx` eliminados — los tests corren con `node:test` (nativo) y los scripts de DB con `node` directo (TypeScript strip-types de Node ≥ 22). `npm install` ya no trae dependencias vulnerables (`esbuild`).
 - [ ] **Google Places (ranking)**: habilitar "Places API (New)" en GCP, crear API key restringida y setear `GOOGLE_PLACES_API_KEY` en `.env.local`. Correr `npm run db:schema` (crea las columnas de popularidad) y luego `npm run popularity:compute -- --dry-run` para revisar antes de escribir.
 
+## 🟠 Migración de datos pendiente (una vez en producción)
+
+- [ ] **Categorías → macro + tags**: el modelo pasó de 31 categorías planas a ~8 categorías macro + un sistema de *tags* (las antiguas granulares). En una base EN VIVO hay que correr **una vez**: `npm run db:schema` (crea `merchant_tags` / `merchant_tag_map`) y luego `npm run db:migrate-tags` (crea las macro, convierte las antiguas categorías en tags, repunta cada comercio a su macro y etiqueta, y borra las categorías vacías). El script es idempotente. El mapeo macro↔antigua vive en `scripts/migrate-categories-to-tags.ts` y es ajustable por admins después desde el panel (Categorías / Etiquetas / Fusionar).
+
 ## 🟢 Deuda menor / mejoras
 
 - [x] Banner de "nueva versión disponible" cuando el Service Worker detecta update — pill flotante glassmorphism con botón "Actualizar" y dismiss. Hook `useServiceWorker` ahora expone `updateAvailable`, `applyUpdate()` y `dismiss()`.

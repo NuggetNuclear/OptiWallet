@@ -26,6 +26,21 @@ export type ApiCategory = {
   merchant_count: number;
 };
 
+/** Tag: atributo transversal granular (Sushi, Delivery, Pet-Friendly…). */
+export type ApiTag = {
+  id:             string;
+  label:          string;
+  emoji:          string | null;
+  merchant_count: number;
+};
+
+/** Tag denormalizado que viaja embebido en comercios/recomendaciones. */
+export type ApiMerchantTag = {
+  id:    string;
+  label: string;
+  emoji: string | null;
+};
+
 export type ApiMerchant = {
   id:               string;
   name:             string;
@@ -33,6 +48,7 @@ export type ApiMerchant = {
   aliases:          string[];
   category_label:   string;
   emoji:            string;
+  tags:             ApiMerchantTag[];
   /** Prior de popularidad 0–1 (cold-start del ranking). DEFAULT 0.5 si el script aún no corrió. */
   popularity_prior: number;
   max_discount:     number | null;
@@ -61,6 +77,7 @@ export type ApiRecommendation = {
   category_id:       string;
   category_label:    string;
   emoji:             string;
+  tags:              ApiMerchantTag[];
   card_id:           string;
   card_name:         string;
   card_type:         string;
@@ -137,13 +154,21 @@ export async function getCategoriesFromApi(): Promise<ApiCategory[]> {
   return res.json();
 }
 
+export async function getTagsFromApi(): Promise<ApiTag[]> {
+  const res = await fetch("/api/tags");
+  if (!res.ok) throw new Error(`API error ${res.status}`);
+  return res.json();
+}
+
 export async function getMerchantsFromApi(params?: {
   q?:        string;
   category?: string;
+  tags?:     string[];
 }): Promise<ApiMerchant[]> {
   const url = buildUrl("/api/merchants", {
     ...(params?.q        ? { q:        params.q }        : {}),
     ...(params?.category ? { category: params.category } : {}),
+    ...(params?.tags && params.tags.length ? { tags: params.tags.join(",") } : {}),
   });
   const res = await fetch(url);
   if (!res.ok) throw new Error(`API error ${res.status}`);

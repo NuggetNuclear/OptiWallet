@@ -30,6 +30,24 @@ CREATE TABLE IF NOT EXISTS merchants (
   aliases     TEXT[] NOT NULL DEFAULT '{}'
 );
 
+-- merchant_tags: atributos transversales granulares (Sushi, Delivery, Pet-Friendly…).
+-- A diferencia de category_id (uno por comercio), un comercio puede tener varios tags.
+CREATE TABLE IF NOT EXISTS merchant_tags (
+  id    TEXT PRIMARY KEY,
+  label TEXT NOT NULL,
+  emoji TEXT
+);
+
+-- merchant_tag_map: relación N:N comercio ↔ tag.
+-- ON DELETE CASCADE (a diferencia del RESTRICT del resto): borrar un tag o un
+-- comercio limpia sus filas de mapeo automáticamente, sin bloquear la operación.
+CREATE TABLE IF NOT EXISTS merchant_tag_map (
+  merchant_id TEXT NOT NULL REFERENCES merchants(id)     ON DELETE CASCADE,
+  tag_id      TEXT NOT NULL REFERENCES merchant_tags(id) ON DELETE CASCADE,
+  PRIMARY KEY (merchant_id, tag_id)
+);
+CREATE INDEX IF NOT EXISTS idx_merchant_tag_map_tag ON merchant_tag_map(tag_id);
+
 -- promotions
 CREATE TABLE IF NOT EXISTS promotions (
   id           TEXT PRIMARY KEY,

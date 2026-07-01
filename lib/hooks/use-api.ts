@@ -5,6 +5,7 @@ import {
   getBanksFromApi,
   getCardsFromApi,
   getCategoriesFromApi,
+  getTagsFromApi,
   getMerchantsFromApi,
   getMerchantByIdFromApi,
   getRecommendationsFromApi,
@@ -12,6 +13,7 @@ import {
   type ApiBank,
   type ApiCard,
   type ApiCategory,
+  type ApiTag,
   type ApiMerchant,
   type ApiRecommendation,
   type ApiPromotion,
@@ -124,19 +126,29 @@ export function useCategories(): ApiState<ApiCategory[]> {
 }
 
 // ──────────────────────────────────────────────────────────────
+// useTags — load all merchant tags once
+// ──────────────────────────────────────────────────────────────
+
+export function useTags(): ApiState<ApiTag[]> {
+  return useApiQuery<ApiTag[]>("tags", getTagsFromApi, []);
+}
+
+// ──────────────────────────────────────────────────────────────
 // useMerchants — search merchants with debounce
 // ──────────────────────────────────────────────────────────────
 
 export function useMerchants(
   query: string,
   category: string | null,
+  tags: string[] = [],
 ): ApiState<ApiMerchant[]> {
   return useApiQuery<ApiMerchant[]>(
-    `merchants:${query}:${category ?? ""}`,
+    `merchants:${query}:${category ?? ""}:${tags.join(",")}`,
     () =>
       getMerchantsFromApi({
         q: query || undefined,
         category: category || undefined,
+        tags: tags.length ? tags : undefined,
       }),
     [],
     { debounceMs: query ? 200 : 0 }, // debounce only on text input
