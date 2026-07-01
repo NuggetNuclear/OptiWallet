@@ -25,7 +25,7 @@ const NO_CACHE = { "Cache-Control": "no-store" };
  * Body: {
  *   merchant_mode: "existing" | "new",
  *   merchant_id?: string,
- *   new_merchant?: { id, name, category_id, aliases? },
+ *   new_merchant?: { id, name, category_id, aliases?, tag_ids? },
  *   overrides?: { discount, cap, min_purchase, days_of_week, card_types,
  *                 modality, start_date, end_date, stackable, code, conditions }
  * }
@@ -80,7 +80,13 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
         return NextResponse.json({ error: `La categoría '${nm.category_id}' no existe` }, { status: 400, headers: NO_CACHE });
       }
       const aliases = Array.isArray(nm.aliases) ? nm.aliases.filter((a: unknown) => typeof a === "string") : [];
+      const tagIds: string[] = Array.isArray(nm.tag_ids)
+        ? Array.from(new Set(nm.tag_ids.filter((t: unknown): t is string => typeof t === "string" && isValidId(t))))
+        : [];
       await sql`INSERT INTO merchants (id, name, category_id, aliases) VALUES (${nm.id}, ${nm.name.trim()}, ${nm.category_id}, ${aliases})`;
+      for (const t of tagIds) {
+        await sql`INSERT INTO merchant_tag_map (merchant_id, tag_id) VALUES (${nm.id}, ${t}) ON CONFLICT DO NOTHING`;
+      }
       await logAdminAction(session, "create", "merchant", nm.id, `Comercio creado desde staging: ${nm.name}`, clientIp(req));
       merchantId = nm.id;
     } else {

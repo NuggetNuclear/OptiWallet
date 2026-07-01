@@ -147,7 +147,7 @@ export default function BankReview() {
                 const s = event.summary;
                 let msg = `Se aprobaron ${s.approved} promociones.`;
                 if (s.merchants > 0) msg += ` ${s.merchants} comercios creados.`;
-                if (s.categories > 0) msg += ` ${s.categories} categorías creadas.`;
+                if (s.tags > 0) msg += ` ${s.tags} tags creados.`;
                 if (s.errors?.length) msg += ` ${s.errors.length} errores (ver arriba).`;
                 setSuccess(msg);
                 setTerminalDone(true);

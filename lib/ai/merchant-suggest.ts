@@ -104,23 +104,35 @@ export async function suggestCategory(name: string, categories: CategoryLite[]):
   }
 }
 
-export type NewCategorySuggestion = { id: string; label: string; emoji: string };
+export type TagLite = { id: string; label: string };
+export type TagSuggestion = { id: string; label?: string; emoji?: string };
 export type ClassificationResult = {
   merchant_name: string;
+  /** Categoría MACRO (uno de los ~8 buckets amplios). */
   category_id: string;
-  new_category: NewCategorySuggestion | null;
+  /** Etiquetas granulares (existentes o nuevas) — reemplazan a las viejas categorías finas. */
+  tags: TagSuggestion[];
 };
 export type BatchResponse = {
-  classifications: ClassificationResult[];
+  classifications: Array<{
+    merchant_name?: string;
+    category_id?: string;
+    tags?: TagSuggestion[];
+  }>;
 };
 
+const MAX_TAGS_PER_MERCHANT = 3;
+
 /**
- * Clasifica de forma masiva (en batches) una lista de comercios.
- * Si un comercio no encaja en las existentes, sugiere la creación de una nueva categoría.
+ * Clasifica de forma masiva (en batches) una lista de comercios en el modelo de
+ * dos niveles: una categoría MACRO (de las existentes, sin crear nuevas) + hasta
+ * {@link MAX_TAGS_PER_MERCHANT} etiquetas granulares (existentes o nuevas). Así el
+ * detalle fino vive como tags y las categorías se mantienen en ~8 buckets amplios.
  */
 export async function suggestCategoriesBatch(
   names: string[],
   categories: CategoryLite[],
+  tags: TagLite[] = [],
   onProgress?: (msg: string, level?: "info" | "warn" | "error") => void
 ): Promise<ClassificationResult[]> {
   if (!aiAvailable() || names.length === 0 || categories.length === 0) return [];
@@ -139,21 +151,26 @@ export async function suggestCategoriesBatch(
     const chunkIdx = Math.floor(i / chunkSize) + 1;
     log(`[AI] Clasificando lote ${chunkIdx}/${totalChunks} (${chunk.length} comercios)…`);
     try {
-      const list = categories.map((c) => `${c.id} = ${c.label}`).join("\n");
+      const catList = categories.map((c) => `${c.id} = ${c.label}`).join("\n");
+      const tagList = tags.length ? tags.map((t) => `${t.id} = ${t.label}`).join("\n") : "(aún no hay etiquetas)";
       const prompt =
-        `Eres un clasificador de comercios chilenos. Dada una lista de comercios, ` +
-        `clasifica cada uno en la categoría MÁS adecuada de la lista de categorías existentes.\n` +
-        `Si un comercio no encaja en ninguna categoría existente, puedes sugerir crear una categoría nueva ` +
-        `definiendo un id (slug en minúsculas), label y un emoji representativo.\n\n` +
-        `Categorías existentes:\n${list}\n\n` +
+        `Eres un clasificador de comercios chilenos. El catálogo tiene dos niveles:\n` +
+        `· CATEGORÍAS MACRO: buckets amplios. Cada comercio pertenece a EXACTAMENTE una.\n` +
+        `· ETIQUETAS (tags): atributos granulares (ej. Sushi, Delivery, Farmacia). Un comercio puede tener varias.\n\n` +
+        `Para cada comercio:\n` +
+        `1. Elige la CATEGORÍA MACRO más adecuada usando exactamente uno de los ids de la lista. NO inventes categorías nuevas.\n` +
+        `2. Asigna entre 0 y ${MAX_TAGS_PER_MERCHANT} etiquetas relevantes. PREFIERE etiquetas existentes (usa su id). ` +
+        `Solo si una etiqueta claramente necesaria no existe, propón una nueva con id (slug en minúsculas), label y un emoji.\n\n` +
+        `Categorías macro:\n${catList}\n\n` +
+        `Etiquetas existentes:\n${tagList}\n\n` +
         `Comercios a clasificar:\n${chunk.map((n, idx) => `${idx + 1}. "${n}"`).join("\n")}\n\n` +
         `Responde estrictamente un objeto JSON con la estructura:\n` +
         `{\n` +
         `  "classifications": [\n` +
         `    {\n` +
-        `      "merchant_name": "Nombre original del comercio (debe coincidir exactamente con el texto de la lista)",\n` +
-        `      "category_id": "id_de_categoria_existente_o_id_de_la_nueva_categoria",\n` +
-        `      "new_category": null // o {"id": "slug-nueva-categoria", "label": "Nombre de la categoría", "emoji": "🍔"} si se debe crear\n` +
+        `      "merchant_name": "Nombre original del comercio (idéntico al de la lista)",\n` +
+        `      "category_id": "id_de_categoria_macro_existente",\n` +
+        `      "tags": [ {"id": "sushi", "label": "Sushi", "emoji": "🍣"} ]\n` +
         `    }\n` +
         `  ]\n` +
         `}`;
@@ -161,7 +178,15 @@ export async function suggestCategoriesBatch(
       const out = await generateJSON<BatchResponse>(prompt);
       if (out && Array.isArray(out.classifications)) {
         log(`[AI] Lote ${chunkIdx}/${totalChunks} clasificado. ${out.classifications.length} respuestas recibidas.`);
-        results.push(...out.classifications);
+        for (const c of out.classifications) {
+          if (!c || typeof c.merchant_name !== "string" || typeof c.category_id !== "string") continue;
+          const cleanTags = Array.isArray(c.tags)
+            ? c.tags
+                .filter((t): t is TagSuggestion => !!t && typeof t.id === "string" && t.id.trim().length > 0)
+                .slice(0, MAX_TAGS_PER_MERCHANT)
+            : [];
+          results.push({ merchant_name: c.merchant_name, category_id: c.category_id, tags: cleanTags });
+        }
       } else {
         log(`[AI] Lote ${chunkIdx}/${totalChunks} no retornó clasificaciones válidas.`, "warn");
       }

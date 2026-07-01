@@ -45,6 +45,10 @@ interface CategoryRow {
   id: string;
   label: string;
 }
+interface TagRow {
+  id: string;
+  label: string;
+}
 
 const normString = (s: string) =>
   (s || "")
@@ -81,28 +85,30 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ ban
         message: "No hay promociones pendientes en staging para este banco.",
         approvedCount: 0,
         createdMerchantsCount: 0,
-        createdCategoriesCount: 0,
+        createdTagsCount: 0,
       }, { status: 200, headers: NO_CACHE });
     }
 
     // 2. Obtener catálogos de la base de datos para mapeo/resolución local
     const dbMerchants = await sql`SELECT id, name, aliases, category_id FROM merchants` as MerchantRow[];
     const categories = await sql`SELECT id, label FROM merchant_categories` as CategoryRow[];
+    const dbTags = await sql`SELECT id, label FROM merchant_tags` as TagRow[];
 
     if (categories.length === 0) {
       return NextResponse.json({ error: "No existen categorías en la base de datos." }, { status: 500, headers: NO_CACHE });
     }
 
-    // Encontrar categoría por defecto ('otros', 'comida', o la primera disponible)
+    // Categoría macro por defecto ('otros' o la primera). Las categorías ya no se
+    // crean en caliente: el detalle fino entra como tags, no como categorías nuevas.
     const defaultCat = categories.find((c) => normString(c.label).includes("otro"))?.id
-      ?? categories.find((c) => normString(c.label).includes("comida"))?.id
       ?? categories[0].id;
 
     // Clonar listas locales para ir agregando elementos creados en caliente
     const localMerchants = [...dbMerchants];
     const localCategories = [...categories];
+    const localTags = [...dbTags];
 
-    let createdCategoriesCount = 0;
+    let createdTagsCount = 0;
     let createdMerchantsCount = 0;
     let approvedCount = 0;
     const errors: string[] = [];
@@ -130,8 +136,8 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ ban
 
     // 4. Si hay comercios no mapeados, consultar categoría e insertar de forma masiva (batches)
     if (unmatchedNames.length > 0) {
-      console.log(`[Approve All] Solicitando sugerencias de categorías para los ${unmatchedNames.length} comercios nuevos...`);
-      const classifications = await suggestCategoriesBatch(unmatchedNames, localCategories);
+      console.log(`[Approve All] Solicitando sugerencias de categoría macro + tags para los ${unmatchedNames.length} comercios nuevos...`);
+      const classifications = await suggestCategoriesBatch(unmatchedNames, localCategories, localTags);
 
       console.log(`[Approve All] Procesando clasificaciones sugeridas e insertando comercios...`);
       for (const name of unmatchedNames) {
@@ -139,35 +145,8 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ ban
           (c) => normString(c.merchant_name) === normString(name)
         );
 
+        // Categoría macro: usar la sugerida si es válida, si no el default. Nunca se crea una nueva.
         let catId = classResult?.category_id;
-        const newCatSuggestion = classResult?.new_category;
-
-        // Crear nueva categoría sugerida por el modelo si aplica
-        if (newCatSuggestion && newCatSuggestion.id && newCatSuggestion.label) {
-          const catSlug = slugify(newCatSuggestion.id);
-          const catExists = localCategories.some((c) => c.id === catSlug);
-          if (!catExists) {
-            console.log(`[Approve All] Nueva categoría sugerida detectada: "${newCatSuggestion.label}" (${catSlug}). Creando...`);
-            await sql`
-              INSERT INTO merchant_categories (id, label, emoji)
-              VALUES (${catSlug}, ${newCatSuggestion.label.trim()}, ${newCatSuggestion.emoji || "🛍️"})
-              ON CONFLICT (id) DO NOTHING
-            `;
-            await logAdminAction(
-              session,
-              "create",
-              "category",
-              catSlug,
-              `Categoría creada automáticamente desde aprobación masiva: ${newCatSuggestion.label}`,
-              clientIp(req)
-            );
-            localCategories.push({ id: catSlug, label: newCatSuggestion.label });
-            createdCategoriesCount++;
-          }
-          catId = catSlug;
-        }
-
-        // Validar categoría final o usar default
         if (!catId || !localCategories.some((c) => c.id === catId)) {
           catId = defaultCat;
         }
@@ -192,6 +171,27 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ ban
           );
           localMerchants.push({ id: newSlug, name, aliases: [], category_id: catId });
           createdMerchantsCount++;
+
+          // Asignar tags sugeridos: crear los nuevos (slug) y vincular al comercio.
+          for (const t of classResult?.tags ?? []) {
+            const tagSlug = slugify(t.id || t.label || "");
+            if (!tagSlug) continue;
+            const existing = localTags.find((x) => x.id === tagSlug);
+            const label = (t.label && t.label.trim()) || existing?.label;
+            if (!existing) {
+              if (!label) continue; // no podemos crear un tag sin label
+              await sql`
+                INSERT INTO merchant_tags (id, label, emoji)
+                VALUES (${tagSlug}, ${label}, ${t.emoji || null})
+                ON CONFLICT (id) DO NOTHING
+              `;
+              await logAdminAction(session, "create", "tag", tagSlug,
+                `Tag creado automáticamente en aprobación masiva: ${label}`, clientIp(req));
+              localTags.push({ id: tagSlug, label });
+              createdTagsCount++;
+            }
+            await sql`INSERT INTO merchant_tag_map (merchant_id, tag_id) VALUES (${newSlug}, ${tagSlug}) ON CONFLICT DO NOTHING`;
+          }
         }
       }
     }
@@ -335,7 +335,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ ban
     console.log(
       `[Approve All] Completado: ${approvedCount} aprobadas, ` +
       `${createdMerchantsCount} comercios creados, ` +
-      `${createdCategoriesCount} categorías creadas, ` +
+      `${createdTagsCount} tags creados, ` +
       `${errors.length} errores.`
     );
 
@@ -343,7 +343,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ ban
       message: `Aprobación masiva completada para ${bankId}.`,
       approvedCount,
       createdMerchantsCount,
-      createdCategoriesCount,
+      createdTagsCount,
       errors: errors.length > 0 ? errors : undefined,
     }, { status: 200, headers: NO_CACHE });
 

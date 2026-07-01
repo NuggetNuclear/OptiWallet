@@ -56,9 +56,12 @@ Por cada fila pendiente el revisor:
 
 También existe **aprobación/descarte masivo por banco**:
 `POST /api/admin/ops/[bankId]/approve-all` (y su variante `/stream` por
-Server-Sent Events para reportar progreso) resuelve y crea automáticamente
-comercios y categorías nuevas vía IA (`suggestCategoriesBatch`) antes de
-insertar cada fila válida en `promotions`. `POST /api/admin/ops/[bankId]/reject-all`
+Server-Sent Events para reportar progreso) resuelve y crea automáticamente los
+comercios nuevos vía IA (`suggestCategoriesBatch`) antes de insertar cada fila
+válida en `promotions`. Cada comercio nuevo se asigna a **una categoría macro
+existente** (nunca se crean categorías nuevas — si la IA no acierta, cae a
+`otros`) y recibe hasta 3 **tags** granulares (Sushi, Delivery, Farmacia…),
+creando los tags que falten. `POST /api/admin/ops/[bankId]/reject-all`
 descarta de una vez todo lo `pending` de un banco.
 
 Warnings calculados al importar y mostrados como badges: `comercio_nuevo`,

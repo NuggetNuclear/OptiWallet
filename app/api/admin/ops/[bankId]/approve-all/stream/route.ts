@@ -43,6 +43,10 @@ interface CategoryRow {
   id: string;
   label: string;
 }
+interface TagRow {
+  id: string;
+  label: string;
+}
 
 const SSE_HEADERS = {
   "Content-Type": "text/event-stream",
@@ -60,7 +64,7 @@ const normString = (s: string) =>
 
 type EventLevel = "info" | "warn" | "error" | "success";
 type LogEvent = { type: "log"; msg: string; level: EventLevel };
-type DoneEvent = { type: "done"; summary: { approved: number; merchants: number; categories: number; errors: string[] } };
+type DoneEvent = { type: "done"; summary: { approved: number; merchants: number; tags: number; errors: string[] } };
 type SseEvent = LogEvent | DoneEvent;
 
 export async function POST(req: NextRequest, { params }: { params: Promise<{ bankId: string }> }) {
@@ -97,29 +101,31 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ ban
         log(`Se encontraron ${pendingRows.length} promociones pendientes.`);
 
         if (pendingRows.length === 0) {
-          emit({ type: "done", summary: { approved: 0, merchants: 0, categories: 0, errors: [] } });
+          emit({ type: "done", summary: { approved: 0, merchants: 0, tags: 0, errors: [] } });
           controller.close();
           return;
         }
 
         const dbMerchants = await sql`SELECT id, name, aliases, category_id FROM merchants` as MerchantRow[];
         const categories  = await sql`SELECT id, label FROM merchant_categories` as CategoryRow[];
+        const dbTags      = await sql`SELECT id, label FROM merchant_tags` as TagRow[];
 
         if (categories.length === 0) {
           log("No existen categorías en la base de datos.", "error");
-          emit({ type: "done", summary: { approved: 0, merchants: 0, categories: 0, errors: ["Sin categorías"] } });
+          emit({ type: "done", summary: { approved: 0, merchants: 0, tags: 0, errors: ["Sin categorías"] } });
           controller.close();
           return;
         }
 
+        // Categoría macro por defecto — ya no se crean categorías en caliente.
         const defaultCat = categories.find((c) => normString(c.label).includes("otro"))?.id
-          ?? categories.find((c) => normString(c.label).includes("comida"))?.id
           ?? categories[0].id;
 
         const localMerchants  = [...dbMerchants];
         const localCategories = [...categories];
+        const localTags       = [...dbTags];
 
-        let createdCategoriesCount = 0;
+        let createdTagsCount      = 0;
         let createdMerchantsCount  = 0;
         let approvedCount          = 0;
         const errors: string[]     = [];
@@ -144,6 +150,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ ban
           const classifications = await suggestCategoriesBatch(
             unmatchedNames,
             localCategories,
+            localTags,
             (msg, level) => log(msg, level ?? "info"),
           );
 
@@ -152,26 +159,8 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ ban
               (c) => normString(c.merchant_name) === normString(name)
             );
 
+            // Categoría macro válida o default — nunca se crea una nueva categoría.
             let catId = classResult?.category_id;
-            const newCatSuggestion = classResult?.new_category;
-
-            if (newCatSuggestion?.id && newCatSuggestion.label) {
-              const catSlug = slugify(newCatSuggestion.id);
-              if (!localCategories.some((c) => c.id === catSlug)) {
-                log(`Nueva categoría: "${newCatSuggestion.label}" (${catSlug})`);
-                await sql`
-                  INSERT INTO merchant_categories (id, label, emoji)
-                  VALUES (${catSlug}, ${newCatSuggestion.label.trim()}, ${newCatSuggestion.emoji || "🛍️"})
-                  ON CONFLICT (id) DO NOTHING
-                `;
-                await logAdminAction(session, "create", "category", catSlug,
-                  `Categoría creada automáticamente: ${newCatSuggestion.label}`, ip);
-                localCategories.push({ id: catSlug, label: newCatSuggestion.label });
-                createdCategoriesCount++;
-              }
-              catId = catSlug;
-            }
-
             if (!catId || !localCategories.some((c) => c.id === catId)) catId = defaultCat;
 
             const newSlug = slugify(name);
@@ -186,6 +175,30 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ ban
                 `Comercio creado automáticamente: ${name}`, ip);
               localMerchants.push({ id: newSlug, name, aliases: [], category_id: catId });
               createdMerchantsCount++;
+
+              // Tags sugeridos: crear nuevos y vincular al comercio.
+              const linked: string[] = [];
+              for (const t of classResult?.tags ?? []) {
+                const tagSlug = slugify(t.id || t.label || "");
+                if (!tagSlug) continue;
+                const existing = localTags.find((x) => x.id === tagSlug);
+                const label = (t.label && t.label.trim()) || existing?.label;
+                if (!existing) {
+                  if (!label) continue;
+                  await sql`
+                    INSERT INTO merchant_tags (id, label, emoji)
+                    VALUES (${tagSlug}, ${label}, ${t.emoji || null})
+                    ON CONFLICT (id) DO NOTHING
+                  `;
+                  await logAdminAction(session, "create", "tag", tagSlug,
+                    `Tag creado automáticamente: ${label}`, ip);
+                  localTags.push({ id: tagSlug, label });
+                  createdTagsCount++;
+                }
+                await sql`INSERT INTO merchant_tag_map (merchant_id, tag_id) VALUES (${newSlug}, ${tagSlug}) ON CONFLICT DO NOTHING`;
+                linked.push(tagSlug);
+              }
+              if (linked.length) log(`  tags: ${linked.join(", ")}`);
             }
           }
         } else {
@@ -295,14 +308,14 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ ban
 
         log(
           `Completado: ${approvedCount} aprobadas, ${createdMerchantsCount} comercios, ` +
-          `${createdCategoriesCount} categorías${errors.length ? `, ${errors.length} errores` : ""}.`,
+          `${createdTagsCount} tags${errors.length ? `, ${errors.length} errores` : ""}.`,
           errors.length ? "warn" : "success",
         );
 
-        emit({ type: "done", summary: { approved: approvedCount, merchants: createdMerchantsCount, categories: createdCategoriesCount, errors } });
+        emit({ type: "done", summary: { approved: approvedCount, merchants: createdMerchantsCount, tags: createdTagsCount, errors } });
       } catch (err) {
         log(`Error fatal: ${err instanceof Error ? err.message : String(err)}`, "error");
-        emit({ type: "done", summary: { approved: 0, merchants: 0, categories: 0, errors: [String(err)] } });
+        emit({ type: "done", summary: { approved: 0, merchants: 0, tags: 0, errors: [String(err)] } });
       } finally {
         controller.close();
       }
