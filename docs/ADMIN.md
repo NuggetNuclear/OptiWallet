@@ -413,7 +413,7 @@ Vercel ejecuta `npm run build` automáticamente. Cuando el build termine:
 **Traer datos nuevos (Fetch):**
 - Bancos con scraper server-side configurado (hoy: `banco-chile`) muestran un botón **Fetch** que corre el scraper directamente desde Vercel y auto-importa el resultado a staging.
 - Si el sitio del banco bloquea la conexión (anti-bot Imperva), el panel pide pegar la cookie del navegador (`DevTools → Network → header Cookie`) y reintenta — la cookie exitosa se guarda para fetches futuros.
-- Bancos "solo script local" (`bci`, `itau`) no se pueden ejecutar desde Vercel: corre el script localmente (`node scripts/scrapers/<banco>.mjs`) y sube el JSON resultante con **+ Importar datos** (`/admin/ops/import`).
+- Bancos "solo script local" (`bci`, `itau`, `falabella`, `santander`) no se pueden ejecutar desde Vercel. El panel admin provee enlaces directos en el botón **script local** para descargar el script de Python correspondiente (`scripts/scrapers/<script>.py`) desde GitHub, los cuales se ejecutan localmente y su resultado se carga usando **+ Importar datos** (`/admin/ops/import`).
 
 **Revisar la cola de un banco:** `Panel → Operaciones → Central → Revisar →` lleva a `/admin/ops/[bankId]`, la cola de promos en staging (`pending`) de ese banco:
 - **Aprobar individual**: resuelve o crea el comercio, permite corregir cualquier campo antes de insertar en `promotions` (overrides).
@@ -431,6 +431,20 @@ El panel **Modo mantenimiento** vive en la parte superior de `/admin/ops` (Centr
 - Muestra el último cambio (fecha + admin responsable).
 - `GET /api/admin/maintenance` para leer el estado; `POST` con `{ enabled, totp_code }` para cambiarlo.
 
+### Bandeja de reportes de usuarios
+
+La bandeja de entrada de reportes (`/admin/ops/reports`) permite gestionar las reclamaciones y reportes enviados por los usuarios finales cuando interactúan con las promociones (por ejemplo, al marcar 👎 en una promoción en la aplicación).
+
+- **Agrupación y visualización**: Los reportes se agrupan automáticamente por promoción. Muestra el número total de quejas, el desglose de los motivos (`vencida`, `desc. incorrecto`, `no existe`, `otro`, `sin motivo`), la fecha del último reporte recibido y si la promoción sigue activa o está probablemente vencida.
+- **Flujos de resolución**:
+  - **Revisar / editar**: Redirige al editor de la promoción correspondiente con filtros pre-cargados para corregir manualmente su vigencia, porcentajes, etc.
+  - **Desactivar**: Da de baja la promoción de producción (marca `active = false`) y marca automáticamente todos los reportes pendientes asociados como resueltos.
+  - **Marcar resuelto**: Conserva la promoción activa pero marca todos sus reportes pendientes asociados como resueltos (útil si se editó manualmente y se corrigió el problema).
+  - **Descartar**: Cierra y archiva los reportes de la promoción como descartados sin aplicar cambios en la promoción.
+- **Triage y Priorización**:
+  - Por defecto, el listado se ordena usando una prioridad heurística basada en la cantidad de reportes acumulados y las fechas de vencimiento.
+  - **✦ Priorizar con IA**: Envía los datos de las promociones reportadas a la IA para analizar el contexto, estimar si la promoción está realmente inactiva ("probablemente muerta") y generar una justificación (*rationale*) detallando el motivo de su prioridad.
+
 ### Gestión de datos
 
 Cada entidad tiene su propia página CRUD en el menú lateral:
@@ -445,12 +459,12 @@ Panel → Bancos
 
 **Crear un registro:**
 1. Haz clic en "Nuevo [entidad]" en la parte superior de la tabla
-2. Completa el formulario inline
-3. "Guardar" → el registro aparece en la tabla
+2. Completa el formulario en el pop-out modal
+3. "Guardar" → el registro aparece en la tabla y se cierra el modal
 
 **Editar un registro:**
 1. Haz clic en la fila o en el ícono de edición
-2. El formulario se llena con los valores actuales
+2. El formulario en el pop-out modal se llena con los valores actuales
 3. Modifica los campos → "Guardar"
 
 **Eliminar un registro:**

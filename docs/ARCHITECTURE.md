@@ -295,26 +295,25 @@ Fuente de verdad: `scripts/schema.sql`.
 │ color            │     └───────┬──────────┘
 └───────┬──────────┘             │ 1:N
         │ 1:N                     ▼
-        ▼              ┌─────────────────────────────┐
-┌──────────────────┐   │           merchants         │
-│      cards       │   │─────────────────────────────│
-│──────────────────│   │ id (PK, TEXT)               │
-│ id (PK, TEXT)    │   │ name                        │
-│ bank_id (FK)     │   │ category_id (FK)            │
-│ name             │   │ aliases (TEXT[])            │
-│ type             │   │ ── popularidad (ranking) ── │
-│ CHECK: credit/   │   │ places_rating (REAL)        │
-│   debit/prepaid  │   │ places_ratings_total (INT)  │
-└──────────────────┘   │ places_branches (INT)       │
-        │              │ popularity_prior (REAL 0-1) │
-        │              │ merchant_tier (1-5)         │
-        │              │ popularity_updated_at       │
-        │              └───────┬─────────────────────┘
-        │                      │ 1:N
-        │                      ▼
-        │      ┌────────────────────────────────┐
-        │      │           promotions           │
-        │      │────────────────────────────────│
+        ▼              ┌─────────────────────────────┐     ┌──────────────────┐
+┌──────────────────┐   │           merchants         │     │  merchant_tags   │
+│      cards       │   │─────────────────────────────│     │──────────────────│
+│──────────────────│   │ id (PK, TEXT)               │     │ id (PK, TEXT)    │
+│ id (PK, TEXT)    │   │ name                        │     │ label            │
+│ bank_id (FK)     │   │ category_id (FK)            │     │ emoji            │
+│ name             │   │ aliases (TEXT[])            │     └────────┬─────────┘
+│ type             │   │ ── popularidad (ranking) ── │              │ 1:N
+│ CHECK: credit/   │   │ places_rating (REAL)        │              ▼
+│   debit/prepaid  │   │ places_ratings_total (INT)  │     ┌──────────────────┐
+└──────────────────┘   │ places_branches (INT)       │     │ merchant_tag_map │
+        │              │ popularity_prior (REAL 0-1) │     │──────────────────│
+        │              │ merchant_tier (1-5)         │     │ merchant_id (FK) │
+        │              │ popularity_updated_at       │     │ tag_id (FK)      │
+        │              └───────┬─────────────────────┘     └──────────────────┘
+        │                      │ 1:N                                 ▲
+        │                      ▼                                     │ 1:N
+        │      ┌────────────────────────────────┐                    │
+        │      │           promotions           │────────────────────┘
         └─FK───│ id (PK, TEXT)                  │
                │ bank_id (FK)                   │
                │ merchant_id (FK)               │
@@ -355,7 +354,12 @@ Fuente de verdad: `scripts/schema.sql`.
 
 **Columnas de popularidad de `merchants`:** pobladas por `scripts/compute-merchant-popularity.ts` (`npm run popularity:compute`) desde Google Places API (New). `popularity_prior` (0–1) y `merchant_tier` (1–5) alimentan el cold-start del ranking de promos cuando aún no hay tráfico propio; las columnas `places_*` guardan las señales crudas para re-tunear pesos sin re-consultar la API. Ver el flujo de recomendaciones más abajo. Todas se agregan vía `ALTER TABLE ... ADD COLUMN IF NOT EXISTS`, así que `npm run db:schema` las propaga a una DB existente.
 
+**`merchant_tags` y `merchant_tag_map`:** implementan el sistema de etiquetas (tags) granulares transversales (por ejemplo: `combustible`, `sushi`, `delivery-apps`). A diferencia de `category_id` (donde un comercio pertenece a una única categoría macro), un comercio puede estar asociado a múltiples etiquetas mediante la relación N:N representada por `merchant_tag_map`. El borrado de etiquetas o comercios se propaga en cascada (`ON DELETE CASCADE`) en la tabla de mapeo.
+
 **`promo_events`:** registra impresiones (`view`) y taps (`tap`) de promos — tráfico real para diluir gradualmente el cold-start de `popularity_prior` con señal propia (ver `POST /api/promo-events` en la tabla de routing). Columnas: `promotion_id` (FK), `merchant_id`/`bank_id` (denormalizados para queries analíticas), `event_type`, `location` (`feed`/`merchant_detail`/`search`), `session_id` (hash anónimo opcional, sin datos personales) y `occurred_at`. La fórmula de dilución bayesiana (`pop_efectiva = (N_taps + K·prior)/(N_views + K)`) está documentada como comentario en `schema.sql` pero **el cómputo de `pop_efectiva` a partir de estos eventos aún no está implementado** — hoy el ranking solo consume `popularity_prior` directamente (ver más abajo). Índices: `idx_promo_events_promo`, `idx_promo_events_merchant`, `idx_promo_events_occurred`, `idx_promo_events_type`.
+
+**`promo_reports`:** registra reportes y comentarios de los usuarios cuando marcan 👎 en una promoción. Es un flujo de captura en dos fases (se crea al instante sin motivo, y se actualiza opcionalmente con la causa seleccionada: `expired`, `wrong_discount`, `not_found`, o `other` con texto libre en `note`). Mantiene un estado (`status`) de triage (`pending`, `resolved`, `dismissed`) que gestionan los administradores desde el panel.
+
 
 ### Convenciones de IDs
 

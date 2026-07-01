@@ -26,6 +26,7 @@ Referencia de los endpoints de la API. Todos son **Route Handlers** (serverless 
 - [POST /api/promo-events](#post-apipromo-events)
 - [POST /api/promo-reports · PATCH /api/promo-reports/[id]](#post-apipromo-reports--patch-apipromo-reportsid)
 - [GET /api/stats](#get-apistats)
+- [GET /api/tags](#get-apitags)
 
 ---
 

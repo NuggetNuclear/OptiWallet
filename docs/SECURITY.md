@@ -30,7 +30,7 @@ OptiWallet tiene una superficie de ataque **intencionalmente reducida**:
 |---|---|
 | Autenticación de usuario final | No hay cuentas de usuario. Sin login, sin sesiones, sin tokens. |
 | Datos sensibles | No se almacenan datos personales del usuario. La wallet es `localStorage` local. |
-| API pública | Solo `GET` / `SELECT`. No hay escritura, no hay mutaciones. |
+| API pública | Solo `GET`. Las únicas excepciones que escriben señales de usuario (sin mutar el catálogo) son `POST /api/promo-events` (analytics) y `POST`/`PATCH /api/promo-reports` (reportes). |
 | API admin (`/api/admin/*`) | Escritura completa, protegida por sesión HMAC-SHA256 + TOTP. Ver sección siguiente. |
 | Base de datos | Neon PostgreSQL serverless. El connection string solo vive en el servidor y en Vercel secrets. |
 | Uploads | No hay uploads de archivos. |
@@ -53,7 +53,8 @@ El panel admin en `/admin` agrega una **superficie de ataque adicional y control
 | Paso 1 login | bcrypt costo 12 + anti-enumeración (mismo error para email desconocido y contraseña incorrecta) |
 | Paso 2 login | TOTP obligatorio (Google Authenticator, ±1 ventana de 30s) |
 | Secretos TOTP | Cifrados en reposo con AES-256-GCM (`lib/admin-crypto.ts`); nunca en texto plano en la DB |
-| Creación de admins | Sin página web pública de setup: el primer admin se crea por CLI (`admin:create`), el resto desde el panel autenticado |
+| Modelo de roles | Root vs Non-Root: el primer admin bootstrapeado (`is_root = true`) es el único con privilegios para crear/eliminar/modificar otros administradores; los no-root solo modifican su propia cuenta |
+| Creación de admins | Sin página web pública de setup: el primer admin se crea por CLI (`admin:create`), el resto desde el panel autenticado (solo permitido al admin root) |
 | Sesión | Cookie `HttpOnly; Secure; SameSite=Strict; Path=/`, firmada HMAC-SHA256, 8h de duración |
 
 ### Nuevas cookies
@@ -355,7 +356,7 @@ Mejoras de seguridad recomendadas para post-beta:
 
 | Mejora | Estado | Detalle |
 |---|---|---|
-| **Rate limiting (API pública)** | ❌ Pendiente | La API **pública** (solo lectura) no tiene rate limiting de app. Mitigado parcialmente por el cache de edge de Vercel. Recomendación: activar **Vercel WAF** o rate limiting por IP en el proxy. (El API **admin** sí tiene rate limiting por IP — ver `docs/ADMIN.md`.) |
+| **Rate limiting (API pública)** | ⚠️ Parcial | El endpoint de analítica `POST /api/promo-events` implementa rate limiting en memoria (`lib/rate-limit.ts`) limitado a 120 peticiones/sesión/minuto. Los endpoints públicos de lectura (`GET`) no tienen rate limit en la app (mitigados por caché de edge en Vercel); se recomienda activar Vercel WAF para mitigación global. |
 | **CSP con nonces** | ❌ Pendiente | Reemplazar `'unsafe-inline'` por nonces dinámicos en `script-src`. Requiere evaluar el impacto en static optimization. |
 | **Error boundaries** | ✅ Implementado | `app/error.tsx` (boundary global, reporta a Sentry) y `app/global-error.tsx` (boundary de último recurso con estilos inline). Ver [`ARCHITECTURE.md`](ARCHITECTURE.md). |
 
@@ -366,7 +367,7 @@ Mejoras de seguridad recomendadas para post-beta:
 | **CSP reporting** | ❌ Pendiente | Agregar `report-uri` o `report-to` para monitorear violaciones de CSP en producción. |
 | **Subresource Integrity** | ❌ Pendiente | SRI para assets estáticos (next/font ya los self-hostea, pero bundles de third-party futuros deberían tener SRI). |
 | **DB user de solo lectura** | ❌ Pendiente | El connection string actual tiene permisos de escritura (necesarios para `apply-schema.ts`). En producción, se podría usar un usuario con `SELECT` only. |
-| **Banner de actualización SW** | ❌ Pendiente | El SW detecta actualizaciones pero solo loguea. Agregar UI de "nueva versión disponible". |
+| **Banner de actualización SW** | ✅ Implementado | Cuando el SW detecta una nueva versión, se muestra un banner pill flotante glassmorphism para actualizar e instalar la nueva versión de inmediato. |
 | **UI offline** | ❌ Pendiente | Sin indicador visual cuando no hay conexión. El SW sirve cache silenciosamente. |
 
 ### Prioridad baja
