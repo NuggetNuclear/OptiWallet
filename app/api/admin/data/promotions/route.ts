@@ -9,6 +9,7 @@ import {
   isNonNegativeIntOrNull,
   isValidDateOrNull,
   isValidDiscountConfig,
+  isValidHttpUrl,
 } from "@/lib/validate";
 import { NextRequest, NextResponse } from "next/server";
 
@@ -80,7 +81,7 @@ export async function POST(req: NextRequest) {
     if (!isValidDateOrNull(start_date)) return NextResponse.json({ error: "start_date inválida (YYYY-MM-DD)" }, { status: 400, headers: NO_CACHE });
     if (!isValidDateOrNull(end_date)) return NextResponse.json({ error: "end_date inválida (YYYY-MM-DD)" }, { status: 400, headers: NO_CACHE });
     if (start_date && end_date && end_date < start_date) return NextResponse.json({ error: "end_date no puede ser anterior a start_date" }, { status: 400, headers: NO_CACHE });
-    if (typeof source !== "string" || !source.trim()) return NextResponse.json({ error: "source requerido" }, { status: 400, headers: NO_CACHE });
+    if (!isValidHttpUrl(source)) return NextResponse.json({ error: "source debe ser una URL http(s) válida" }, { status: 400, headers: NO_CACHE });
     if (!verified_at || !isValidDateOrNull(verified_at)) return NextResponse.json({ error: "verified_at requerido (YYYY-MM-DD)" }, { status: 400, headers: NO_CACHE });
     if (code !== undefined && code !== null && typeof code !== "string") return NextResponse.json({ error: "code inválido" }, { status: 400, headers: NO_CACHE });
     if (conditions !== undefined && conditions !== null && typeof conditions !== "string") return NextResponse.json({ error: "conditions inválido" }, { status: 400, headers: NO_CACHE });

@@ -62,6 +62,23 @@ export function isNonNegativeIntOrNull(v: unknown): boolean {
   return v === null || v === undefined || (Number.isInteger(v) && (v as number) >= 0);
 }
 
+/**
+ * URL http/https válida. `source` (el link "Ver oferta") se renderiza como
+ * `<a href={source}>` en el cliente; como la CSP permite `unsafe-inline` en
+ * script-src, un `javascript:`/`data:` almacenado podría ejecutarse al hacer
+ * clic. Restringir a http(s) corta ese vector — importa porque `source` también
+ * llega desde datos scrapeados (semi-confiables), no solo del admin.
+ */
+export function isValidHttpUrl(v: unknown): v is string {
+  if (typeof v !== "string" || !v.trim()) return false;
+  try {
+    const u = new URL(v);
+    return u.protocol === "http:" || u.protocol === "https:";
+  } catch {
+    return false;
+  }
+}
+
 /** `null`/`undefined`, o una fecha `YYYY-MM-DD` lógicamente válida. */
 export function isValidDateOrNull(v: unknown): boolean {
   if (v === null || v === undefined) return true;

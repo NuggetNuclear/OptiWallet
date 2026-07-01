@@ -9,6 +9,7 @@ import {
   isNonNegativeIntOrNull,
   isValidDateOrNull,
   isValidDiscountConfig,
+  isValidHttpUrl,
 } from "../lib/validate.ts";
 
 // IDs validos: [A-Za-z0-9_.-]{1,64}
@@ -154,4 +155,14 @@ describe("isValidDiscountConfig — XOR porcentaje vs por-unidad", () => {
   it("ninguno -> false (al menos uno requerido)", () => {
     strictEqual(isValidDiscountConfig({}), false);
   });
+});
+
+describe("isValidHttpUrl — source debe ser URL http(s)", () => {
+  it("https válida -> true", () => strictEqual(isValidHttpUrl("https://banco.cl/promo"), true));
+  it("http válida -> true", () => strictEqual(isValidHttpUrl("http://banco.cl/promo"), true));
+  it("javascript: -> false (vector XSS)", () => strictEqual(isValidHttpUrl("javascript:alert(1)"), false));
+  it("data: -> false", () => strictEqual(isValidHttpUrl("data:text/html,<script>alert(1)</script>"), false));
+  it("string vacío -> false", () => strictEqual(isValidHttpUrl(""), false));
+  it("texto plano no-URL -> false", () => strictEqual(isValidHttpUrl("solo texto"), false));
+  it("no-string -> false", () => strictEqual(isValidHttpUrl(null), false));
 });
