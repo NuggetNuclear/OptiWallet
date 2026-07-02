@@ -112,7 +112,3 @@ out/
 *.pem
 Thumbs.db
 .node_repl_history
-swagger-update-tmp
-# Cookies de scraping (tokens de sesión — nunca commitear)
-scripts/scrapers/.bch-cookie.txt
-*.bch-cookie.txt

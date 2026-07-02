@@ -87,7 +87,6 @@ Notas:
 | `npm run db:gen-seed` | Regenera las secciones de bancos/tarjetas de `scripts/seed.ts` desde el contenido actual de la DB |
 | `npm run popularity:compute` | Consulta Google Places y rellena la popularidad de los comercios (`popularity_prior`, `merchant_tier`). Acepta `-- --dry-run` para ver la tabla sin escribir. Requiere `GOOGLE_PLACES_API_KEY`. |
 | `npm run promotions:refresh` | Rota los códigos activos de `promotion_codes` hacia `promotions.code`/`active` para el día de hoy (job tipo cron) |
-| `npm run swagger:update` | Descarga la última versión de `swagger-ui-dist` y actualiza `public/swagger/` |
 
 ### Gestión de la base de datos
 
@@ -211,8 +210,7 @@ OptiWallet/
 ├── tsconfig.json                 # TypeScript config
 ├── postcss.config.mjs            # PostCSS — plugin @tailwindcss/postcss
 ├── .env.example                  # Template de variables de entorno
-├── .gitignore                    # Ignores estándar + .env.local
-└── legacy/                       # Prototipo HTML original (referencia histórica)
+└── .gitignore                    # Ignores estándar + .env.local
 ```
 
 ---
