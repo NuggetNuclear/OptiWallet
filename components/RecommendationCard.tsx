@@ -1,10 +1,10 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useState } from "react";
 import { formatCLP, formatDiscount, modalityLabel } from "@/lib/format";
 import { calculateSavingsForRec } from "@/lib/recommendations";
 import { BANK_INFO } from "@/lib/constants";
-import { events } from "@/lib/analytics";
+import { usePromoImpression, trackPromoTap } from "@/lib/hooks/use-promo-impression";
 import { PromoFeedback } from "./PromoFeedback";
 
 interface RecommendationCardProps {
@@ -56,19 +56,14 @@ function getMinPurchase(promotion: RecommendationCardProps["recommendation"]["pr
 export function RecommendationCard({ recommendation, amount, units, compact, onClick }: RecommendationCardProps) {
   const { promotion, cards, merchant, bankName, bankId } = recommendation;
   const isPerUnit = promotion.discount_per_unit != null && promotion.discount_unit === "liter";
-  const hasFiredRef = useRef(false);
 
-  useEffect(() => {
-    if (!hasFiredRef.current) {
-      hasFiredRef.current = true;
-      events.promotionViewed({
-        promotionId: promotion.id,
-        merchantId: merchant.id || "",
-        bankId: bankId,
-        location: "winner",
-      });
-    }
-  }, [promotion.id, merchant.id, bankId]);
+  usePromoImpression({
+    promotionId: promotion.id,
+    merchantId: merchant.id || "",
+    bankId,
+    dbLocation: "merchant_detail",
+    plausibleLocation: "winner",
+  });
 
   const minPurchase = getMinPurchase(promotion);
   const belowMinimum = !isPerUnit && amount !== undefined && minPurchase !== null && amount < minPurchase;
@@ -175,11 +170,12 @@ export function RecommendationCard({ recommendation, amount, units, compact, onC
               rel="noopener noreferrer"
               onClick={(e) => {
                 e.stopPropagation();
-                events.promotionClicked({
+                trackPromoTap({
                   promotionId: promotion.id,
                   merchantId: merchant.id || "",
-                  bankId: bankId,
-                  location: "winner",
+                  bankId,
+                  dbLocation: "merchant_detail",
+                  plausibleLocation: "winner",
                 });
               }}
               className="inline-flex items-center gap-1.5 rounded-full bg-white/15 px-3.5 py-2 font-mono text-[11px] uppercase tracking-wider text-white backdrop-blur-sm transition-all hover:bg-white/25 hover:scale-[1.02] active:scale-[0.98]"
@@ -255,27 +251,24 @@ export function GroupedAlternativeCard({
 }) {
   const { promotion, merchant, bankName, cards, bankId } = recommendation;
   const [isOpen, setIsOpen] = useState(false);
-  const hasFiredRef = useRef(false);
 
-  useEffect(() => {
-    if (!hasFiredRef.current) {
-      hasFiredRef.current = true;
-      // Una impresión por grupo (no una por tarjeta): la promo es la misma,
-      // duplicar el evento por cada tarjeta inflaba las vistas.
-      events.promotionViewed({
-        promotionId: promotion.id,
-        merchantId: merchant.id || "",
-        bankId: bankId,
-        location: "alternative",
-      });
-    }
-  }, [promotion.id, merchant.id, bankId]);
+  // Una impresión por grupo (no una por tarjeta): la promo es la misma,
+  // duplicar el evento por cada tarjeta inflaba las vistas.
+  usePromoImpression({
+    promotionId: promotion.id,
+    merchantId: merchant.id || "",
+    bankId,
+    dbLocation: "merchant_detail",
+    plausibleLocation: "alternative",
+  });
 
   return (
     <div className="rounded-2xl border border-line bg-bg-2 overflow-hidden transition-colors hover:border-line-strong">
       {/* Header of the Group */}
-      <div 
-        className="flex items-center justify-between p-4 cursor-pointer select-none"
+      <button
+        type="button"
+        aria-expanded={isOpen}
+        className="flex w-full items-center justify-between p-4 text-left cursor-pointer select-none"
         onClick={() => setIsOpen(!isOpen)}
       >
         <div className="min-w-0 flex-1">
@@ -311,7 +304,7 @@ export function GroupedAlternativeCard({
             </svg>
           </span>
         </div>
-      </div>
+      </button>
 
       {/* Expanded list of cards & details */}
       {isOpen && (
@@ -354,11 +347,12 @@ export function GroupedAlternativeCard({
                 rel="noopener noreferrer"
                 onClick={(e) => {
                   e.stopPropagation();
-                  events.promotionClicked({
+                  trackPromoTap({
                     promotionId: promotion.id,
                     merchantId: merchant.id || "",
-                    bankId: bankId,
-                    location: "alternative",
+                    bankId,
+                    dbLocation: "merchant_detail",
+                    plausibleLocation: "alternative",
                   });
                 }}
                 className="inline-flex items-center gap-1 font-mono text-[10px] text-accent hover:underline"

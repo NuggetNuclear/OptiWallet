@@ -5,6 +5,29 @@ import { useCallback, useEffect, useState } from "react";
 
 type Phase = "entering" | "holding" | "exiting" | "done";
 
+// El splash con marca es un momento de bienvenida, no un peaje: se muestra UNA
+// vez por sesión de browser. Sin este guard, cada vuelta a /app (ej. volver
+// desde un comercio) re-montaba la página y repetía ~500ms de overlay.
+const SEEN_KEY = "ow:transition-seen";
+
+export function hasSeenAppTransition(): boolean {
+  if (typeof window === "undefined") return false;
+  try {
+    return sessionStorage.getItem(SEEN_KEY) === "1";
+  } catch {
+    return false; // sessionStorage puede no existir (algunos modos privados)
+  }
+}
+
+export function markAppTransitionSeen(): void {
+  if (typeof window === "undefined") return;
+  try {
+    sessionStorage.setItem(SEEN_KEY, "1");
+  } catch {
+    // best-effort
+  }
+}
+
 interface PageTransitionProps {
   /** Target route to navigate to after the overlay animation */
   href?: string;
@@ -123,13 +146,21 @@ export function PageTransition({ href, mode = "navigate", onComplete }: PageTran
 /**
  * Hook for triggering the page transition from the landing page.
  * Returns the overlay element and a trigger function.
+ *
+ * Si el splash ya se vio en esta sesión, navega directo sin overlay ni
+ * retardo artificial — el momento de marca es solo la primera entrada.
  */
 export function usePageTransition() {
+  const router = useRouter();
   const [target, setTarget] = useState<string | null>(null);
 
   const trigger = useCallback((href: string) => {
+    if (hasSeenAppTransition()) {
+      router.push(href);
+      return;
+    }
     setTarget(href);
-  }, []);
+  }, [router]);
 
   const onComplete = useCallback(() => setTarget(null), []);
 

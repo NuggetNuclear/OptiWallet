@@ -1,4 +1,12 @@
 /**
+ * Orden de los listados de /app (feed de promos + búsqueda de comercios).
+ * "relevance" preserva el score compuesto que calcula /api/recommendations
+ * (descuento + popularidad + frescura + urgencia) — es el default porque ese
+ * ranking ES la propuesta de valor; los demás son reordenamientos manuales.
+ */
+export type FeedSortBy = "relevance" | "name" | "popularity" | "discount";
+
+/**
  * Brand colors and abbreviated display names for each supported bank.
  * `color` doubles as the gradient base in RecommendationCard and as the
  * icon background in WalletSetup — keep the two uses in sync here rather

@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useMemo, useState } from "react";
 import { useRecommendations, usePromotions, useMerchantFromApi } from "@/lib/hooks/use-api";
 import { daysOfWeekLabel, formatCLP, modalityLabel, formatDiscount } from "@/lib/format";
 import { GroupedAlternativeCard, RecommendationCard } from "./RecommendationCard";
@@ -8,7 +8,7 @@ import { TopBar } from "./layout/TopBar";
 import { BackButton } from "./layout/BackButton";
 import type { ApiRecommendation, ApiPromotion } from "@/lib/api-client";
 import { rankRecommendations } from "@/lib/recommendations";
-import { events } from "@/lib/analytics";
+import { usePromoImpression, trackPromoTap } from "@/lib/hooks/use-promo-impression";
 
 
 interface MerchantDetailProps {
@@ -382,18 +382,13 @@ function PromoRow({
   isWinner: boolean;
   isApplicable: boolean;
 }) {
-  const hasFiredRef = useRef(false);
-  useEffect(() => {
-    if (!hasFiredRef.current) {
-      hasFiredRef.current = true;
-      events.promotionViewed({
-        promotionId: promo.id,
-        merchantId: promo.merchant_id,
-        bankId: promo.bank_id,
-        location: "list",
-      });
-    }
-  }, [promo.id, promo.merchant_id, promo.bank_id]);
+  usePromoImpression({
+    promotionId: promo.id,
+    merchantId: promo.merchant_id,
+    bankId: promo.bank_id,
+    dbLocation: "merchant_detail",
+    plausibleLocation: "list",
+  });
 
   return (
     <div
@@ -455,11 +450,12 @@ function PromoRow({
               target="_blank"
               rel="noopener noreferrer"
               onClick={() => {
-                events.promotionClicked({
+                trackPromoTap({
                   promotionId: promo.id,
                   merchantId: promo.merchant_id,
                   bankId: promo.bank_id,
-                  location: "list",
+                  dbLocation: "merchant_detail",
+                  plausibleLocation: "list",
                 });
               }}
               className="mt-1.5 inline-flex items-center gap-1 font-mono text-[10px] text-accent hover:underline"

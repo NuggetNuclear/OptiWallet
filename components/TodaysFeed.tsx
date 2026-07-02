@@ -5,6 +5,8 @@ import { useRecommendations } from "@/lib/hooks/use-api";
 import { formatCLP, modalityLabel, formatDiscount } from "@/lib/format";
 import { SkeletonCard } from "./SkeletonCard";
 import type { ApiRecommendation } from "@/lib/api-client";
+import { usePromoImpression, trackPromoTap } from "@/lib/hooks/use-promo-impression";
+import type { FeedSortBy } from "@/lib/constants";
 
 import { rankRecommendations } from "@/lib/recommendations";
 
@@ -38,7 +40,7 @@ interface TodaysFeedProps {
   date: Date;
   isToday: boolean;
   onMerchantClick: (merchantId: string) => void;
-  sortBy: "name" | "popularity" | "discount";
+  sortBy: FeedSortBy;
 }
 
 export function TodaysFeed({
@@ -86,6 +88,11 @@ export function TodaysFeed({
         cards: matchingCards,
       });
     }
+
+    // "relevance": sin re-sort — el Map preserva el orden de inserción, y las
+    // recs llegan ordenadas por el score compuesto de /api/recommendations
+    // (la primera aparición de cada comercio es su promo mejor rankeada).
+    if (sortBy === "relevance") return items;
 
     const disc = (item: MerchantFeedItem) => item.bestRec.discount ?? item.bestRec.discount_per_unit ?? 0;
     return items.sort((a, b) => {
@@ -379,9 +386,26 @@ function FeedRow({ item, onClick }: { item: MerchantFeedItem; onClick: () => voi
     ? item.cards[0].name
     : item.cards.map((c) => c.name).join(", ");
 
+  // Solo a la DB (señal del ranking fase 3): el feed genera demasiadas
+  // impresiones para mandarlas también a Plausible.
+  usePromoImpression({
+    promotionId: rec.promotion_id,
+    merchantId: item.merchant_id,
+    bankId: rec.bank_id,
+    dbLocation: "feed",
+  });
+
   return (
     <button
-      onClick={onClick}
+      onClick={() => {
+        trackPromoTap({
+          promotionId: rec.promotion_id,
+          merchantId: item.merchant_id,
+          bankId: rec.bank_id,
+          dbLocation: "feed",
+        });
+        onClick();
+      }}
       className="group flex w-full min-w-0 items-center gap-3 overflow-hidden rounded-2xl border border-line bg-bg-2 p-4 text-left transition-colors active:scale-[0.98] hover:border-lime"
     >
       <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-bg-3 text-xl">

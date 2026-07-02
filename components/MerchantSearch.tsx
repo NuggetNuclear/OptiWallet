@@ -1,30 +1,22 @@
 "use client";
 
-import { useEffect, forwardRef, useImperativeHandle, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useMerchants, useCategories, useTags } from "@/lib/hooks/use-api";
 import { SkeletonCard } from "./SkeletonCard";
 import type { ApiMerchant } from "@/lib/api-client";
+import type { FeedSortBy } from "@/lib/constants";
 
 interface MerchantSearchProps {
   onSelect: (merchantId: string) => void;
-  sortBy: "name" | "popularity" | "discount";
+  sortBy: FeedSortBy;
   onClose?: () => void;
 }
 
-export interface MerchantSearchHandle {
-  focusInput: () => void;
-}
-
-export const MerchantSearch = forwardRef<MerchantSearchHandle, MerchantSearchProps>(
-  function MerchantSearch({ onSelect, sortBy, onClose }, ref) {
+export function MerchantSearch({ onSelect, sortBy, onClose }: MerchantSearchProps) {
   const [query, setQuery] = useState("");
   const [categoryFilter, setCategoryFilter] = useState<string | null>(null);
   const [tagFilters, setTagFilters] = useState<string[]>([]);
   const inputRef = useRef<HTMLInputElement>(null);
-
-  useImperativeHandle(ref, () => ({
-    focusInput: () => inputRef.current?.focus({ preventScroll: true }),
-  }));
 
   useEffect(() => {
     if (onClose) {
@@ -48,7 +40,9 @@ export const MerchantSearch = forwardRef<MerchantSearchHandle, MerchantSearchPro
   const sortedMerchants = useMemo(() => {
     const copy = [...merchants];
     copy.sort((a, b) => {
-      if (sortBy === "popularity") {
+      // /api/merchants no calcula el score compuesto (no hay contexto de
+      // tarjetas ni día): la popularidad es el proxy más cercano a "relevancia".
+      if (sortBy === "relevance" || sortBy === "popularity") {
         return b.popularity_prior - a.popularity_prior || a.name.localeCompare(b.name);
       }
       if (sortBy === "discount") {
@@ -265,7 +259,7 @@ export const MerchantSearch = forwardRef<MerchantSearchHandle, MerchantSearchPro
       )}
     </div>
   );
-});
+}
 
 function CategoryChip({
   label,
