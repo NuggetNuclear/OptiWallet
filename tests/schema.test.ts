@@ -60,4 +60,20 @@ describe("schema.sql — integridad del esquema de base de datos", () => {
     ok(block.includes("status IN ('pending', 'resolved', 'dismissed')"), "status debe estar acotado por CHECK");
     ok(block.includes("REFERENCES promotions(id) ON DELETE CASCADE"), "debe referenciar promotions con ON DELETE CASCADE");
   });
+
+  it("promo_reports tiene token UUID (capability del PATCH público) con migración idempotente", () => {
+    const idx = schemaContent.indexOf("CREATE TABLE IF NOT EXISTS promo_reports");
+    ok(idx !== -1, "Debe existir la tabla promo_reports");
+    const block = schemaContent.slice(idx, idx + 900);
+    ok(
+      /token\s+UUID\s+NOT NULL\s+DEFAULT gen_random_uuid\(\)/.test(block),
+      "token debe ser UUID NOT NULL con default gen_random_uuid()",
+    );
+    ok(
+      schemaContent.includes(
+        "ALTER TABLE promo_reports ADD COLUMN IF NOT EXISTS token UUID NOT NULL DEFAULT gen_random_uuid()",
+      ),
+      "debe existir la migración idempotente del token para bases ya creadas",
+    );
+  });
 });

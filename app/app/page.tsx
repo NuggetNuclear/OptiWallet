@@ -14,12 +14,17 @@ import { useWallet } from "@/lib/use-wallet";
 import { Header } from "@/components/Header";
 import { DayPicker } from "@/components/DayPicker";
 import { TodaysFeed } from "@/components/TodaysFeed";
-import { MerchantSearch, type MerchantSearchHandle } from "@/components/MerchantSearch";
+import { MerchantSearch } from "@/components/MerchantSearch";
 import { WalletSetup } from "@/components/WalletSetup";
-import { PageTransition } from "@/components/PageTransition";
+import {
+  PageTransition,
+  hasSeenAppTransition,
+  markAppTransitionSeen,
+} from "@/components/PageTransition";
 import { formatDate, formatDayOfWeek } from "@/lib/format";
 import { useToday, effectiveDateFor, parseDiaParam } from "@/lib/hooks/use-today";
 import { events } from "@/lib/analytics";
+import type { FeedSortBy } from "@/lib/constants";
 
 function HomeContent() {
   const router = useRouter();
@@ -42,16 +47,20 @@ function HomeContent() {
   const diaQuery = selectedDay === todayDow ? "" : `?dia=${selectedDay}`;
 
   const [onboardingComplete, setOnboardingComplete] = useState(false);
-  const [transitionDone, setTransitionDone] = useState(false);
   const [isSearchOpen, setIsSearchOpen] = useState(false);
-  const searchRef = useRef<MerchantSearchHandle>(null);
+  // Splash "arrive" solo la primera entrada a /app por sesión: en montajes
+  // posteriores (volver desde un comercio, re-abrir la tab) arranca listo.
+  // En el server sessionStorage no existe → false, igual que el primer render
+  // del cliente detrás del gate !hydrated: no hay mismatch de hidratación.
+  const [transitionDone, setTransitionDone] = useState(() => hasSeenAppTransition());
 
   // Orden de ambos listados (feed de promos + búsqueda de comercios). El sort es
   // client-side (las respuestas vienen cacheadas), así que el select no re-fetchea.
-  // Default: nombre primero (orden alfabético).
-  const [sortBy, setSortBy] = useState<"name" | "popularity" | "discount">("name");
+  // Default: relevancia (el score compuesto del API — ver lib/constants.ts).
+  const [sortBy, setSortBy] = useState<FeedSortBy>("relevance");
 
   const handleTransitionComplete = useCallback(() => {
+    markAppTransitionSeen();
     setTransitionDone(true);
   }, []);
 
@@ -145,9 +154,10 @@ function HomeContent() {
           <div className="relative">
             <select
               value={sortBy}
-              onChange={(e) => setSortBy(e.target.value as "name" | "popularity" | "discount")}
+              onChange={(e) => setSortBy(e.target.value as FeedSortBy)}
               className="appearance-none rounded-xl border border-line bg-bg-2 py-2 pl-4 pr-10 text-xs font-medium text-ink transition-colors hover:border-line-strong focus:border-lime focus:outline-none cursor-pointer"
             >
+              <option value="relevance">Relevancia</option>
               <option value="name">Nombre</option>
               <option value="popularity">Popularidad</option>
               <option value="discount">Descuento</option>
@@ -208,7 +218,6 @@ function HomeContent() {
           style={{ paddingTop: "calc(var(--safe-top) + 20px)" }}
         >
           <MerchantSearch
-            ref={searchRef}
             sortBy={sortBy}
             onClose={() => setIsSearchOpen(false)}
             onSelect={(id) => {

@@ -28,6 +28,10 @@ export function useServiceWorker(): UseServiceWorkerReturn {
       return;
     }
 
+    // Un solo listener de visibilidad, referenciado fuera de registerSW para
+    // que el cleanup del efecto siempre pueda removerlo.
+    let checkForUpdate: (() => void) | null = null;
+
     const registerSW = async () => {
       try {
         const registration = await navigator.serviceWorker.register("/sw.js", {
@@ -59,7 +63,7 @@ export function useServiceWorker(): UseServiceWorkerReturn {
         // En una PWA abierta, la navegación es client-side y el browser no
         // vuelve a pedir /sw.js solo. Forzamos un chequeo cuando la tab vuelve
         // a foco para que el banner aparezca sin tener que hacer hard-reload.
-        const checkForUpdate = () => {
+        checkForUpdate = () => {
           if (document.visibilityState === "visible") {
             registration.update().catch(() => {});
           }
@@ -76,16 +80,25 @@ export function useServiceWorker(): UseServiceWorkerReturn {
       registerSW();
     } else {
       window.addEventListener("load", registerSW);
-      return () => window.removeEventListener("load", registerSW);
     }
+
+    return () => {
+      window.removeEventListener("load", registerSW);
+      if (checkForUpdate) document.removeEventListener("visibilitychange", checkForUpdate);
+    };
   }, []);
 
   const applyUpdate = useCallback(() => {
     if (!waitingWorker) return;
-    // Escuchar el cambio de controlador y recargar
-    navigator.serviceWorker.addEventListener("controllerchange", () => {
-      window.location.reload();
-    });
+    // Escuchar el cambio de controlador y recargar ({once}: sin acumular
+    // listeners si el usuario toca el botón más de una vez)
+    navigator.serviceWorker.addEventListener(
+      "controllerchange",
+      () => {
+        window.location.reload();
+      },
+      { once: true },
+    );
     // Decirle al SW en espera que tome control (skipWaiting ya lo hace,
     // pero por si acaso el SW no lo hizo automáticamente)
     waitingWorker.postMessage({ type: "SKIP_WAITING" });

@@ -12,7 +12,11 @@ if (!process.env.DATABASE_URL) {
 const sql = neon(process.env.DATABASE_URL);
 
 async function main() {
-  const todayStr = new Date().toISOString().slice(0, 10);
+  // "Hoy" en hora de Chile, NO en el UTC del runner: un cron después de las
+  // ~20:00-21:00 hora chilena ya está en "mañana" UTC y activaría/borraría
+  // códigos horas antes de tiempo. Mismo criterio que /api/recommendations.
+  const todayStr = new Intl.DateTimeFormat("en-CA", { timeZone: "America/Santiago" })
+    .format(new Date());
   console.log(`⏰ Ejecutando refresh de promociones para el día: ${todayStr}`);
 
   // 1. Actualizar códigos activos para el día de hoy

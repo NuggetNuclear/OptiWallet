@@ -3,10 +3,15 @@ import { isValidId } from "@/lib/validate";
 import { clientIp, fixedWindowRateLimit } from "@/lib/rate-limit";
 import { NextRequest, NextResponse } from "next/server";
 
-// Cuántos eventos aceptamos por sesión (o IP) por minuto. Una carga del feed
+// Cuántos eventos aceptamos por sesión por minuto. Una carga del feed
 // dispara ~15-30 'view'; 120/min deja margen holgado para uso real y corta
 // floods sintéticos que inflarían el ranking (fase 3) o la tabla.
-const RATE_LIMIT = 120;
+//
+// El límite por sesión reparte justo entre usuarios detrás de la misma IP (CGNAT,
+// oficinas), pero sessionId lo controla el cliente: rotándolo se saltaría el
+// límite. Por eso hay ADEMÁS un tope duro por IP (no falsificable) más holgado.
+const RATE_LIMIT_SESSION = 120;
+const RATE_LIMIT_IP = 480;
 const RATE_WINDOW_MS = 60_000;
 
 // POST /api/promo-events
@@ -59,9 +64,17 @@ export async function POST(req: NextRequest) {
       ? sessionId
       : null;
 
-  // Rate limit por sesión (fallback a IP si no viene sessionId). Silencioso:
-  // devolvemos 204 igual que el resto — el cliente es fire-and-forget.
-  if (fixedWindowRateLimit(`promo-events:${sid ?? clientIp(req)}`, RATE_LIMIT, RATE_WINDOW_MS)) {
+  // Rate limit doble: por sesión (justo entre usuarios) + tope duro por IP
+  // (no falsificable). Silencioso: devolvemos 204 igual que el resto — el
+  // cliente es fire-and-forget.
+  const ip = clientIp(req);
+  const overSession = fixedWindowRateLimit(
+    `promo-events:s:${sid ?? ip}`, RATE_LIMIT_SESSION, RATE_WINDOW_MS,
+  );
+  const overIp = fixedWindowRateLimit(
+    `promo-events:ip:${ip}`, RATE_LIMIT_IP, RATE_WINDOW_MS,
+  );
+  if (overSession || overIp) {
     return new NextResponse(null, { status: 204 });
   }
 

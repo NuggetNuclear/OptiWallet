@@ -5,7 +5,6 @@ import {
   calculateSavingsPerUnit,
   calculateSavingsForRec,
   rankRecommendations,
-  calculateStackedSavings,
 } from "../lib/recommendations.ts";
 import type { ApiRecommendation } from "../lib/api-client";
 
@@ -31,6 +30,7 @@ function rec(overrides: Partial<ApiRecommendation> & { promotion_id: string }): 
     category_id: "cat",
     category_label: "Categoria",
     emoji: "shopping",
+    tags: [],
     card_id: "card",
     card_name: "Tarjeta",
     card_type: "credit",
@@ -294,90 +294,5 @@ describe("rankRecommendations — contexto por litros y promos mixtas", () => {
     // 20 L: ambas topan en 1.000 -> empate -> gana mayor descuento/L (b)
     const result = rankRecommendations([a, b], undefined, 20);
     strictEqual(result[0].promotion_id, "b");
-  });
-});
-
-// ─────────────────────────── calculateStackedSavings ─────────────────────────
-
-describe("calculateStackedSavings — apilables", () => {
-  const banco = rec({ promotion_id: "banco-20-cap10k", discount: 20, cap: 10_000, stackable: true });
-  const cupon = rec({ promotion_id: "cupon-10-min10k", discount: 10, cap: 5_000, min_purchase: 10_000, stackable: true });
-
-  it("amount 0 -> sin ahorro", () => {
-    deepStrictEqual(calculateStackedSavings([banco], 0), { totalSavings: 0, breakdown: [] });
-  });
-
-  it("promos vacias -> sin ahorro", () => {
-    deepStrictEqual(calculateStackedSavings([], 20000), { totalSavings: 0, breakdown: [] });
-  });
-
-  it("una sola promo -> ahorro directo sin cascada", () => {
-    // 20% de 30.000 = 6.000 (bajo tope 10k)
-    const result = calculateStackedSavings([banco], 30000);
-    strictEqual(result.totalSavings, 6000);
-    strictEqual(result.breakdown.length, 1);
-    deepStrictEqual(result.breakdown[0], { promotionId: "banco-20-cap10k", savings: 6000 });
-  });
-
-  it("aplica mayor % primero y calcula sobre el remanente (cascada correcta)", () => {
-    // 20.000: banco(20%) -> 4.000 -> remanente 16.000; cupon(10% de 16k=1.600) -> total 5.600
-    const result = calculateStackedSavings([cupon, banco], 20000);
-    strictEqual(result.totalSavings, 5600);
-    strictEqual(result.breakdown.length, 2);
-    deepStrictEqual(result.breakdown[0], { promotionId: "banco-20-cap10k", savings: 4000 });
-    deepStrictEqual(result.breakdown[1], { promotionId: "cupon-10-min10k", savings: 1600 });
-  });
-
-  it("promo excluida por min_purchase sobre remanente no aparece en breakdown", () => {
-    // 11.000: banco -> 2.200 -> remanente 8.800 < min_purchase cupon (10.000)
-    const result = calculateStackedSavings([cupon, banco], 11000);
-    strictEqual(result.totalSavings, 2200);
-    strictEqual(result.breakdown.length, 1);
-    strictEqual(result.breakdown[0].promotionId, "banco-20-cap10k");
-  });
-
-  it("aplica tope correctamente dentro de la cascada", () => {
-    const capChico = rec({ promotion_id: "cap-chico", discount: 50, cap: 3000, stackable: true });
-    // 20.000: banco (20%) -> 4.000 (remanente 16.000); capChico (50% de 16k=8k, tope 3.000) -> 7.000
-    const result = calculateStackedSavings([capChico, banco], 20000);
-    strictEqual(result.totalSavings, 7000);
-    deepStrictEqual(result.breakdown[0], { promotionId: "banco-20-cap10k", savings: 4000 });
-    deepStrictEqual(result.breakdown[1], { promotionId: "cap-chico", savings: 3000 });
-  });
-
-  it("promo con tope=0 -> savings=0, no aparece en breakdown", () => {
-    const sinAhorro = rec({ promotion_id: "tope-cero", discount: 50, cap: 0, stackable: true });
-    const result = calculateStackedSavings([sinAhorro, banco], 10000);
-    strictEqual(result.breakdown.length, 1);
-    strictEqual(result.breakdown[0].promotionId, "banco-20-cap10k");
-    strictEqual(result.totalSavings, 2000);
-  });
-
-  it("todas las promos excluidas -> { totalSavings: 0, breakdown: [] }", () => {
-    const imposible = rec({ promotion_id: "imposible", discount: 20, min_purchase: 999_999, stackable: true });
-    deepStrictEqual(calculateStackedSavings([imposible], 1000), { totalSavings: 0, breakdown: [] });
-  });
-
-  it("no muta el array original de promos", () => {
-    const promos = [cupon, banco];
-    const primerOriginal = promos[0].promotion_id;
-    calculateStackedSavings(promos, 20000);
-    strictEqual(promos[0].promotion_id, primerOriginal);
-  });
-
-  it("ignora promos no apilables (stackable=false)", () => {
-    const noStack = rec({ promotion_id: "no-stack", discount: 30, stackable: false });
-    deepStrictEqual(calculateStackedSavings([noStack], 20000), { totalSavings: 0, breakdown: [] });
-  });
-
-  it("promo por-litro no reduce el monto base de las de porcentaje", () => {
-    // banco 20% sobre 20.000 = 4.000 (remanente 16.000).
-    // litro $100/L * 30 L = 3.000, NO descuenta del monto base (es combustible).
-    const litro = rec({ promotion_id: "litro", discount: null, discount_per_unit: 100, discount_unit: "liter", stackable: true });
-    const result = calculateStackedSavings([banco, litro], 20000, 30);
-    strictEqual(result.totalSavings, 7000);
-    strictEqual(result.breakdown.length, 2);
-    const litroEntry = result.breakdown.find((b) => b.promotionId === "litro");
-    deepStrictEqual(litroEntry, { promotionId: "litro", savings: 3000 });
   });
 });

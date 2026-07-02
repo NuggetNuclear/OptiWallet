@@ -784,12 +784,19 @@ nav {
 .faq-item {
   border-bottom: 1px solid var(--line);
   padding: 28px 0;
-  cursor: pointer;
 }
+/* Botón real (accesible con teclado) — resets para que se vea igual que el div anterior */
 .faq-q {
   display: flex;
   justify-content: space-between;
   align-items: center;
+  width: 100%;
+  background: none;
+  border: none;
+  padding: 0;
+  color: inherit;
+  text-align: left;
+  cursor: pointer;
   font-family: var(--font-fraunces), serif;
   font-size: 22px;
   font-weight: 500;

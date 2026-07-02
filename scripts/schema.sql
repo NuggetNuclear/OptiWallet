@@ -193,8 +193,12 @@ CREATE INDEX IF NOT EXISTS idx_promo_events_type      ON promo_events(event_type
 --   reason: NULL (sin especificar) | 'expired' | 'wrong_discount' | 'not_found' | 'other'
 --   status: 'pending' → 'resolved' | 'dismissed'
 --   session_id: hash anónimo — sin datos personales (igual que promo_events)
+--   token: capability secreta que el POST devuelve al cliente; el PATCH público
+--          exige (id, token). Sin él, los ids BIGSERIAL son enumerables y
+--          cualquiera podría reescribir el motivo de reportes ajenos recientes.
 CREATE TABLE IF NOT EXISTS promo_reports (
   id           BIGSERIAL   PRIMARY KEY,
+  token        UUID        NOT NULL DEFAULT gen_random_uuid(),
   promotion_id TEXT        NOT NULL REFERENCES promotions(id) ON DELETE CASCADE,
   merchant_id  TEXT        NOT NULL,   -- denormalizado para queries del panel
   bank_id      TEXT        NOT NULL,   -- denormalizado
@@ -206,6 +210,9 @@ CREATE TABLE IF NOT EXISTS promo_reports (
   resolved_at  TIMESTAMPTZ,
   resolved_by  TEXT
 );
+
+-- Migración idempotente para bases que ya tenían promo_reports sin token.
+ALTER TABLE promo_reports ADD COLUMN IF NOT EXISTS token UUID NOT NULL DEFAULT gen_random_uuid();
 
 CREATE INDEX IF NOT EXISTS idx_promo_reports_promo   ON promo_reports(promotion_id);
 CREATE INDEX IF NOT EXISTS idx_promo_reports_status  ON promo_reports(status);

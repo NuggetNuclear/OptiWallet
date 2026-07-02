@@ -252,17 +252,21 @@ export function logPromoEvent(params: {
 
 export type PromoReportReason = "expired" | "wrong_discount" | "not_found" | "other";
 
+/** Referencia a un reporte recién creado: id + token que autoriza refinarlo. */
+export type PromoReportRef = { id: number; token: string };
+
 /**
- * Crea un reporte al instante en que el usuario toca 👎. Devuelve el id para poder
- * refinarlo con un motivo después. Nunca lanza: si algo falla, devuelve null y el
- * flujo del usuario sigue igual.
+ * Crea un reporte al instante en que el usuario toca 👎. Devuelve `{ id, token }`
+ * para poder refinarlo con un motivo después (el PATCH exige el token — los ids
+ * solos son enumerables). Nunca lanza: si algo falla, devuelve null y el flujo
+ * del usuario sigue igual.
  */
 export async function createPromoReport(params: {
   promotionId: string;
   merchantId:  string;
   bankId:      string;
   sessionId?:  string;
-}): Promise<number | null> {
+}): Promise<PromoReportRef | null> {
   if (typeof window === "undefined") return null;
   try {
     const res = await fetch("/api/promo-reports", {
@@ -272,19 +276,25 @@ export async function createPromoReport(params: {
     });
     if (!res.ok) return null;
     const data = await res.json().catch(() => null);
-    return typeof data?.id === "number" ? data.id : null;
+    return typeof data?.id === "number" && typeof data?.token === "string"
+      ? { id: data.id, token: data.token }
+      : null;
   } catch {
     return null;
   }
 }
 
 /** Refina un reporte con el motivo elegido (y nota opcional). Fire-and-forget. */
-export function updatePromoReport(id: number, reason: PromoReportReason, note?: string): void {
+export function updatePromoReport(
+  ref: PromoReportRef,
+  reason: PromoReportReason,
+  note?: string,
+): void {
   if (typeof window === "undefined") return;
-  fetch(`/api/promo-reports/${id}`, {
+  fetch(`/api/promo-reports/${ref.id}`, {
     method:  "PATCH",
     headers: { "Content-Type": "application/json" },
-    body:    JSON.stringify({ reason, ...(note ? { note } : {}) }),
+    body:    JSON.stringify({ token: ref.token, reason, ...(note ? { note } : {}) }),
     keepalive: true,
   }).catch(() => {
     // Silencioso — nunca rompe la app

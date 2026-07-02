@@ -34,6 +34,24 @@ export function useWallet() {
     }
     // eslint-disable-next-line react-hooks/set-state-in-effect -- standard SSR hydration: localStorage unavailable until mount
     setState({ cardIds: loaded, hydrated: true, initiallyEmpty: loaded.length === 0 });
+
+    // Sync entre tabs/ventanas: en Android la PWA instalada comparte
+    // localStorage con Chrome — sin esto, editar la wallet en una deja a la
+    // otra con datos viejos hasta recargar. El evento `storage` solo dispara
+    // en las OTRAS pestañas, así que no interfiere con los setters locales.
+    const onStorage = (e: StorageEvent) => {
+      if (e.key !== STORAGE_KEY) return;
+      let next: string[] = [];
+      try {
+        const parsed = e.newValue ? JSON.parse(e.newValue) : [];
+        if (Array.isArray(parsed)) next = parsed;
+      } catch {
+        // valor corrupto → wallet vacía
+      }
+      setState((prev) => ({ ...prev, cardIds: next }));
+    };
+    window.addEventListener("storage", onStorage);
+    return () => window.removeEventListener("storage", onStorage);
   }, []);
 
   /** Persiste un array de cardIds a localStorage (best-effort). */

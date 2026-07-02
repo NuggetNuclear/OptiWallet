@@ -11,6 +11,7 @@ import {
   isValidDiscountConfig,
   isValidHttpUrl,
   isValidReportReason,
+  isValidReportToken,
 } from "../lib/validate.ts";
 
 // IDs validos: [A-Za-z0-9_.-]{1,64}
@@ -166,6 +167,19 @@ describe("isValidHttpUrl — source debe ser URL http(s)", () => {
   it("string vacío -> false", () => strictEqual(isValidHttpUrl(""), false));
   it("texto plano no-URL -> false", () => strictEqual(isValidHttpUrl("solo texto"), false));
   it("no-string -> false", () => strictEqual(isValidHttpUrl(null), false));
+});
+
+describe("isValidReportToken — capability UUID del PATCH de reportes", () => {
+  it("UUID v4 válido -> true", () =>
+    strictEqual(isValidReportToken("3f1b6c1a-9d2e-4f5a-8b7c-0d1e2f3a4b5c"), true));
+  it("UUID en mayúsculas -> true", () =>
+    strictEqual(isValidReportToken("3F1B6C1A-9D2E-4F5A-8B7C-0D1E2F3A4B5C"), true));
+  it("id numérico -> false (no basta con conocer el id)", () =>
+    strictEqual(isValidReportToken("42"), false));
+  it("UUID truncado -> false", () =>
+    strictEqual(isValidReportToken("3f1b6c1a-9d2e-4f5a-8b7c"), false));
+  it("null -> false", () => strictEqual(isValidReportToken(null), false));
+  it("string vacío -> false", () => strictEqual(isValidReportToken(""), false));
 });
 
 describe("isValidReportReason — motivos de reporte permitidos", () => {

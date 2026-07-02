@@ -93,6 +93,20 @@ self.addEventListener("fetch", (event) => {
 
 // ─── ESTRATEGIAS DE CACHE ─────────────────────────────────────────────────────
 
+// Tope de entradas del cache de API. Cada combinación de query string
+// (cardIds × fecha × comercio) es una entrada distinta: sin tope, una PWA
+// abierta varios días acumula storage sin límite. FIFO simple: el Cache API
+// lista las keys en orden de inserción.
+const API_CACHE_MAX_ENTRIES = 60;
+
+async function trimCache(cache, maxEntries) {
+  const keys = await cache.keys();
+  if (keys.length <= maxEntries) return;
+  await Promise.all(
+    keys.slice(0, keys.length - maxEntries).map((key) => cache.delete(key))
+  );
+}
+
 /**
  * Network-first: intenta la red, si falla usa el cache.
  * Ideal para API y páginas que cambian frecuentemente.
@@ -105,7 +119,10 @@ async function networkFirstStrategy(request, cacheName) {
 
     // Solo cacheamos respuestas exitosas
     if (networkResponse.ok) {
-      cache.put(request, networkResponse.clone());
+      await cache.put(request, networkResponse.clone());
+      if (cacheName === API_CACHE_NAME) {
+        trimCache(cache, API_CACHE_MAX_ENTRIES).catch(() => {});
+      }
     }
 
     return networkResponse;

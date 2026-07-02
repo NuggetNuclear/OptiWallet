@@ -10,7 +10,7 @@ tests/                          # Suite principal
 ├── analytics.test.ts           # Wrapper Plausible: trackEvent + helpers tipados
 ├── api-client.test.ts          # Wrappers de fetch: URLs, params, códigos HTTP
 ├── rate-limit.test.ts          # Limiter de ventana fija en memoria (lib/rate-limit.ts)
-├── recommendations.test.ts     # Motor de ahorro: savings (%/litro), ranking, stacking
+├── recommendations.test.ts     # Motor de ahorro: savings (%/litro), ranking
 ├── schema.test.ts              # Integridad de scripts/schema.sql (incl. merchant_tags, merchant_tag_map, promo_reports)
 ├── standalone.test.ts          # Detección PWA standalone + sincronización de cookie
 └── validate.test.ts            # Sanitización de IDs + validadores de escritura (usados por el repo admin, duplicados aquí)
@@ -43,19 +43,18 @@ node --test tests/validate.test.ts   # un archivo específico
 - **calculateSavingsPerUnit** (descuento $/litro): 0/negativo litros, sin tope, tope superado/no, tope=0, litros fraccionarios
 - **calculateSavingsForRec**: despacho por-litro vs porcentaje, sin units/amount, units/amount=0, respeta tope y min_purchase, sin tipo → 0, unidad ≠ liter cae a porcentaje
 - **rankRecommendations**: lista vacía, 1 elemento, sin monto (ordena por %), con monto bajo/alto (CLP real), desempate por %, excluida por minPurchase, todas con savings=0, inmutabilidad; contexto por litros y promos mixtas (litros activan el contexto, desempate por valor bruto)
-- **calculateStackedSavings**: amount=0, promos vacías, una promo, cascada correcta, excluida en remanente, tope en cascada, tope=0, todas excluidas, inmutabilidad, ignora no-apilables, promo por-litro no reduce el monto base
 
-### `lib/api-client.ts` — 30 tests
+### `lib/api-client.ts` — 31 tests
 - **URLs**: cada endpoint con sus variantes (sin/con params opcionales, cardIds múltiples/único, merchantId presente/ausente, encoding de caracteres especiales), incl. `getTagsFromApi` y el query param `?tags=` de `getMerchantsFromApi`
 - **Fecha local vs UTC**: `getRecommendationsFromApi` a las 23:30 → debe producir fecha de hoy, no del día siguiente
 - **HTTP errors**: 404 en `getMerchantByIdFromApi` → null; 404/422/500/503 en el resto → `throw Error("API error N")`
-- **Reportes**: `createPromoReport` / `updatePromoReport` — construcción del body y manejo de respuesta
+- **Reportes**: `createPromoReport` / `updatePromoReport` — construcción del body, `{id, token}` de la respuesta (el token autoriza el PATCH), y degradación a null sin token o con error HTTP
 
 ### `lib/rate-limit.ts` — ventana fija en memoria
-- **`fixedWindowRateLimit`**: permite hasta `limit` llamadas y bloquea desde `limit+1`; cada `key` se cuenta por separado (no hay cross-talk entre sesiones/IPs); `limit: 0` bloquea desde la primera llamada. Usado por `POST /api/promo-events` (120/min) y `POST /api/promo-reports` (20/min).
+- **`fixedWindowRateLimit`**: permite hasta `limit` llamadas y bloquea desde `limit+1`; cada `key` se cuenta por separado (no hay cross-talk entre sesiones/IPs); `limit: 0` bloquea desde la primera llamada. Usado con doble llave (sesión + tope duro por IP) por `POST /api/promo-events` (120/min sesión, 480/min IP), `POST /api/promo-reports` (20/min sesión, 60/min IP) y `PATCH /api/promo-reports/[id]` (30/min IP).
 
 ### `scripts/schema.sql` — integridad del esquema (`tests/schema.test.ts`)
-Asserts basados en `includes()`/parsing de texto sobre el archivo (no requiere DB): existencia de `merchant_tags` y `merchant_tag_map` (join N:N tags↔comercios), `ON DELETE CASCADE` en `merchant_tag_map`, existencia de `promo_reports` y su `CHECK` de `status`/`reason` + `ON DELETE CASCADE` hacia `promotions`.
+Asserts basados en `includes()`/parsing de texto sobre el archivo (no requiere DB): existencia de `merchant_tags` y `merchant_tag_map` (join N:N tags↔comercios), `ON DELETE CASCADE` en `merchant_tag_map`, existencia de `promo_reports` con su `CHECK` de `status`/`reason`, `ON DELETE CASCADE` hacia `promotions`, y la columna `token UUID` (capability del PATCH público) con su migración idempotente.
 
 ### `lib/standalone.ts` — 14 tests
 - **isStandalone**: SSR (window undefined), matchMedia, iOS (navigator.standalone), ambos true, ninguno
@@ -66,12 +65,13 @@ Asserts basados en `includes()`/parsing de texto sobre el archivo (no requiere D
 - **areValidIds**: vacío, todos válidos, uno inválido en distintas posiciones, ID vacío, ID largo
 - **isValidCardTypes / isValidDaysOfWeek / isNonNegativeIntOrNull / isValidDateOrNull**: validadores de escritura de `promotions` (consumidos por el repo admin; `lib/validate.ts` se duplica ahí)
 - **isValidCardIds**: vacío, ids válidos, id inválido, no-string, vacío, no-array, null
+- **isValidReportToken**: UUID válido (minúsculas/mayúsculas), id numérico, UUID truncado, null, vacío
 - **isValidDiscountConfig** (XOR %/litro): solo %, bordes 1/100, fuera de rango 0/101, solo por-unidad (liter), unidad desconocida, valor 0, sin unidad, decimal, ambos → false, ninguno → false
 
 ### `lib/format.ts` — 100% líneas/funciones
 - **toISODateLocal**: hora local (bug timezone), padding mes/día, todos los meses
 - **formatDayOfWeek / formatDayShort**: todos los días 0-6, longitud exacta de abreviados
-- **formatDate / formatDateShort**: número de día, nombre del mes, separador `·`, 3 letras del mes
+- **formatDate**: número de día, nombre del mes, separador `·`
 - **formatCLP**: $0, $1, $999 sin separador, $1.000–$5.250.000 con puntos, siempre empieza con `$`
 - **daysOfWeekLabel**: vacío/7 días → "Todos los días"; 1 día → nombre completo; 2-6 días → abreviados separados por coma
 - **modalityLabel**: both / online / presencial
