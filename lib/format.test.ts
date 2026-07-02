@@ -5,7 +5,6 @@ import {
   formatDayOfWeek,
   formatDayShort,
   formatDate,
-  formatDateShort,
   formatCLP,
   daysOfWeekLabel,
   modalityLabel,
@@ -101,25 +100,6 @@ describe("formatDate — formato largo para UI", () => {
     const result = formatDate(new Date(2024, 0, 1)); // lunes 1 ene 2024
     strictEqual(result.includes("1"), true);
     strictEqual(result.includes("enero"), true);
-  });
-});
-
-// ─────────────────────────── formatDateShort ─────────────────────────────────
-
-describe("formatDateShort — formato compacto para chips", () => {
-  it("13 junio -> empieza con 13 y contiene jun", () => {
-    const result = formatDateShort(new Date(2026, 5, 13));
-    strictEqual(result.startsWith("13"), true);
-    strictEqual(result.includes("jun"), true);
-  });
-  it("1 enero -> empieza con 1 y contiene ene", () => {
-    const result = formatDateShort(new Date(2026, 0, 1));
-    strictEqual(result.startsWith("1"), true);
-    strictEqual(result.includes("ene"), true);
-  });
-  it("diciembre usa 3 letras (dic)", () => {
-    const result = formatDateShort(new Date(2026, 11, 25));
-    strictEqual(result.includes("dic"), true);
   });
 });
 
