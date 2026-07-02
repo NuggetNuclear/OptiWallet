@@ -47,7 +47,6 @@ export const config = {
     "/cookies/:path*",
     "/prensa/:path*",
     "/roadmap/:path*",
-    "/api-docs/:path*",
     "/mantencion",
   ],
 };

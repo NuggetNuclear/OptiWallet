@@ -52,7 +52,7 @@ node --test tests/validate.test.ts   # un archivo específico
 - **Reportes**: `createPromoReport` / `updatePromoReport` — construcción del body y manejo de respuesta
 
 ### `lib/rate-limit.ts` — ventana fija en memoria
-- **`fixedWindowRateLimit`**: permite hasta `limit` llamadas y bloquea desde `limit+1`; cada `key` se cuenta por separado (no hay cross-talk entre sesiones/IPs); `limit: 0` bloquea desde la primera llamada. Usado por `POST /api/promo-events` (120/min) y `POST /api/promo-reports` (20/min) — ver `docs/SECURITY.md`.
+- **`fixedWindowRateLimit`**: permite hasta `limit` llamadas y bloquea desde `limit+1`; cada `key` se cuenta por separado (no hay cross-talk entre sesiones/IPs); `limit: 0` bloquea desde la primera llamada. Usado por `POST /api/promo-events` (120/min) y `POST /api/promo-reports` (20/min).
 
 ### `scripts/schema.sql` — integridad del esquema (`tests/schema.test.ts`)
 Asserts basados en `includes()`/parsing de texto sobre el archivo (no requiere DB): existencia de `merchant_tags` y `merchant_tag_map` (join N:N tags↔comercios), `ON DELETE CASCADE` en `merchant_tag_map`, existencia de `promo_reports` y su `CHECK` de `status`/`reason` + `ON DELETE CASCADE` hacia `promotions`.

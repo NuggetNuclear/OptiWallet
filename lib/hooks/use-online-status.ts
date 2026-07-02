@@ -2,7 +2,7 @@
 // Hook que expone el estado de conectividad del navegador (navigator.onLine +
 // eventos "online"/"offline"). Usado por OfflineBanner para avisar al usuario
 // cuando la app está sirviendo datos desde el cache del Service Worker en vez
-// de la red (ver docs/SECURITY.md → "UI offline").
+// de la red.
 //
 // Implementado con useSyncExternalStore en vez de useState+useEffect: es el
 // patrón recomendado por React para suscribirse a un valor externo al browser

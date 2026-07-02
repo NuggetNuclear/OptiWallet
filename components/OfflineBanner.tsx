@@ -1,7 +1,6 @@
 // components/OfflineBanner.tsx
 // Avisa cuando el navegador pierde conexión — hasta ahora el Service Worker
-// servía la cache silenciosamente sin ningún indicador visual (ver
-// docs/SECURITY.md → Recomendaciones operativas → "UI offline").
+// servía la cache silenciosamente sin ningún indicador visual.
 // "use client" porque usa hooks del browser.
 
 "use client";

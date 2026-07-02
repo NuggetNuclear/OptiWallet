@@ -10,7 +10,7 @@ import { withSentryConfig } from "@sentry/nextjs";
 //  - https://plausible.io        → script de analytics + endpoint de eventos (US-ANA)
 //  - https://*.ingest.*.sentry.io → envío de errores a Sentry (US-ERR)
 // Todo lo demás queda bloqueado: fuentes self-hosted por next/font, sin
-// embeds, sin frames. Swagger UI (/api-docs) es self-hosted en /public/swagger.
+// embeds, sin frames.
 //
 // ⚠️ IMPORTANTE — Plausible self-hosted / dominio custom:
 // `script-src` y `connect-src` de abajo asumen el host oficial `plausible.io`.
