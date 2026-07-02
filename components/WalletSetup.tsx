@@ -137,7 +137,7 @@ export function WalletSetup({
         >
           {hasSelection ? (
             <>
-              {isOnboarding ? "Continuar" : "Guardar"}
+              {isOnboarding ? "Continuar" : "Listo"}
               <span className="font-mono text-xs opacity-70">
                 · {selectedCardIds.length} tarjeta{selectedCardIds.length > 1 ? "s" : ""}
               </span>

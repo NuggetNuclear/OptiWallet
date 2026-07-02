@@ -32,7 +32,7 @@ const FAQS = [
   },
   {
     q: "¿Quién está detrás de OptiWallet?",
-    a: "Un grupo de estudiantes de ingeniería de la UDP, construido como proyecto, diseñado para ahorrar al MAXImo",
+    a: "Un equipo de estudiantes de ingeniería de la UDP. Nació como proyecto universitario y lo seguimos construyendo con un solo objetivo: que ahorres al máximo con las tarjetas que ya tienes.",
   },
 ];
 
@@ -65,10 +65,15 @@ export default function LandingPage() {
     setOpenFaq((prev) => (prev === index ? -1 : index));
   };
 
-  const [stats, setStats] = useState<{ promotions: string; merchants: string; banks: string } | null>(null);
+  const [stats, setStats] = useState<{ promotions: number; merchants: number; banks: number } | null>(null);
   useEffect(() => {
     fetch("/api/stats")
-      .then((r) => r.json())
+      .then((r) => {
+        // Sin el guard, un 500 entregaba {error} y los contadores quedaban en
+        // blanco; con él, se mantiene el placeholder "—".
+        if (!r.ok) throw new Error(`stats ${r.status}`);
+        return r.json();
+      })
       .then(setStats)
       .catch((err) => {
         console.warn("[OptiWallet] Error al cargar stats:", err);
@@ -209,10 +214,12 @@ export default function LandingPage() {
 
         {/* ============ MARQUEE ============ */}
         <section className="marquee-section" id="bancos">
-          <div className="marquee-label">— Cubrimos todos los bancos y tarjetas del mercado chileno —</div>
+          {/* Solo bancos/emisores realmente integrados (lib/constants.ts) — prometer
+              de más en una fintech erosiona justo la confianza que buscamos. */}
+          <div className="marquee-label">— 14 bancos y emisores del mercado chileno, y sumamos más cada semana —</div>
           <div className="marquee">
-            {["Banco de Chile", "Santander", "BCI", "Scotiabank", "Itaú", "BancoEstado", "Falabella", "Cencosud", "Ripley", "Security", "Tenpo", "MACH", "Copec Pay",
-              "Banco de Chile", "Santander", "BCI", "Scotiabank", "Itaú", "BancoEstado", "Falabella", "Cencosud", "Ripley", "Security", "Tenpo", "MACH", "Copec Pay"
+            {["Banco de Chile", "Santander", "BCI", "Scotiabank", "Itaú", "BancoEstado", "Falabella", "Ripley", "Security", "BICE", "Tenpo", "MACH", "Mercado Pago", "Coopeuch",
+              "Banco de Chile", "Santander", "BCI", "Scotiabank", "Itaú", "BancoEstado", "Falabella", "Ripley", "Security", "BICE", "Tenpo", "MACH", "Mercado Pago", "Coopeuch"
             ].map((bank, i) => (
               <div key={`${bank}-${i}`} className="bank-chip">{bank}</div>
             ))}
@@ -347,6 +354,20 @@ export default function LandingPage() {
               <div className="num-label">bancos y emisores de tarjetas cubiertos al lanzamiento. Sumamos más cada semana.</div>
             </div>
           </div>
+          {/* Footnote del asterisco de "$180k" — sin esto la promesa queda colgando */}
+          <p
+            style={{
+              marginTop: "28px",
+              textAlign: "center",
+              fontFamily: "var(--font-jetbrains), monospace",
+              fontSize: "10px",
+              textTransform: "uppercase",
+              letterSpacing: "0.12em",
+              color: "var(--ink-dim)",
+            }}
+          >
+            * Estimación propia según las promos vigentes y un uso semanal típico — no es una promesa de ahorro.
+          </p>
         </section>
 
         {/* ============ QUOTE ============ */}
@@ -423,13 +444,17 @@ export default function LandingPage() {
 
           <div className="faq-list">
             {FAQS.map((faq, i) => (
-              <div
-                key={i}
-                className={`faq-item${openFaq === i ? " open" : ""}`}
-                onClick={() => toggleFaq(i)}
-              >
-                <div className="faq-q">{faq.q}</div>
-                <div className="faq-a">{faq.a}</div>
+              <div key={i} className={`faq-item${openFaq === i ? " open" : ""}`}>
+                <button
+                  type="button"
+                  className="faq-q"
+                  aria-expanded={openFaq === i}
+                  aria-controls={`faq-a-${i}`}
+                  onClick={() => toggleFaq(i)}
+                >
+                  {faq.q}
+                </button>
+                <div id={`faq-a-${i}`} className="faq-a">{faq.a}</div>
               </div>
             ))}
           </div>
