@@ -3,7 +3,7 @@ import * as fs from "fs";
 import * as path from "path";
 
 if (!process.env.DATABASE_URL) {
-  console.error("❌ DATABASE_URL no está definida. Asegúrate de tener el .env configurado.");
+  console.error("❌ DATABASE_URL no está definida. Asegúrate de tener el .env.local configurado.");
   process.exit(1);
 }
 
