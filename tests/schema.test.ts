@@ -12,23 +12,6 @@ describe("schema.sql — integridad del esquema de base de datos", () => {
     ok(schemaContent.length > 0, "El esquema no debe estar vacío");
   });
 
-  it("define la tabla admin_users", () => {
-    ok(schemaContent.includes("CREATE TABLE IF NOT EXISTS admin_users"), "Debe definir la tabla admin_users");
-  });
-
-  it("define el campo token_version para revocación de sesiones", () => {
-    const hasTokenVersion = schemaContent.includes("token_version");
-    ok(hasTokenVersion, "Debe definir la columna token_version en admin_users");
-  });
-
-  it("define la tabla admin_login_attempts para rate limiting", () => {
-    ok(schemaContent.includes("CREATE TABLE IF NOT EXISTS admin_login_attempts"), "Debe definir la tabla admin_login_attempts");
-  });
-
-  it("define la tabla admin_audit_log para logs de actividad", () => {
-    ok(schemaContent.includes("CREATE TABLE IF NOT EXISTS admin_audit_log"), "Debe definir la tabla admin_audit_log");
-  });
-
   it("define el campo color en banks para el diseño dinámico", () => {
     ok(schemaContent.includes("color"), "Debe definir la columna color en banks");
   });

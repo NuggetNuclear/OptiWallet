@@ -65,40 +65,6 @@ describe("trackEvent — wrapper de Plausible", () => {
     ok(true);
   });
 
-  it("ignora el evento si la ruta actual empieza con /admin", () => {
-    const calls: Call[] = [];
-    (globalThis as G).window = {
-      plausible: (event, options) => calls.push({ event: event as string, options: options as Call["options"] }),
-      location: { pathname: "/admin/dashboard" }
-    };
-    trackEvent("Onboarding Started");
-    strictEqual(calls.length, 0);
-  });
-
-  it("permite el evento si la ruta actual no empieza con /admin", () => {
-    const calls: Call[] = [];
-    (globalThis as G).window = {
-      plausible: (event, options) => calls.push({ event: event as string, options: options as Call["options"] }),
-      location: { pathname: "/app/comercio" }
-    };
-    trackEvent("Onboarding Started");
-    strictEqual(calls.length, 1);
-    strictEqual(calls[0].event, "Onboarding Started");
-  });
-
-  it("no lanza si window.location es defectuoso o inaccesible", () => {
-    const calls: Call[] = [];
-    (globalThis as G).window = {
-      plausible: (event, options) => calls.push({ event: event as string, options: options as Call["options"] }),
-      get location() {
-        throw new Error("unreachable location");
-      }
-    };
-    // No debe lanzar y debe continuar a plausible
-    trackEvent("Onboarding Started");
-    strictEqual(calls.length, 1);
-    strictEqual(calls[0].event, "Onboarding Started");
-  });
 });
 
 describe("events — helpers de eventos tipados", () => {

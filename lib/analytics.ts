@@ -23,11 +23,6 @@ declare global {
 export function trackEvent(event: string, props?: EventProps): void {
   if (typeof window === "undefined") return;
   try {
-    if (window.location?.pathname?.startsWith("/admin")) return;
-  } catch {
-    // location might not be defined in tests, do not throw
-  }
-  try {
     window.plausible?.(event, props ? { props } : undefined);
   } catch {
     // analytics jamás debe romper la app
@@ -103,5 +98,4 @@ export const events = {
 //      con datos desde ese momento (no retroactivo)
 //
 // Nota: si NEXT_PUBLIC_PLAUSIBLE_SRC no está seteado, el script de Plausible
-// no carga y todos los trackEvent() son no-ops silenciosos. Ver docs/ADMIN.md
-// para la guía de activación de variables de entorno en Vercel.
+// no carga y todos los trackEvent() son no-ops silenciosos.

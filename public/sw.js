@@ -6,16 +6,12 @@
 // reales. Se precachea también /app/wallet y el fallback offline de rutas
 // /app/* ahora es el shell de /app (no la landing).
 //
-// v3 (2026-06-15): el SW ya NO intercepta /admin ni /api/admin, así
-// que datos sensibles (lista de admins, audit log) nunca se cachean en
-// CacheStorage. El bump de versión purga cualquier respuesta admin que el SW
-// v2 hubiera cacheado ignorando `Cache-Control: no-store`.
 // SW_VERSION lo reescribe `scripts/stamp-sw-version.ts` en cada build (corre
 // como `prebuild`): se reemplaza por el commit SHA del deploy. Esto cambia los
 // bytes de /sw.js en CADA deploy, que es lo único que hace que el browser
 // dispare `updatefound` → aparece el banner "nueva versión disponible".
 // En dev queda "dev" (da igual: el SW solo se registra en producción).
-const SW_VERSION = "21fc21f";
+const SW_VERSION = "dev";
 
 // Versionamos los caches con SW_VERSION para que cada deploy purgue los caches
 // viejos (en `activate`) y se reprecachee el shell con el código nuevo.
@@ -83,13 +79,6 @@ self.addEventListener("fetch", (event) => {
 
   // Ignoramos requests que no son GET
   if (request.method !== "GET") return;
-
-  // Nunca tocamos el panel admin ni su API: sus respuestas son sensibles y
-  // viajan con `Cache-Control: no-store`. Las dejamos pasar directo a la red
-  // (sin respondWith) para que NO entren a CacheStorage.
-  if (url.pathname.startsWith("/admin") || url.pathname.startsWith("/api/admin")) {
-    return;
-  }
 
   // Estrategia según el tipo de recurso
   if (isAPIRoute(url.pathname)) {

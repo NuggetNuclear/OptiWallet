@@ -617,8 +617,9 @@ rate-limit (`20/min` por sesión/IP) → `204` silencioso. Fire-and-forget vía 
 **Respuesta:** siempre `204`. Solo aplica si el reporte existe, aún no tiene motivo y se creó
 hace < 15 min (ventana anti-manipulación). Fire-and-forget vía `updatePromoReport()`.
 
-Los reportes se trian en el panel admin (`/admin/ops/reports`): agrupados por promo, con
-acciones para desactivar la promo o marcar resueltos/descartados, y priorización opcional con IA.
+Los reportes se triagan desde el panel admin (repo separado `Optiwallet-admin`): agrupados por
+promo, con acciones para desactivar la promo o marcar resueltos/descartados, y priorización
+opcional con IA.
 
 ---
 
@@ -694,4 +695,4 @@ GROUP BY mt.id, mt.label, mt.emoji
 ORDER BY mt.label
 ```
 
-Ver `?tags=` en `GET /api/merchants` para filtrar comercios por tag, y la sección de administración de tags (CRUD + fusión) en [`docs/ADMIN.md`](ADMIN.md#data-api--tags).
+Ver `?tags=` en `GET /api/merchants` para filtrar comercios por tag. El CRUD y la fusión de tags son de solo escritura y viven en el panel admin (repo separado `Optiwallet-admin`).

@@ -2,24 +2,17 @@
 // Debe exportar una función llamada `proxy` (o default).
 
 import { NextRequest, NextResponse } from "next/server";
-import { getAdminFromRequest } from "@/lib/admin-session";
 import { isMaintenanceMode } from "@/lib/maintenance";
 
 export async function proxy(req: NextRequest) {
   const { pathname } = req.nextUrl;
 
   // ── 0. Maintenance mode ───────────────────────────────────────────────────
-  // El admin panel queda SIEMPRE accesible para poder desactivar el modo.
-  // La página /mantencion misma también se excluye para no crear un loop.
-  // Nota: el `matcher` de abajo NO incluye rutas /api/*, así que este middleware
-  // nunca corre sobre APIs — el chequeo de `/api/admin` es defensa redundante
-  // por si el matcher se amplía en el futuro (las APIs admin ya se protegen con
-  // requireAdmin(), no dependen de este guard).
-  const isAdminRoute = pathname.startsWith("/admin") || pathname.startsWith("/api/admin");
+  // La página /mantencion misma se excluye para no crear un loop.
   const isMaintenancePage = pathname === "/mantencion";
   const isAsset = pathname.startsWith("/_next") || pathname.startsWith("/favicon") || pathname === "/manifest.json";
 
-  if (!isAdminRoute && !isMaintenancePage && !isAsset) {
+  if (!isMaintenancePage && !isAsset) {
     const maintenance = await isMaintenanceMode();
     if (maintenance) {
       const url = req.nextUrl.clone();
@@ -28,30 +21,7 @@ export async function proxy(req: NextRequest) {
     }
   }
 
-  // ── 1. Admin auth guard ───────────────────────────────────────────────────
-  // Rutas admin que NO requieren sesión válida
-  const adminPublic = ["/admin/login"];
-  // Rutas admin que requieren sesión pero NO exigen totp_enabled (setup inicial)
-  const adminTotpSetup = ["/admin/totp-setup"];
-
-  if (pathname.startsWith("/admin")) {
-    if (!adminPublic.includes(pathname)) {
-      const session = await getAdminFromRequest(req);
-      if (!session) {
-        const url = req.nextUrl.clone();
-        url.pathname = "/admin/login";
-        return NextResponse.redirect(url, 307);
-      }
-      // Fuerza TOTP setup si el admin aún no lo ha configurado
-      if (!session.totp_enabled && !adminTotpSetup.some((p) => pathname.startsWith(p))) {
-        const url = req.nextUrl.clone();
-        url.pathname = "/admin/totp-setup";
-        return NextResponse.redirect(url, 307);
-      }
-    }
-  }
-
-  // ── 2. PWA standalone redirect (landing → /app) ───────────────────────────
+  // ── 1. PWA standalone redirect (landing → /app) ───────────────────────────
   // La cookie `ow_standalone` la setea <StandaloneRedirect /> la primera vez
   // que la landing se abre en modo standalone (PWA instalada). Desde ahí,
   // cualquier visita a `/` dentro de la PWA redirige al /app en el edge,
@@ -66,8 +36,6 @@ export async function proxy(req: NextRequest) {
 }
 
 export const config = {
-  // Extendemos el matcher para cubrir todas las rutas de la app pública
-  // además de las rutas admin (el guard de admin ya estaba).
   matcher: [
     "/",
     "/app/:path*",
@@ -81,7 +49,6 @@ export const config = {
     "/roadmap/:path*",
     "/api-docs/:path*",
     "/mantencion",
-    "/admin/:path*",
   ],
 };
 

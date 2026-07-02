@@ -18,17 +18,12 @@
     "test": "node --test \"lib/**/*.test.ts\" \"tests/**/*.test.ts\"",
     "test:watch": "node --test --watch \"lib/**/*.test.ts\" \"tests/**/*.test.ts\"",
     "test:coverage": "node --test --experimental-test-coverage \"lib/**/*.test.ts\" \"tests/**/*.test.ts\"",
-    "swagger:update": "node scripts/update-swagger-ui.ts",
-    "admin:create": "dotenv -e .env -e .env.local -- node --conditions react-server scripts/create-admin.ts",
-    "admin:encrypt-totp": "dotenv -e .env -e .env.local -- node scripts/encrypt-totp.ts"
+    "swagger:update": "node scripts/update-swagger-ui.ts"
   },
   "dependencies": {
     "@neondatabase/serverless": "^1.1.0",
     "@sentry/nextjs": "^10.57.0",
-    "bcryptjs": "^3.0.2",
     "next": "^16.2.9",
-    "otpauth": "^9.4.0",
-    "qrcode": "^1.5.4",
     "react": "^19.2.5",
     "react-dom": "^19.2.5",
     "server-only": "^0.0.1"
@@ -37,9 +32,7 @@
     "@eslint/compat": "^2.0.5",
     "@eslint/eslintrc": "^3.3.5",
     "@tailwindcss/postcss": "^4.2.4",
-    "@types/bcryptjs": "^2.4.6",
     "@types/node": "^25.6.0",
-    "@types/qrcode": "^1.5.5",
     "@types/react": "^19.2.14",
     "@types/react-dom": "^19.2.3",
     "dotenv-cli": "^11.0.0",

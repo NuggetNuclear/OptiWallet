@@ -7,14 +7,13 @@ Runner nativo de Node.js (`node:test` + `node:assert`) — sin Jest, sin Vitest,
 ```
 tests/                          # Suite principal
 ├── README.md
-├── admin-crypto.test.ts        # Cifrado AES-256-GCM de secretos TOTP + fail-closed
 ├── analytics.test.ts           # Wrapper Plausible: trackEvent + helpers tipados
 ├── api-client.test.ts          # Wrappers de fetch: URLs, params, códigos HTTP
 ├── rate-limit.test.ts          # Limiter de ventana fija en memoria (lib/rate-limit.ts)
 ├── recommendations.test.ts     # Motor de ahorro: savings (%/litro), ranking, stacking
 ├── schema.test.ts              # Integridad de scripts/schema.sql (incl. merchant_tags, merchant_tag_map, promo_reports)
 ├── standalone.test.ts          # Detección PWA standalone + sincronización de cookie
-└── validate.test.ts            # Sanitización de IDs + validadores de writes admin
+└── validate.test.ts            # Sanitización de IDs + validadores de escritura (usados por el repo admin, duplicados aquí)
 
 lib/
 ├── format.test.ts              # Formatters: fechas, días, CLP, modality, descuento
@@ -65,7 +64,7 @@ Asserts basados en `includes()`/parsing de texto sobre el archivo (no requiere D
 ### `lib/validate.ts` — 100% líneas/ramas/funciones
 - **isValidId**: slugs válidos (letras, dígitos, `-`, `_`, `.`), borde en longitudes 1/64/65, espacios y control (`\t`, `\n`), inyección SQL/HTML/XSS, path traversal, URL encoding (`%`), unicode y acentos, emojis
 - **areValidIds**: vacío, todos válidos, uno inválido en distintas posiciones, ID vacío, ID largo
-- **isValidCardTypes / isValidDaysOfWeek / isNonNegativeIntOrNull / isValidDateOrNull**: writes del panel admin
+- **isValidCardTypes / isValidDaysOfWeek / isNonNegativeIntOrNull / isValidDateOrNull**: validadores de escritura de `promotions` (consumidos por el repo admin; `lib/validate.ts` se duplica ahí)
 - **isValidCardIds**: vacío, ids válidos, id inválido, no-string, vacío, no-array, null
 - **isValidDiscountConfig** (XOR %/litro): solo %, bordes 1/100, fuera de rango 0/101, solo por-unidad (liter), unidad desconocida, valor 0, sin unidad, decimal, ambos → false, ninguno → false
 
@@ -77,11 +76,6 @@ Asserts basados en `includes()`/parsing de texto sobre el archivo (no requiere D
 - **daysOfWeekLabel**: vacío/7 días → "Todos los días"; 1 día → nombre completo; 2-6 días → abreviados separados por coma
 - **modalityLabel**: both / online / presencial
 - **formatDiscount**: porcentaje → "N%"; por-litro → "$N/L"; prioridad litro; unidad desconocida y `discountPerUnit` null → cae a porcentaje
-
-### `lib/admin-crypto.ts` — 100% líneas/ramas/funciones
-- **encrypt/decrypt**: roundtrip, ciphertext sin plaintext, envoltorio `v1.`, IV no determinista, plaintext legacy intacto, envoltorio malformado, integridad GCM (ciphertext manipulado falla auth)
-- **fail-closed**: en proceso fresco sin `ADMIN_TOTP_ENC_KEY`/`ADMIN_SESSION_SECRET`, `encryptSecret` lanza con mensaje claro
-- **safeEqual**: comparación en tiempo constante
 
 ### `lib/analytics.ts` — 100% líneas/ramas/funciones
 - **trackEvent**: no-op en SSR y sin Plausible cargado, envía nombre del evento, props opcionales (`undefined` vs `{ props }`), nunca rompe si Plausible lanza
@@ -99,5 +93,3 @@ Asserts basados en `includes()`/parsing de texto sobre el archivo (no requiere D
 **DOM/navegador** — `window` y `document` se salvan y restauran en cada test. `document.cookie` se reemplaza con un objeto con getter/setter que simula el comportamiento real del browser (append, replace, max-age=0 para borrar), permitiendo verificar tanto el valor almacenado como la cadena exacta que se habría enviado al browser.
 
 **Puro** — `recommendations.ts`, `validate.ts`, `format.ts` y las funciones puras de `use-today.ts` no tienen efectos secundarios; no requieren mock.
-
-**Subproceso** — el camino fail-closed de `admin-crypto.ts` (sin clave) solo es observable en un proceso nuevo, porque la clave se cachea a nivel de módulo. Se verifica con `execFileSync` lanzando Node sin las env vars y comprobando que `encryptSecret` aborta.

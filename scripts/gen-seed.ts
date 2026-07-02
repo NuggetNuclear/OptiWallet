@@ -129,7 +129,7 @@ const TAGS = [
 
 async function reset() {
   console.log("🗑️  Dropeando tablas…");
-  for (const table of ["promotion_codes", "scraper_raw_cache", "promo_staging", "scraper_runs", "promotions", "merchant_tag_map", "merchant_tags", "cards", "merchants", "merchant_categories", "banks"]) {
+  for (const table of ["promotion_codes", "promotions", "merchant_tag_map", "merchant_tags", "cards", "merchants", "merchant_categories", "banks"]) {
     await sql.query(\`DROP TABLE IF EXISTS \${table} CASCADE\`);
   }
   console.log("📋 Reaplicando schema.sql…");

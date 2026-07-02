@@ -2,14 +2,15 @@
 
 > Última actualización: 2026-07-01 · v1.0.0-beta.2
 
-Este documento describe la postura de seguridad de OptiWallet, las defensas implementadas, y las recomendaciones operativas pendientes. Para la seguridad específica del panel de administración, ver [`docs/ADMIN.md`](ADMIN.md#seguridad-del-panel).
+Este documento describe la postura de seguridad de la **PWA pública** de OptiWallet (marketing + APIs de lectura), las defensas implementadas, y las recomendaciones operativas pendientes.
+
+> **Nota:** el panel de administración vive en un repo separado (`Optiwallet-admin`), con su propia superficie de ataque, autenticación (bcrypt + TOTP) y documentación de seguridad. Ambos repos comparten el mismo Neon — ver `ARCHITECTURE_DECISION.md` para el racional del split.
 
 ---
 
 ## Índice
 
 - [Superficie de ataque](#superficie-de-ataque)
-- [Panel de administración](#panel-de-administración)
 - [Security headers](#security-headers)
 - [SQL y base de datos](#sql-y-base-de-datos)
 - [Validación de input](#validación-de-input)
@@ -31,60 +32,11 @@ OptiWallet tiene una superficie de ataque **intencionalmente reducida**:
 | Autenticación de usuario final | No hay cuentas de usuario. Sin login, sin sesiones, sin tokens. |
 | Datos sensibles | No se almacenan datos personales del usuario. La wallet es `localStorage` local. |
 | API pública | Solo `GET`. Las únicas excepciones que escriben señales de usuario (sin mutar el catálogo) son `POST /api/promo-events` (analytics) y `POST`/`PATCH /api/promo-reports` (reportes). Ambas comparten el mismo rate limiter en memoria (`lib/rate-limit.ts`) — ver *Recomendaciones operativas*. |
-| API admin (`/api/admin/*`) | Escritura completa, protegida por sesión HMAC-SHA256 + TOTP. Ver sección siguiente. |
+| Escritura de catálogo | Este repo no expone ningún endpoint de escritura sobre `banks`/`cards`/`merchants`/`promotions` — esas mutaciones viven en el repo admin, autenticado por separado (sesión HMAC-SHA256 + TOTP), sobre el mismo Neon compartido. |
 | Base de datos | Neon PostgreSQL serverless. El connection string solo vive en el servidor y en Vercel secrets. |
 | Uploads | No hay uploads de archivos. |
 | Pagos | No hay integración de pagos. |
 | OAuth / terceros | La app desplegada no llama a servicios externos. La única salida a terceros es Google Places, y ocurre **solo** desde el script de tooling local `compute-merchant-popularity.ts` (no en runtime). |
-
----
-
-## Panel de administración
-
-El panel admin en `/admin` agrega una **superficie de ataque adicional y controlada**. Está completamente separado de la app pública.
-
-### Modelo de acceso
-
-| Capa | Protección |
-|---|---|
-| Rutas `/admin/*` | `proxy.ts` (Edge Runtime) verifica la cookie HMAC antes de renderizar cualquier página |
-| Endpoints `/api/admin/*` | `requireAdmin()` valida la cookie **y la re-verifica contra la DB** en cada Route Handler: un admin eliminado, con TOTP reseteado o deshabilitado pierde acceso de inmediato |
-| Rate limiting | 5 intentos fallidos/IP/15 min (tabla `admin_login_attempts`), compartido entre login, verify-totp y enrolamiento TOTP — sin superficies de fuerza bruta sin throttle |
-| Paso 1 login | bcrypt costo 12 + anti-enumeración (mismo error para email desconocido y contraseña incorrecta) |
-| Paso 2 login | TOTP obligatorio (Google Authenticator, ±1 ventana de 30s) |
-| Secretos TOTP | Cifrados en reposo con AES-256-GCM (`lib/admin-crypto.ts`); nunca en texto plano en la DB |
-| Modelo de roles | Root vs Non-Root: el primer admin bootstrapeado (`is_root = true`) es el único con privilegios para crear/eliminar/modificar otros administradores; los no-root solo modifican su propia cuenta |
-| Creación de admins | Sin página web pública de setup: el primer admin se crea por CLI (`admin:create`), el resto desde el panel autenticado (solo permitido al admin root) |
-| Sesión | Cookie `HttpOnly; Secure; SameSite=Strict; Path=/`, firmada HMAC-SHA256, 8h de duración |
-
-### Nuevas cookies
-
-| Cookie | Uso | HttpOnly | SameSite | Path |
-|---|---|---|---|---|
-| `ow_admin_session` | Sesión de admin, firmada HMAC-SHA256 | ✓ | Strict | `/` (debe cubrir `/api/admin/*`) |
-
-### Nuevas variables de entorno
-
-| Variable | Descripción |
-|---|---|
-| `ADMIN_SESSION_SECRET` | Secreto para firmar sesiones HMAC-SHA256. Generar con `openssl rand -hex 32`. **Nunca debe aparecer en el repositorio.** |
-| `ADMIN_TOTP_ENC_KEY` | Clave para cifrar secretos TOTP en reposo (AES-256-GCM). Generar con `openssl rand -hex 32`. Si se omite se deriva de `ADMIN_SESSION_SECRET`. **Nunca debe aparecer en el repositorio.** |
-
-### Compartimentalización
-
-Los módulos con lógica de autenticación están marcados con `import "server-only"`:
-- `lib/admin-auth.ts` — bcryptjs + otpauth (no se pueden ejecutar en el browser)
-- `lib/admin-session.ts` — cookies y tokens HMAC
-- `lib/admin-guard.ts` — validación de sesión contra DB + rate limiting
-- `lib/db.ts` — cliente de base de datos
-
-`lib/admin-crypto.ts` se confina al servidor vía `node:crypto` (no bundleable para el browser), por lo que la clave y el cifrado nunca llegan al cliente.
-
-Si un Client Component importa cualquiera de estos módulos, Next.js lanza un error en build time antes de que el código llegue a producción.
-
-### Referencia completa
-
-Ver [`docs/ADMIN.md`](ADMIN.md) para la arquitectura detallada, walkthrough de despliegue y referencia de API del panel.
 
 ---
 
@@ -253,22 +205,22 @@ Los errores de validación sí devuelven un mensaje descriptivo:
 
 ### Acceso en código
 
-Solo cuatro archivos leen `DATABASE_URL`:
+Estos archivos leen `DATABASE_URL`:
 1. `lib/db.ts` — cliente SQL lazy (server-side, Route Handlers)
 2. `scripts/apply-schema.ts` — tooling local de desarrollo
 3. `scripts/seed.ts` — reset destructivo + datos mock (tooling local)
-4. `scripts/compute-merchant-popularity.ts` — escribe la popularidad de comercios (tooling local)
+4. `scripts/gen-seed.ts` — regenera `scripts/seed.ts` desde la DB actual (tooling local)
+5. `scripts/migrate-categories-to-tags.ts` — migración one-off, idempotente (tooling local)
+6. `scripts/refresh-promos.ts` — job diario que rota `promotion_codes` (tooling local / cron)
+7. `scripts/compute-merchant-popularity.ts` — escribe la popularidad de comercios (tooling local)
 
 **Protección en build:** el cliente lazy no inicializa `neon()` si `DATABASE_URL` no está definida. Esto previene crashes durante `next build`, donde Vercel evalúa los route modules sin secrets disponibles.
 
-### Claves del panel admin y analytics
+### Claves de analytics y observabilidad
 
-- **`ADMIN_SESSION_SECRET`** (firma HMAC de sesiones) y **`ADMIN_TOTP_ENC_KEY`** (cifra los `totp_secret` en reposo) son **server-only**: nunca llevan prefijo `NEXT_PUBLIC_` y viven solo en `.env.local` y en los secrets de Vercel.
-- **`NEXT_PUBLIC_SENTRY_DSN`** y **`NEXT_PUBLIC_PLAUSIBLE_SRC`** sí son públicas (viajan al browser por diseño): no son secretos, solo activan Sentry y el script v2 de Plausible.
+- **`NEXT_PUBLIC_SENTRY_DSN`** y **`NEXT_PUBLIC_PLAUSIBLE_SRC`** son públicas (viajan al browser por diseño): no son secretos, solo activan Sentry y el script v2 de Plausible.
 - **`GOOGLE_PLACES_API_KEY`** es **solo de tooling local** (`scripts/compute-merchant-popularity.ts`): nunca se lee en runtime ni se hornea en build, así que no expande la superficie de la app desplegada. Restríngela a "Places API (New)" en GCP.
-- **No existe** ningún "admin setup token" (la página web de setup fue eliminada) ni `NEXT_PUBLIC_PLAUSIBLE_DOMAIN` (reemplazada por `NEXT_PUBLIC_PLAUSIBLE_SRC`).
-
-Inventario completo, gotchas y procedimiento de rotación: [`docs/ADMIN.md` → Inventario y rotación de claves](ADMIN.md#inventario-y-rotación-de-claves).
+- Las claves del panel admin (`ADMIN_SESSION_SECRET`, `ADMIN_TOTP_ENC_KEY`) no existen en este repo — viven exclusivamente en `Optiwallet-admin`.
 
 ---
 
@@ -287,21 +239,10 @@ Inventario completo, gotchas y procedimiento de rotación: [`docs/ADMIN.md` → 
 | HttpOnly | No (necesita ser leída por JS) |
 | Contenido sensible | No — solo indica si la app se ejecuta en modo standalone |
 
-### `ow_admin_session` (panel de administración)
-
-| Atributo | Valor |
-|---|---|
-| Nombre | `ow_admin_session` |
-| Valor | Token de sesión firmado HMAC-SHA256 (incluye `token_version` para revocación) |
-| Path | `/` (debe cubrir `/admin` y `/api/admin`) |
-| Max-Age | 28800 (8 horas) |
-| SameSite | `Strict` (defensa CSRF para las mutaciones del panel) |
-| Secure | ✓ en producción |
-| HttpOnly | ✓ (no accesible desde JS) |
-
-> La app **pública** no usa cookies de sesión, autenticación ni tracking. La
-> única cookie con sesión es `ow_admin_session`, exclusiva del panel admin
-> (`/admin`). Ver [`docs/ADMIN.md`](ADMIN.md).
+> Esta app no usa cookies de sesión, autenticación ni tracking. `ow_standalone`
+> es la única cookie que escribe, y no es sensible. La cookie de sesión del
+> panel admin (`ow_admin_session`) vive en un dominio separado
+> (`admin.optiwallet.cl`), fuera del alcance de este repo.
 
 ---
 
@@ -311,11 +252,8 @@ Inventario completo, gotchas y procedimiento de rotación: [`docs/ADMIN.md` → 
 
 - Se registra solo en **producción** (`NODE_ENV === "production"`).
 - Solo intercepta requests **GET** del **mismo origen**.
-- **No intercepta `/admin` ni `/api/admin`**: las respuestas del panel (lista de
-  admins, audit log) nunca entran a CacheStorage del browser, aunque viajan con
-  `Cache-Control: no-store`.
 - No cachea responses con error (solo `response.ok`).
-- El cache se limpia en cada activación (versionado por nombre de cache, hoy `v3`).
+- El cache se limpia en cada activación (versionado por nombre de cache, derivado del `SW_VERSION` = commit SHA del deploy).
 
 ### Offline responses
 
@@ -376,5 +314,4 @@ Mejoras de seguridad recomendadas para post-beta:
 |---|---|---|
 | **Logging estructurado** | ✅ Parcial | **Sentry** está activo en producción (DSN configurado en Vercel, 2026-06-13). Los `console.error` de Route Handlers van a Vercel Logs, y los errores de render/request se reportan a Sentry automáticamente vía `captureException` / `captureRequestError`. |
 | **CORS headers** | ✅ No necesario | La API es solo para consumo propio (`connect-src 'self'`). No se necesitan CORS headers. |
-| **CSRF (API pública)** | ✅ No aplica | La API pública es solo `GET` sin cookies de sesión. |
-| **CSRF (panel admin)** | ✅ Mitigado | El panel sí tiene mutaciones (`POST`/`PATCH`/`DELETE`) y cookie de sesión, pero la cookie es `SameSite=Strict`, así que un sitio de terceros no puede dispararlas. Además, las operaciones sensibles exigen re-auth con la contraseña actual. |
+| **CSRF (API pública)** | ✅ No aplica | La API pública es solo `GET` sin cookies de sesión; las dos excepciones de escritura (`promo-events`, `promo-reports`) tampoco dependen de cookies. |

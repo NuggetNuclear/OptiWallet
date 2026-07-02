@@ -2,7 +2,9 @@
 
 > Última actualización: 2026-07-01 · v1.0.0-beta.2
 
-Este documento describe la arquitectura técnica completa de OptiWallet. Para la visión general y el setup local, ver [`README.md`](../README.md).
+Este documento describe la arquitectura técnica de **OptiWallet** — la PWA pública end-user + marketing + APIs de lectura. Para la visión general y el setup local, ver [`README.md`](../README.md).
+
+> **Nota:** el panel de administración (auth, CRUD, pipeline de scraping, ops) vive en un repo separado, `Optiwallet-admin`, con su propio despliegue (`admin.optiwallet.cl`) y su propia documentación. Ambos repos comparten el mismo Neon (una sola DB) — ver `ARCHITECTURE_DECISION.md` para el racional del split.
 
 ---
 
@@ -31,18 +33,17 @@ OptiWallet es una **PWA** construida con **Next.js 16 App Router**. El frontend 
 │                    Vercel (gru1)                     │
 │                                                     │
 │  proxy.ts (middleware)                               │
-│    ├─ Redirección / → /app (cookie ow_standalone)   │
-│    └─ Auth guard /admin/* (cookie ow_admin_session) │
+│    ├─ Maintenance redirect (app_settings)            │
+│    └─ Redirección / → /app (cookie ow_standalone)   │
 │                                                     │
 │  app/                                                │
 │    ├─ page.tsx         → Landing (client)            │
 │    ├─ app/page.tsx     → Web app (client)            │
-│    ├─ admin/*          → Panel admin (server+client) │
 │    ├─ api/*            → 12 Route Handlers públicos  │
-│    ├─ api/admin/*      → API admin (auth requerida)  │
 │    └─ blog/, contacto/ → Páginas internas (server)   │
 │                                                     │
 │  Route Handlers ──→ Neon PostgreSQL (serverless)     │
+│                     (mismo Neon que Optiwallet-admin) │
 │                                                     │
 │  public/sw.js          → Service Worker              │
 │  public/manifest.json  → PWA manifest                │
@@ -77,24 +78,10 @@ OptiWallet es una **PWA** construida con **Next.js 16 App Router**. El frontend 
 | `/api/promotions/[merchantId]` | Route Handler | `app/api/promotions/[merchantId]/route.ts` | Promos activas de un comercio. |
 | `/api/recommendations` | Route Handler | `app/api/recommendations/route.ts` | **Core:** recomendaciones cruzadas. |
 | `/api/promo-events` | Route Handler | `app/api/promo-events/route.ts` | `POST` fire-and-forget: registra impresión (`view`) o tap (`tap`) de una promo. Siempre responde `204`, incluso con body inválido o error de DB. |
+| `/api/promo-reports` · `/api/promo-reports/[id]` | Route Handlers | `app/api/promo-reports/` | `POST` crea un reporte de usuario (👎 en una promo, `reason` opcional); `PATCH /[id]` lo refina con el motivo elegido. |
+| `/api/tags` | Route Handler | `app/api/tags/route.ts` | Etiquetas granulares (`merchant_tags`) con conteo de comercios. |
 | `/api/stats` | Route Handler | `app/api/stats/route.ts` | Conteos para la landing. |
 | `/api/openapi.json` | Route Handler (estático) | `app/api/openapi.json/route.ts` | Spec OpenAPI 3.1 (fuente: `lib/openapi.ts`). |
-| `/admin` | Server + client components | `app/admin/` | Dashboard del panel de administración (requiere sesión). |
-| `/admin/login` | Client component | `app/admin/login/page.tsx` | Login dos fases: contraseña → TOTP. |
-| `/admin/totp-setup` | Client component | `app/admin/totp-setup/page.tsx` | Enrolamiento TOTP (primer login). |
-| `/admin/users` | Client component | `app/admin/users/page.tsx` | CRUD de admins (crear/eliminar: solo root). |
-| `/admin/audit` | Client component | `app/admin/audit/page.tsx` | Registro de actividad (audit log), filtros + auto-refresh. |
-| `/admin/data/*` | Client components | `app/admin/data/*/page.tsx` | CRUD de `banks`, `cards`, `categories`, `merchants`, `tags`, `promotions`. |
-| `/admin/ops` | Client component | `app/admin/ops/page.tsx` | Central de operaciones: overview por banco + modo mantenimiento + fetch (streaming). |
-| `/admin/ops/[bankId]` | Client component | `app/admin/ops/[bankId]/page.tsx` | Cola de revisión de staging de un banco. |
-| `/admin/ops/import` | Client component | `app/admin/ops/import/page.tsx` | Importar JSON de scraper subido manualmente. |
-| `/admin/ops/reports` | Client component | `app/admin/ops/reports/page.tsx` | Bandeja de reportes de usuarios (triage, priorización IA opcional). |
-| `/api/admin/auth/*` | Route Handlers | `app/api/admin/auth/` | Login, verify-totp, logout, me. |
-| `/api/admin/users/*` | Route Handlers | `app/api/admin/users/` | CRUD de admin users + TOTP setup. |
-| `/api/admin/data/*` | Route Handlers | `app/api/admin/data/` | CRUD + deps + merge de las 6 entidades (incl. `tags`). |
-| `/api/admin/maintenance` | Route Handler | `app/api/admin/maintenance/route.ts` | Toggle modo mantenimiento (GET estado, POST on/off). |
-| `/api/admin/ops/*` | Route Handlers | `app/api/admin/ops/` | Fetch (JSON/SSE), import scraper JSON, staging review, suggest merchant (IA), bandeja de reportes. |
-| `/api/admin/audit` | Route Handler | `app/api/admin/audit/route.ts` | Consulta audit log paginado. |
 | `/mantencion` | Server component | `app/mantencion/page.tsx` | Pantalla de mantenimiento (redirigida por proxy.ts). |
 
 ### Deep-linking en `/app` (US-DL, Sprint 2)
@@ -117,15 +104,12 @@ Las vistas de la app son **rutas reales del App Router** — URLs compartibles y
 
 Next.js 16 usa `proxy.ts` en la raíz como convención de middleware (reemplaza a `middleware.ts`, que está deprecado en esta versión).
 
-- **Matcher:** `/`, `/app/:path*`, `/blog/:path*`, `/sobre-nosotros/:path*`, `/contacto/:path*`, `/privacidad/:path*`, `/terminos/:path*`, `/cookies/:path*`, `/prensa/:path*`, `/roadmap/:path*`, `/api-docs/:path*`, `/mantencion`, `/admin/:path*`.
+- **Matcher:** `/`, `/app/:path*`, `/blog/:path*`, `/sobre-nosotros/:path*`, `/contacto/:path*`, `/privacidad/:path*`, `/terminos/:path*`, `/cookies/:path*`, `/prensa/:path*`, `/roadmap/:path*`, `/api-docs/:path*`, `/mantencion`.
 
-Tres guards se evalúan en orden:
+Dos guards se evalúan en orden:
 
-1. **Maintenance mode** (todas las rutas excepto `/admin*`, `/api/admin*`, `/mantencion` y assets estáticos): consulta `app_settings.maintenance_mode` en la DB (cacheado 30s en memoria via `lib/maintenance.ts`). Si está activo → `307 /mantencion`. Falla abierto: si la DB no responde, no bloquea tráfico.
-2. **Guard admin:** si el path empieza con `/admin` y no es `/admin/login`, verifica la cookie `ow_admin_session` (HMAC-SHA256). Si no es válida o está ausente → `307 /admin/login`. Si la sesión existe pero `totp_enabled = false` → `307 /admin/totp-setup`.
-3. **Guard PWA:** si path es `/` y la cookie `ow_standalone=1` existe → `307 /app`.
-
-Para la arquitectura completa del panel de administración, ver [`docs/ADMIN.md`](ADMIN.md).
+1. **Maintenance mode** (todas las rutas excepto `/mantencion` y assets estáticos): consulta `app_settings.maintenance_mode` en la DB (cacheado 30s en memoria vía `lib/maintenance.ts`). Si está activo → `307 /mantencion`. Falla abierto: si la DB no responde, no bloquea tráfico. El flag lo escribe el panel admin (repo separado) sobre la misma fila de `app_settings` en el Neon compartido — este repo solo lee.
+2. **Guard PWA:** si path es `/` y la cookie `ow_standalone=1` existe → `307 /app`.
 
 ---
 
@@ -218,7 +202,6 @@ export const viewport: Viewport = {
 
 > **Historial de versiones (comentarios en el código fuente):**
 > - **v2 (Sprint 2):** bump por el deep-linking — se precachea también `/app/wallet` y el fallback offline de rutas `/app/*` pasó a ser el shell de `/app`.
-> - **v3 (2026-06-15):** el SW ya **no intercepta `/admin` ni `/api/admin`** — esas respuestas viajan con `Cache-Control: no-store` y nunca deben llegar a CacheStorage (datos sensibles: lista de admins, audit log). El `fetch` handler retorna temprano (sin `respondWith`) para esas rutas, dejándolas pasar directo a la red.
 >
 > El `activate` limpia automáticamente cualquier cache que no coincida con el `SW_VERSION` vigente, en cada deploy.
 
@@ -234,8 +217,6 @@ Se cachean al instalar el SW:
 ┌──────────────────────┬────────────────────────────────────────────┐
 │ Tipo de recurso      │ Estrategia                                 │
 ├──────────────────────┼────────────────────────────────────────────┤
-│ /admin, /api/admin    │ Sin SW — pasa directo a la red, nunca se   │
-│                       │ cachea (datos sensibles, v3)               │
 │ API (/api/*)         │ Network-first → fallback a cache           │
 │ Assets estáticos     │ Cache-first → actualiza en background      │
 │ (_next/static, .png, │ (stale-while-revalidate)                   │
@@ -474,15 +455,6 @@ Hook genérico `useApiQuery`:
 - **Stale data:** mientras carga una key nueva, se mantiene la data anterior (los componentes usan `loading` para mostrar skeletons).
 
 Hooks expuestos: `useBanks`, `useCards`, `useCategories`, `useMerchants`, `useRecommendations`, `usePromotions`, `useMerchantFromApi`.
-
-### Hook de accesibilidad para modales (`lib/hooks/use-modal-keyboard.ts`)
-
-`useModalKeyboard(modalRef, initialFocusRef, onCancel, loading?)` encapsula los dos comportamientos de teclado estándar en los modales del admin:
-
-- **Escape** cierra el modal (salvo cuando `loading` es `true`).
-- **Tab** cicla el foco dentro de `modalRef` (focus trap básico).
-
-Se usa en `ConfirmModal` y `DeleteModal`. Evita duplicar el mismo bloque `useEffect` en ambos componentes.
 
 ### API client (`lib/api-client.ts`)
 
