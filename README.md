@@ -6,22 +6,14 @@ OptiWallet cruza las promociones de bancos chilenos y recomienda la mejor tarjet
 
 > v1.0.0-beta.2 · Solo para Chile 🇨🇱 · **Producción:** [optiwallet.vercel.app](https://optiwallet.vercel.app)
 
-> Este repo es 100% público: PWA + marketing + APIs de solo lectura. El panel de administración (auth, CRUD, scraping, ops) vive en un repo separado, `Optiwallet-admin`, sobre el mismo Neon. Ver `ARCHITECTURE_DECISION.md` para el racional del split.
+> Este repo es 100% público: PWA + marketing + APIs de solo lectura. El panel de administración (auth, CRUD, scraping, ops) vive en un repositorio privado separado.
 
 ---
 
 ## Documentación
 
-| Documento | Contenido |
-|---|---|
-| Este README | Visión general, setup, estructura, convenciones |
-| [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) | Arquitectura en detalle: routing, sistema standalone/PWA, service worker, flujo de datos, lógica de recomendaciones, jerarquía de componentes, design system |
-| [`docs/API.md`](docs/API.md) | Referencia completa de los endpoints: params, validación, respuestas, errores, caching |
-| [`/api-docs`](https://optiwallet.vercel.app/api-docs) | **Swagger UI interactivo** (self-hosted) sobre el spec [`/api/openapi.json`](https://optiwallet.vercel.app/api/openapi.json) — fuente: `lib/openapi.ts` |
-| [`docs/SECURITY.md`](docs/SECURITY.md) | Postura de seguridad: headers, validación, manejo de secrets, recomendaciones operativas |
-| [`tests/README.md`](tests/README.md) | Mapa de cobertura de tests y metodología de aislamiento |
-| [`TODO.md`](TODO.md) | Inventario de placeholders y pendientes operativos (prensa, sobre-nosotros, cifras de landing, activación Sentry/Plausible) |
-| [`docs/DOCUMENTATION_STATUS.md`](docs/DOCUMENTATION_STATUS.md) | Snapshot de la última auditoría de documentación: qué estaba desactualizado, qué se corrigió, qué queda pendiente |
+- **README**: Visión general, setup, estructura, convenciones.
+- [tests/README.md](tests/README.md): Mapa de cobertura de tests y metodología de aislamiento.
 
 ---
 
@@ -40,7 +32,7 @@ OptiWallet cruza las promociones de bancos chilenos y recomienda la mejor tarjet
 | Testing | `node:test` + `node:assert` (nativo, cero dependencias) | Node ≥ 22 |
 | Lint | ESLint 10 flat config + eslint-config-next | ^10.2.1 |
 
-> Las versiones de `next` y `eslint-config-next` se mantienen en `^16.2.9` como **piso de seguridad** — versiones anteriores de la serie 16 tienen CVEs conocidos (ver [`docs/SECURITY.md`](docs/SECURITY.md)). No bajar de ahí.
+> Las versiones de `next` y `eslint-config-next` se mantienen en `^16.2.9` como **piso de seguridad** — versiones anteriores de la serie 16 tienen vulnerabilidades conocidas. No bajar de ahí.
 
 ---
 
@@ -135,8 +127,7 @@ OptiWallet/
 │   │                             #   onboarding inline si la wallet está vacía
 │   ├── app/wallet/page.tsx       # /app/wallet — gestión de tarjetas (ruta real, US-DL)
 │   ├── app/comercio/[merchantId]/page.tsx  # /app/comercio/:id — detalle (ruta real, US-DL)
-│   ├── api-docs/page.tsx         # Swagger UI self-hosted (US-003)
-│   ├── api/                      # 9 Route Handlers (serverless Node.js) → docs/API.md
+│   ├── api/                      # Route Handlers (serverless Node.js)
 │   │   ├── banks/route.ts        #   GET /api/banks — todos los bancos
 │   │   ├── cards/route.ts        #   GET /api/cards — tarjetas (?bankId=)
 │   │   ├── categories/route.ts   #   GET /api/categories — categorías + conteo
@@ -145,8 +136,7 @@ OptiWallet/
 │   │   ├── promotions/[merchantId]/route.ts # GET — promos activas de un comercio
 │   │   ├── recommendations/route.ts  # GET ★ Core: join promos × tarjetas × comercios
 │   │   ├── promo-events/route.ts #   POST /api/promo-events — log de vistas/taps (analítica)
-│   │   ├── stats/route.ts        #   GET /api/stats — conteos para la landing
-│   │   └── openapi.json/route.ts #   GET /api/openapi.json — spec OpenAPI 3.1 (US-003)
+│   │   └── stats/route.ts        #   GET /api/stats — conteos para la landing
 │   ├── blog/                     # Páginas internas — usan InnerPageLayout
 │   ├── contacto/
 │   ├── cookies/
@@ -188,7 +178,6 @@ OptiWallet/
 │   ├── recommendations.ts        # Motor de cálculo y ranking de ahorros, topes y promociones apilables
 │   ├── analytics.ts              # Wrapper de Plausible + eventos de onboarding (US-ANA)
 │   ├── sentry.ts                 # Opciones compartidas de Sentry — no-op sin DSN (US-ERR)
-│   ├── openapi.ts                # Spec OpenAPI 3.1 de la API, mantenida a mano (US-003)
 │   ├── maintenance.ts            # Modo mantenimiento — solo lectura (cache 30s en memoria, fail-open)
 │   └── hooks/
 │       ├── use-api.ts            # useApiQuery genérico + hooks tipados (useBanks, useCards,
@@ -210,19 +199,12 @@ OptiWallet/
 │   ├── icon.svg                  # Ícono SVG
 │   ├── icon-192.png              # Ícono PWA 192×192
 │   ├── icon-512.png              # Ícono PWA 512×512
-│   ├── icon-maskable.png         # Ícono PWA maskable 512×512
-│   └── swagger/                  # Swagger UI self-hosted (swagger-ui-dist@5.32.6, US-003)
-│
-├── docs/                         # Documentación técnica detallada
-│   ├── ARCHITECTURE.md           # Arquitectura, routing, PWA, SW, data layer, componentes
-│   ├── API.md                    # Referencia de los endpoints
-│   └── SECURITY.md               # Postura de seguridad + recomendaciones
+│   └── icon-maskable.png         # Ícono PWA maskable 512×512
 │
 ├── instrumentation.ts            # Hook de instrumentación Next — carga Sentry por runtime (US-ERR)
 ├── instrumentation-client.ts     # Init de Sentry en el browser (US-ERR)
 ├── sentry.server.config.ts       # Init de Sentry runtime Node (US-ERR)
 ├── sentry.edge.config.ts         # Init de Sentry runtime Edge (US-ERR)
-├── TODO.md                       # Placeholders y pendientes operativos
 ├── next.config.mjs               # Security headers (CSP con Plausible/Sentry, HSTS…) + poweredByHeader off
 ├── vercel.json                   # Config de deploy — pin a región gru1
 ├── eslint.config.mjs             # ESLint 10 flat config (con shims de compat para plugins legacy)
@@ -237,8 +219,6 @@ OptiWallet/
 
 ## Arquitectura (resumen)
 
-> Versión completa con diagramas de flujo en [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md).
-
 ### Routing
 
 | Ruta | Tipo | Propósito |
@@ -247,15 +227,14 @@ OptiWallet/
 | `/app` | Client component | Home de la app: feed del día + búsqueda. Día seleccionado vía `?dia=0..6` (US-DL) |
 | `/app/wallet` | Client component | Gestión de tarjetas (deep-linkable) |
 | `/app/comercio/[merchantId]` | Client component | Detalle de comercio (deep-linkable, acepta `?dia=`) |
-| `/api-docs` | Client component | Swagger UI self-hosted sobre `/api/openapi.json` (US-003) |
 | `/blog`, `/contacto`, etc. | Server components | Páginas internas con `InnerPageLayout` |
-| `/api/*` | Route Handlers (serverless Node.js) | Queries directas a Neon PostgreSQL (+ `/api/openapi.json` estático) |
+| `/api/*` | Route Handlers (serverless Node.js) | Queries directas a Neon PostgreSQL |
 
 > **US-DL (Sprint 2):** las vistas de `/app` que antes eran estado React (`view`) son ahora rutas reales del App Router — URLs compartibles, back del browser funcional. El estado compartido entre rutas (wallet, "hoy") vive en `useWallet` y `lib/hooks/use-today.ts`. El onboarding sigue siendo estado local de `/app` (condición de wallet vacía, no una vista navegable).
 
 ### Redirección standalone (PWA instalada)
 
-Cuando el usuario instala la PWA y la abre, debe aterrizar en `/app` y no en la landing. Tres piezas cooperan (detalle en `lib/standalone.ts` y [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md)):
+Cuando el usuario instala la PWA y la abre, debe aterrizar en `/app` y no en la landing. Tres piezas cooperan (detalle en `lib/standalone.ts`):
 
 1. **`StandaloneCookieSync`** (root layout) — setea la cookie `ow_standalone=1` cuando detecta modo standalone, y la borra en navegador normal (auto-reparación para Android, donde la PWA comparte cookies con Chrome).
 2. **`proxy.ts`** (middleware, solo matcher `/`) — si la cookie existe, redirige `/` → `/app` en el edge, sin flash de landing.
@@ -279,7 +258,7 @@ Todos los datos viven en **Neon PostgreSQL** — no hay archivos de datos estát
 | `merchants` | Comercios con aliases para búsqueda fuzzy. Lleva además las señales de popularidad del cold-start del ranking (`places_rating`, `places_ratings_total`, `places_branches`, `popularity_prior` 0–1, `merchant_tier` 1–5, `popularity_updated_at`), pobladas por `npm run popularity:compute`. |
 | `promotions` | Promociones con días, topes, monto mínimo, fechas, modalidad, `card_ids` ("tarjeta única"), `discount_per_unit`/`discount_unit` ($X/L), `stackable`, y trazabilidad (`source`, `verified_at`). Índices en `merchant_id`, `bank_id`, `active`, `days_of_week` (GIN) y `card_ids` (GIN). |
 | `promotion_codes` | Códigos rotativos con vigencia (`start_date`/`end_date`) para promos multi-código; `npm run promotions:refresh` copia el código activo del día a `promotions.code` |
-| `promo_events` | Eventos anónimos de vista/tap por promo (`POST /api/promo-events`) — insumo crudo para diluir `popularity_prior` con tráfico real (no consumido todavía, ver `TODO.md`) |
+| `promo_events` | Eventos anónimos de vista/tap por promo (`POST /api/promo-events`) — insumo crudo para diluir `popularity_prior` con tráfico real |
 | `promo_reports` | Reportes de usuarios sobre promos (👎: expirada, monto incorrecto, no encontrada) — captura en dos fases vía `POST`/`PATCH /api/promo-reports`; el triage vive en el panel admin |
 | `app_settings` | Key-value de config global (ej. `maintenance_mode`) — este repo solo lee; el panel admin (repo separado) escribe |
 
@@ -295,8 +274,6 @@ Las tablas operativas del panel admin (`admin_users`, `admin_login_attempts`, `a
 - **Topes (`cap`):** descuento máximo en CLP; `null` = sin tope.
 
 ### Endpoints API
-
-> Referencia completa con ejemplos de request/response en [`docs/API.md`](docs/API.md).
 
 | Endpoint | Params | Descripción |
 |---|---|---|
@@ -314,10 +291,8 @@ Las tablas operativas del panel admin (`admin_users`, `admin_login_attempts`, `a
 
 ## Seguridad
 
-> Detalle completo en [`docs/SECURITY.md`](docs/SECURITY.md).
-
 - **Security headers** en `next.config.mjs`: CSP, HSTS, `X-Content-Type-Options`, `X-Frame-Options`, `Referrer-Policy`, `Permissions-Policy`. `X-Powered-By` deshabilitado.
-- **CSP — orígenes externos permitidos (Sprint 2):** `https://plausible.io` (script + eventos de analytics) y `https://*.ingest.*.sentry.io` (connect-src para reportes de error). Swagger UI es self-hosted en `public/swagger/` precisamente para no abrir la CSP a CDNs.
+- **CSP — orígenes externos permitidos (Sprint 2):** `https://plausible.io` (script + eventos de analytics) y `https://*.ingest.*.sentry.io` (connect-src para reportes de error).
 - **SQL:** queries parametrizadas en todos los routes (tagged templates de Neon); escape de comodines LIKE en búsqueda; columnas explícitas en todos los SELECT.
 - **Validación de input:** todos los IDs que llegan por query/path se validan con `lib/validate.ts` antes de tocar la base → `400` ante input malformado.
 - **Errores:** los 500 devuelven `{"error":"Error interno"}` genérico; el detalle va a los logs de Vercel, nunca al cliente.
@@ -356,7 +331,7 @@ Tokens definidos en `globals.css` bajo `@theme {}` (Tailwind 4 CSS-first):
 ## PWA
 
 - `manifest.json`: standalone, portrait, tema `#0b0d0c`, lang `es-CL`, `start_url: "/app"`.
-- **Service worker** (`public/sw.js`): 3 caches versionados por deploy (`optiwallet-${SW_VERSION}`, `optiwallet-static-${SW_VERSION}`, `optiwallet-api-${SW_VERSION}`, donde `SW_VERSION` es el commit SHA, escrito por `scripts/stamp-sw-version.ts` en el `prebuild`); precache de shell (/, /app, /app/wallet, manifest, íconos); network-first para API y HTML; cache-first con revalidación en background para assets estáticos. Offline, los deep links `/app/*` caen al shell cacheado de `/app` (no a la landing). Solo se registra en producción. Detalle en [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md).
+- **Service worker** (`public/sw.js`): 3 caches versionados por deploy (`optiwallet-${SW_VERSION}`, `optiwallet-static-${SW_VERSION}`, `optiwallet-api-${SW_VERSION}`, donde `SW_VERSION` es el commit SHA, escrito por `scripts/stamp-sw-version.ts` en el `prebuild`); precache de shell (/, /app, /app/wallet, manifest, íconos); network-first para API y HTML; cache-first con revalidación en background para assets estáticos. Offline, los deep links `/app/*` caen al shell cacheado de `/app` (no a la landing). Solo se registra en producción.
 - **Instalación guiada**: `InstallModal` en la landing — popup in-page con tabs Android/iOS, autodetección de plataforma y soporte de `beforeinstallprompt` (instalación con un toque en Android Chrome).
 - **Redirección standalone**: la PWA instalada abre directo en `/app` (ver Arquitectura).
 - Root layout: `appleWebApp: { capable: true, statusBarStyle: "black-translucent" }`.
@@ -370,9 +345,9 @@ Tokens definidos en `globals.css` bajo `@theme {}` (Tailwind 4 CSS-first):
 - Cobertura de bancos y comercios parcial — los bancos sin promos cargadas aparecen como "próximamente".
 - Sin cuentas ni sync — la wallet es `localStorage` only.
 - Soporte offline básico: el SW sirve cache cuando no hay red, pero no hay UI de "estás offline" dedicada (el banner de actualización ya funciona).
-- Varias páginas internas son placeholders (`ComingSoon`) — inventario completo en [`TODO.md`](TODO.md).
+- Varias páginas internas son placeholders (`ComingSoon`).
 - **Sentry** y **Plausible** están integrados y se activan por env var: `NEXT_PUBLIC_SENTRY_DSN` (DSN del proyecto) y `NEXT_PUBLIC_PLAUSIBLE_SRC` (el `src` del snippet v2 de Plausible). Sin la var respectiva, cada uno queda inerte.
-- Sin rate limiting en la API (mitigado por cache de edge; recomendación: Vercel WAF — ver `docs/SECURITY.md`).
+- Sin rate limiting en la API (mitigado por cache de edge; recomendación: Vercel WAF).
 - La fecha en `/app` se auto-actualiza al cambiar el día (focus/visibilitychange + interval 60s), pero una PWA que quede dormida muchos días puede mostrar datos stale hasta recibir foco.
 
 ---
