@@ -239,21 +239,27 @@ describe("Cliente de API — reportes de promos", () => {
 
   afterEach(() => { globalThis.fetch = originalFetch; delete g.window; });
 
-  it("createPromoReport -> POST /api/promo-reports y devuelve el id", async () => {
-    mockBody = { id: 99 };
-    const id = await createPromoReport({ promotionId: "p1", merchantId: "m1", bankId: "b1" });
+  it("createPromoReport -> POST /api/promo-reports y devuelve {id, token}", async () => {
+    mockBody = { id: 99, token: "3f1b6c1a-9d2e-4f5a-8b7c-0d1e2f3a4b5c" };
+    const ref = await createPromoReport({ promotionId: "p1", merchantId: "m1", bankId: "b1" });
     strictEqual(lastUrl, "/api/promo-reports");
-    strictEqual(id, 99);
+    deepStrictEqual(ref, { id: 99, token: "3f1b6c1a-9d2e-4f5a-8b7c-0d1e2f3a4b5c" });
+  });
+
+  it("createPromoReport sin token en la respuesta -> null (server desactualizado)", async () => {
+    mockBody = { id: 99 };
+    const ref = await createPromoReport({ promotionId: "p1", merchantId: "m1", bankId: "b1" });
+    strictEqual(ref, null);
   });
 
   it("createPromoReport con error HTTP -> devuelve null sin lanzar", async () => {
     mockStatus = 500;
-    const id = await createPromoReport({ promotionId: "p1", merchantId: "m1", bankId: "b1" });
-    strictEqual(id, null);
+    const ref = await createPromoReport({ promotionId: "p1", merchantId: "m1", bankId: "b1" });
+    strictEqual(ref, null);
   });
 
   it("updatePromoReport -> PATCH /api/promo-reports/:id", () => {
-    updatePromoReport(42, "expired");
+    updatePromoReport({ id: 42, token: "3f1b6c1a-9d2e-4f5a-8b7c-0d1e2f3a4b5c" }, "expired");
     strictEqual(lastUrl, "/api/promo-reports/42");
   });
 });

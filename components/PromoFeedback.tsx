@@ -2,7 +2,12 @@
 
 import { useRef, useState } from "react";
 import { events } from "@/lib/analytics";
-import { createPromoReport, updatePromoReport, type PromoReportReason } from "@/lib/api-client";
+import {
+  createPromoReport,
+  updatePromoReport,
+  type PromoReportReason,
+  type PromoReportRef,
+} from "@/lib/api-client";
 
 // Reveladas tras 👎. El reporte YA se creó en ese momento; el motivo solo lo refina.
 const REASONS: { slug: PromoReportReason; label: string }[] = [
@@ -50,22 +55,22 @@ export function PromoFeedback({ promotionId, merchantId, bankId, tone }: PromoFe
   const [noteOpen, setNoteOpen] = useState(false);
   const [note, setNote] = useState("");
 
-  // El id del reporte llega de forma asíncrona tras el POST del 👎. Si el usuario
-  // elige un motivo antes de que resuelva, lo guardamos como "pendiente" y lo
-  // enviamos en cuanto el id esté disponible — así el motivo nunca se pierde y no
-  // termina como "sin motivo" en el panel.
-  const reportIdRef = useRef<number | null>(null);
+  // La referencia {id, token} del reporte llega de forma asíncrona tras el POST
+  // del 👎. Si el usuario elige un motivo antes de que resuelva, lo guardamos como
+  // "pendiente" y lo enviamos en cuanto la referencia esté disponible — así el
+  // motivo nunca se pierde y no termina como "sin motivo" en el panel.
+  const reportRef = useRef<PromoReportRef | null>(null);
   const pendingRef = useRef<{ reason: PromoReportReason; note?: string } | null>(null);
 
-  function flushReason(id: number | null) {
-    if (id === null || !pendingRef.current) return;
+  function flushReason(ref: PromoReportRef | null) {
+    if (ref === null || !pendingRef.current) return;
     const { reason: r, note: n } = pendingRef.current;
     pendingRef.current = null;
-    updatePromoReport(id, r, n);
+    updatePromoReport(ref, r, n);
   }
 
   function submitReason(r: PromoReportReason, n?: string) {
-    if (reportIdRef.current !== null) updatePromoReport(reportIdRef.current, r, n);
+    if (reportRef.current !== null) updatePromoReport(reportRef.current, r, n);
     else pendingRef.current = { reason: r, note: n };
   }
 
@@ -83,9 +88,9 @@ export function PromoFeedback({ promotionId, merchantId, bankId, tone }: PromoFe
     e.stopPropagation();
     setFeedback("down");
     sendPlausible("down");
-    const id = await createPromoReport({ promotionId, merchantId, bankId });
-    reportIdRef.current = id;
-    flushReason(id); // por si el usuario ya eligió motivo mientras esperábamos el id
+    const ref = await createPromoReport({ promotionId, merchantId, bankId });
+    reportRef.current = ref;
+    flushReason(ref); // por si el usuario ya eligió motivo mientras esperábamos la referencia
   }
 
   function pickReason(e: React.MouseEvent, slug: PromoReportReason) {

@@ -32,6 +32,16 @@ export function isValidReportReason(v: unknown): v is ReportReason {
   return typeof v === "string" && (REPORT_REASONS as readonly string[]).includes(v);
 }
 
+/**
+ * Token de un reporte (UUID que devuelve POST /api/promo-reports). El PATCH
+ * público exige (id, token): los ids BIGSERIAL solos son enumerables.
+ */
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+export function isValidReportToken(v: unknown): v is string {
+  return typeof v === "string" && UUID_RE.test(v);
+}
+
 // ── Validadores de campos de promoción (writes del panel admin) ───────────────
 // Las columnas tienen CHECK constraints en Postgres, pero validar en la capa app
 // devuelve 400 (input claro) en vez de 500 (error de DB filtrado).
